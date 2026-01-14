@@ -4,8 +4,6 @@
 #include <linkedlist.h>
 #include <datanode.h>
 #include <simql_types.h>
-#include <simquery.h>
-#include <simresult.h>
 #include <string>
 #include <memory>
 #include <function>
@@ -18,6 +16,10 @@
 #include <vector>
 
 namespace SimpleSql {
+    
+    class simquery;
+    class simresult;
+    
     class simql {
     private:
 
@@ -35,7 +37,7 @@ namespace SimpleSql {
         constexpr uint8_t cm_maxconcurrency = 8;
 
         // async members
-        std::shared_ptr<std::function<void(const simresult &result)>> mp_listener;
+        std::shared_ptr<std::function<void(const SimpleSql::simresult &result)>> mp_listener;
         std::queue<simquery> m_queries;
         std::mutex m_mutex;
         std::thread m_thread;
@@ -55,11 +57,11 @@ namespace SimpleSql {
 
         bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, std::string &error);
         bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password, std::string &error);
-        bool run_sync(simquery &query);
-        void run_async(std::shared_ptr<simquery> query);
-        void run_parallel(const uint8_t &maxconcurrency, std::vector<simquery> &queries);
+        bool run_sync(SimpleSql::simquery &query);
+        void run_async(std::shared_ptr<SimpleSql::simquery> query);
+        void run_parallel(const uint8_t &maxconcurrency, std::vector<SimpleSql::simquery> &queries);
         void stop();
-        void listen(std::shared_ptr<std::function<void(const simresult &result)>> p_listener);
+        void listen(std::shared_ptr<std::function<void(const SimpleSql::simresult &result)>> p_listener);
 
     };
 }
