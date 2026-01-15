@@ -17,9 +17,8 @@
 
 namespace SimpleSql {
     
-    class simquery;
-    class simresult;
-    
+    class query;
+
     class simql {
     private:
 
@@ -37,8 +36,8 @@ namespace SimpleSql {
         constexpr uint8_t cm_maxconcurrency = 8;
 
         // async members
-        std::shared_ptr<std::function<void(const SimpleSql::simresult &result)>> mp_listener;
-        std::queue<simquery> m_queries;
+        std::shared_ptr<std::function<void(const SimpleSql::query &_query)>> mp_listener;
+        std::queue<SimpleSql::query> m_queries;
         std::mutex m_mutex;
         std::thread m_thread;
         std::atomic<bool> m_inprogress;
@@ -57,9 +56,9 @@ namespace SimpleSql {
 
         bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, std::string &error);
         bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password, std::string &error);
-        bool run_sync(SimpleSql::simquery &query);
-        void run_async(std::shared_ptr<SimpleSql::simquery> query);
-        void run_parallel(const uint8_t &maxconcurrency, std::vector<SimpleSql::simquery> &queries);
+        bool run_sync(SimpleSql::query &_query);
+        void run_async(std::shared_ptr<SimpleSql::query> _query);
+        void run_parallel(const uint8_t &maxconcurrency, std::vector<SimpleSql::query> &queries);
         void stop();
         void listen(std::shared_ptr<std::function<void(const SimpleSql::simresult &result)>> p_listener);
 

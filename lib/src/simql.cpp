@@ -1,5 +1,5 @@
 #include <simql.h>
-#include <simquery.h>
+#include <query.h>
 #include <simresult.h>
 #include <memory>
 #include <utility>
@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 #include <sql.h>
+#include <sqltypes.h>
 #include <sqlext.h>
 
 void SimpleSql::simql::proces() {
@@ -97,11 +98,11 @@ bool SimpleSql::simql::start(const std::string &driver, const std::string &serve
     // open odbc connection to server/database
 }
 
-bool SimpleSql::simql::run_sync(simquery &query) {
+bool SimpleSql::simql::run_sync(SimpleSql::query &_query) {
     
 }
 
-void SimpleSql::simql::run_async(std::shared_ptr<simquery> query) {
+void SimpleSql::simql::run_async(std::shared_ptr<SimpleSql::query> _query) {
     
 }
 

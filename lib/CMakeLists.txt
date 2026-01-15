@@ -1,6 +1,7 @@
 add_library(
     SimpleSql STATIC
     src/simql.cpp
+    src/query.cpp
 )
 
 target_include_directories(

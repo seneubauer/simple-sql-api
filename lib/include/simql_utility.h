@@ -6,7 +6,7 @@
 
 namespace SimpleSqlUtility {
 
-    inline connection_string(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
+    inline std::string connection_string(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
         std::string conn_str = "";
         conn_str += driver.empty() ? std::string() : std::format("Driver={{{}}};", driver);
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
@@ -18,7 +18,7 @@ namespace SimpleSqlUtility {
         return conn_str;
     }
 
-    inline connection_string(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
+    inline std::string connection_string(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
         std::string conn_str = "";
         conn_str += driver.empty() ? std::string() : std::format("Driver={{{}}};", driver);
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
