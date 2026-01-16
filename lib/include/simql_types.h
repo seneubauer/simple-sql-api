@@ -1,11 +1,13 @@
-#ifndef simql_types_header_h
-#define simql_types_header_h
+#ifndef SimQL_Types_header_h
+#define SimQL_Types_header_h
 
+// STL stuff
 #include <cstdint>
 #include <format>
 #include <string>
 #include <string_view>
 #include <cstdlib>
+#include <variant>
 
 namespace SimpleSqlTypes {
 
@@ -28,7 +30,8 @@ namespace SimpleSqlTypes {
         INPUT_OUTPUT_STREAM,
         INPUT_OUTPUT,
         INPUT,
-        OUTPUT
+        OUTPUT,
+        OUTPUT_STREAM
     };
 
     enum class SQLDataType : uint8_t {
@@ -96,11 +99,11 @@ namespace SimpleSqlTypes {
 
     /* STRUCTS */
 
-    template<typename T>
+    using BindingValue = std::variant<char, std::string, wchar_t, std::wstring, float, double, int8_t, int16_t, int32_t, int64_t, std::vector<uint8_t>>
     struct SQLBinding {
-        T data;
-        BindingType type;
-        CellDataType data_type;
+        std::variant data;
+        BindingType binding_type;
+        SQLDataType sql_data_type;
     };
 
     struct ColumnMetadata {

@@ -1,6 +1,7 @@
-#ifndef simql_utility_header_h
-#define simql_utility_header_h
+#ifndef SimQL_Utility_header_h
+#define SimQL_Utility_header_h
 
+// STL stuff
 #include <string>
 #include <format>
 

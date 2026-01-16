@@ -1,7 +1,10 @@
-#ifndef query_header_h
-#define query_header_h
+#ifndef SimQuery_header_h
+#define SimQuery_header_h
 
-#include <simql_types.h>
+// SimQL stuff
+#include <SimQL_Types.h>
+
+// STL stuff
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -13,7 +16,7 @@ namespace SimpleSql {
     private:
 
         // handles
-        void* mp_stmt_handle;
+        std::unique_ptr<void> mp_stmt_handle;
 
         // members for vector-based results
         uint64_t m_row_count;
@@ -27,27 +30,30 @@ namespace SimpleSql {
         uint16_t m_max_column_name_length;
         bool m_is_select;
         bool m_info_pending;
+        int32_t m_diagnostic_record_number;
+        uint32_t m_binding_index;
         std::string m_sql;
         std::vector<SimpleSqlTypes::DiagnosticRecord> m_diagnostics;
         std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
         SimpleSqlTypes<ResultStorageType> m_storage_type;
 
-        // private operational methods
+        // get internal buffers
         bool define_columns(std::string &error);
-        void define_diagnostics(const bool &reset);
+        void define_diagnostics();
 
     public:
-        query(const uint16_t &max_column_name_length) : m_max_column_name_length(max_column_name_length) {}
+        query(std::unique_ptr<void> &&stmt_handle, const uint16_t &max_column_name_length) : mp_stmt_handle(std::move(stmt_handle)), m_max_column_name_length(max_column_name_length), m_diagnostic_record_number(1), m_binding_index(1) {}
         ~query() { destroy(); }
 
-        // operational methods
-        void set_handle(void* stmt_handle);
-        void set_sql(const std::string &sql);
-        bool prepare(std::string &error);
-        void destroy();
+        // control ownership of statement handle
+        bool claim_handle(std::unique_ptr<void> &&stmt_handle, std::string &error);
+        std::unique_ptr<void> return_handle();
 
-        // property getters
-        const bool is_select() const { return m_is_select; }
+        // setting up the sql statement for execution
+        bool set_sql(const std::string &sql, std::string &error);
+        bool prepare(std::string &error);
+        bool bind_parameter(const SimpleSqlTypes::SQLBinding &binding, std::string &error);
+        bool bulk_bind_parameters(const std::vector<SimpleSqlTypes::SQLBinding> &bindings, std::string &error);
 
         // data getters
         const SimpleSqlTypes::Cell& get_cell(const std::string &key) const;
@@ -56,6 +62,12 @@ namespace SimpleSql {
         const std::vector<SimpleSqlTypes::Cell>& get_data() const;
         const uint64_t& get_row_count() const;
         const uint16_t& get_column_count() const;
+
+        // property getters
+        const bool is_select() const { return m_is_select; }
+
+        // bruh just end me
+        void destroy();
     };
 }
 

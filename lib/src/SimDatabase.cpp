@@ -1,11 +1,15 @@
-#include <simql.h>
-#include <query.h>
-#include <simresult.h>
+// SimQL stuff
+#include <SimDatabase.h>
+#include <SimQuery.h>
+
+// STL stuff
 #include <memory>
 #include <utility>
 #include <function>
 #include <cstdint>
 #include <vector>
+
+// ODBC stuff
 #include <sql.h>
 #include <sqltypes.h>
 #include <sqlext.h>
@@ -20,12 +24,12 @@ void SimpleSql::simql::proces() {
     
     
     */
-    // run the sql statement using m_currentstmt->data() as the statement handle
+    // run the sql statement using m_current_stmt->data() as the statement handle
     
-    SQLFreeStmt(m_currentstmt->data(), SQL_CLOSE);
-    SQLFreeStmt(m_currentstmt->data(), SQL_RESET_PARAMS);
-    SQLFreeStmt(m_currentstmt->data(), SQL_UNBIND);
-    m_currentstmt = m_currentstmt->next();
+    SQLFreeStmt(m_current_stmt->data(), SQL_CLOSE);
+    SQLFreeStmt(m_current_stmt->data(), SQL_RESET_PARAMS);
+    SQLFreeStmt(m_current_stmt->data(), SQL_UNBIND);
+    m_current_stmt = m_current_stmt->next();
 }
 
 bool SimpleSql::simql::connect(std::string &conn_str, std::string &error) {
@@ -71,7 +75,7 @@ bool SimpleSql::simql::connect(std::string &conn_str, std::string &error) {
         h == nullptr ? m_skipped++ : (void)0;
         h == nullptr ? m_stmtlist.push_front(h) : (void)0;
     }
-    m_currentstmt = m_stmtlist.first();
+    m_current_stmt = m_stmtlist.first();
 
     free_dbc_handle:
     SQLFreeHandle(SQL_HANDLE_DBC, h_dbc);
@@ -98,11 +102,11 @@ bool SimpleSql::simql::start(const std::string &driver, const std::string &serve
     // open odbc connection to server/database
 }
 
-bool SimpleSql::simql::run_sync(SimpleSql::query &_query) {
+bool SimpleSql::simql::run_sync(SimpleSql::SimQuery &_query) {
     
 }
 
-void SimpleSql::simql::run_async(std::shared_ptr<SimpleSql::query> _query) {
+void SimpleSql::simql::run_async(std::shared_ptr<SimpleSql::SimQuery> _query) {
     
 }
 

@@ -1,6 +1,7 @@
-#ifndef datanode_header_h
-#define datanode_header_h
+#ifndef SimDataNode_header_h
+#define SimDataNode_header_h
 
+// STL stuff
 #include <memory>
 #include <utility>
 
