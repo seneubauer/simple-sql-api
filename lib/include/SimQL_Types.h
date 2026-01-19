@@ -14,7 +14,8 @@ namespace SimpleSqlTypes {
     /* ENUMS */
 
     enum class NullRuleType : uint8_t {
-        UNKNOWN = 0,
+        NOT_SET = 0,
+        UNKNOWN,
         ALLOWED,
         NOT_ALLOWED
     };
@@ -25,36 +26,31 @@ namespace SimpleSqlTypes {
         KEY_BASED
     };
 
-    enum class BindingType : uint8_t {
-        NOT_SET = 0,
-        INPUT_OUTPUT_STREAM,
+    enum class BindingType {
         INPUT_OUTPUT,
         INPUT,
-        OUTPUT,
-        OUTPUT_STREAM
+        OUTPUT
     };
 
     enum class SQLDataType : uint8_t {
-        UNKNOWN = 0,
+        NOT_SET = 0,
         CHAR,
         VARCHAR,
         LONG_VARCHAR,
         WCHAR,
         VARWCHAR,
         LONG_VARWCHAR,
-        DECIMAL,
-        NUMERIC,
+        TINYINT,
         SMALLINT,
         INTEGER,
-        REAL,
+        BIGINT,
         FLOAT,
         DOUBLE,
         BIT,
-        TINYINT,
-        BIGINT,
         BINARY,
         VARBINARY
         LONG_VARBINARY,
+        GUID,
         DATE,
         TIME,
         TIMESTAMP,
@@ -72,8 +68,7 @@ namespace SimpleSqlTypes {
         INTERVAL_DAY2SECOND,
         INTERVAL_HOUR2MINUTE,
         INTERVAL_HOUR2SECOND,
-        INTERVAL_MINUTE2SECOND,
-        GUID
+        INTERVAL_MINUTE2SECOND
     };
 
     enum class CellDataType : uint8_t {
@@ -96,15 +91,13 @@ namespace SimpleSqlTypes {
         DATETIME,
         BLOB
     };
+    
+    enum class IntervalSign : uint8_t {
+        POSITIVE = 0,
+        NEGATIVE
+    };
 
     /* STRUCTS */
-
-    using BindingValue = std::variant<char, std::string, wchar_t, std::wstring, float, double, int8_t, int16_t, int32_t, int64_t, std::vector<uint8_t>>
-    struct SQLBinding {
-        std::variant data;
-        BindingType binding_type;
-        SQLDataType sql_data_type;
-    };
 
     struct ColumnMetadata {
         uint16_t position;
@@ -190,6 +183,15 @@ namespace SimpleSqlTypes {
         std::string tostring() const { return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", year, month, day, hour, minute, second, millisecond); }
     };
 
+    struct Interval {
+        IntervalSign interval_sign;
+        union {
+            Date        d;
+            Time        t;
+            Datetime    dt;
+        } data;
+    };
+
     struct Blob {
         uint8_t* data;
         size_t size;
@@ -199,6 +201,28 @@ namespace SimpleSqlTypes {
             data = nullptr;
             size = 0;
         }
+    };
+
+    using BindingValue = std::variant<
+        std::string,
+        std::wstring,
+        float,
+        double,
+        bool,
+        int8_t,
+        int16_t,
+        int32_t,
+        int64_t,
+        Date,
+        Time,
+        Datetime,
+        Interval,
+        std::vector<uint8_t>>;
+    struct SQLBinding {
+        BindingValue data;
+        BindingType binding_type;
+        SQLDataType sql_data_type;
+        bool set_null;
     };
 
     struct Cell {
@@ -221,7 +245,7 @@ namespace SimpleSqlTypes {
             Time        time;           // TIME
             Datetime    datetime;       // DATETIME
             Blob        blob;           // BLOB
-        };
+        } data;
 
         // lifecycle
         Cell() noexcept : datatype(CellDataType::ISNULL) {}

@@ -15,6 +15,11 @@ namespace SimpleSql {
     class query {
     private:
 
+        struct Output {
+            SimpleSqlTypes::SQLBinding binding;
+            size_t buffer_size;
+        };
+
         // handles
         std::unique_ptr<void> mp_stmt_handle;
 
@@ -36,6 +41,7 @@ namespace SimpleSql {
         std::vector<SimpleSqlTypes::DiagnosticRecord> m_diagnostics;
         std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
         SimpleSqlTypes<ResultStorageType> m_storage_type;
+        std::vector<Output> m_output_buffer;
 
         // get internal buffers
         bool define_columns(std::string &error);
