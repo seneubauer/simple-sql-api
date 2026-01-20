@@ -265,6 +265,7 @@ namespace SimpleSqlTypes {
         }
 
         void set_data(std::vector<SQLCell>&& cells, const size_t &rows) {
+            m_cells.clear();
             m_cells = std::move(cells);
             m_rows = rows;
         }
