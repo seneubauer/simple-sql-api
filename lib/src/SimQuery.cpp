@@ -410,8 +410,79 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
     return return_code;
 }
 
+template<typename T>
 static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
+    SQLRETURN return_code;
+    switch (io_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &dbl,
+            0,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : 0;
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &dbl,
+            0,
+            &indicator
+        );
+        break;
+    case SQL_PARAM_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &dbl,
+            0,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    }
+    return return_code;
 }
 
 static SQLRETURN bind_bool_int(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
@@ -641,15 +712,33 @@ bool SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &bindi
         );
         break;
     case BindingFamily::NUMERIC:
-        return_code = bind_numeric(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        switch (binding.data_type()) {
+        case SimpleSqlTypes::SimDataType::FLOAT:
+            return_code = bind_numeric<float>(
+                mp_stmt_handle.get(),
+                parameter_index,
+                io_type,
+                c_data_type,
+                sql_data_type,
+                binding,
+                m_output_buffer
+            );
+            break;
+        case SimpleSqlTypes::SimDataType::DOUBLE:
+            return_code = bind_numeric<double>(
+                mp_stmt_handle.get(),
+                parameter_index,
+                io_type,
+                c_data_type,
+                sql_data_type,
+                binding,
+                m_output_buffer
+            );
+            break;
+        default:
+            error = std::string("cannot bind an undefined numeric type");
+            return false;
+        }
         break;
     case BindingFamily::BOOL_INT:
         return_code = bind_bool_int(
