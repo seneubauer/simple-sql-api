@@ -12,44 +12,42 @@
 #include <memory>
 
 namespace SimpleSql {
-    class query {
+    class SimQuery {
     private:
 
-        struct Output {
-            SimpleSqlTypes::SQLBinding binding;
-            size_t buffer_size;
-        };
+        // constants
+        static constexpr uint16_t cm_colname_size = 256U;
 
         // handles
         std::unique_ptr<void> mp_stmt_handle;
 
-        // members for vector-based results
-        uint64_t m_row_count;
-        uint8_t m_column_count;
-        std::vector<SimpleSqlTypes::Cell> m_vector_data;
+        // data storage
+        SimpleSqlTypes::SQLMatrix m_matrix;
+        std::unordered_map<std::string, SimpleSqlTypes::SQLCell> m_key_data;
+        std::vector<SimpleSqlTypes::DiagnosticRecord> m_diagnostics;
+        std::vector<SimpleSqlTypes::SQLBoundOutput> m_output_buffer;
 
-        // members for key based results
-        std::unordered_map<std::string, SimpleSqlTypes::Cell> m_key_data;
+        // utility storage
+        std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
+        std::unordered_map<std::string, size_t> m_column_map;
 
-        // default members
-        uint16_t m_max_column_name_length;
-        bool m_is_select;
-        bool m_info_pending;
+        // index trackers
         int32_t m_diagnostic_record_number;
         uint32_t m_binding_index;
+
+        // idk just basic stuff
+        bool m_is_select;
+        bool m_info_pending;
         std::string m_sql;
-        std::vector<SimpleSqlTypes::DiagnosticRecord> m_diagnostics;
-        std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
-        SimpleSqlTypes<ResultStorageType> m_storage_type;
-        std::vector<Output> m_output_buffer;
+        SimpleSqlTypes::SQLCell m_invalid_cell;
 
         // get internal buffers
         bool define_columns(std::string &error);
         void define_diagnostics();
 
     public:
-        query(std::unique_ptr<void> &&stmt_handle, const uint16_t &max_column_name_length) : mp_stmt_handle(std::move(stmt_handle)), m_max_column_name_length(max_column_name_length), m_diagnostic_record_number(1), m_binding_index(1) {}
-        ~query() { destroy(); }
+        SimQuery() : m_diagnostic_record_number(1), m_binding_index(1), m_matrix(SimpleSqlTypes::SQLMatrix()), m_invalid_cell(SimpleSqlTypes::SQLCell()) {}
+        ~SimQuery() { destroy(); }
 
         // control ownership of statement handle
         bool claim_handle(std::unique_ptr<void> &&stmt_handle, std::string &error);
@@ -59,18 +57,21 @@ namespace SimpleSql {
         bool set_sql(const std::string &sql, std::string &error);
         bool prepare(std::string &error);
         bool bind_parameter(const SimpleSqlTypes::SQLBinding &binding, std::string &error);
-        bool bulk_bind_parameters(const std::vector<SimpleSqlTypes::SQLBinding> &bindings, std::string &error);
-
-        // data getters
-        const SimpleSqlTypes::Cell& get_cell(const std::string &key) const;
-        const SimpleSqlTypes::Cell& get_cell(const std::string &column_name, const int &row) const;
-        const SimpleSqlTypes::Cell& get_cell(const int &column_index, const int &row) const;
-        const std::vector<SimpleSqlTypes::Cell>& get_data() const;
-        const uint64_t& get_row_count() const;
-        const uint16_t& get_column_count() const;
 
         // property getters
         const bool is_select() const { return m_is_select; }
+        const size_t& get_row_count() const;
+        const size_t& get_column_count() const;
+
+        // data getters
+        const SimpleSqlTypes::SQLCell& get_cell(const std::string &key) const;
+        const SimpleSqlTypes::SQLCell& get_cell(const std::string &column, const size_t &row) const;
+        const SimpleSqlTypes::SQLCell& get_cell(const size_t &column, const size_t &row) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const std::string &column) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const size_t &column) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_row(const size_t &row) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_data() const;
+        std::vector<SimpleSqlTypes::SQLCell> claim_data();
 
         // bruh just end me
         void destroy();

@@ -1,10 +1,14 @@
 // SimQL stuff
 #include <SimQuery.h>
+#include <SimQL_Types.h>
 
 // STL stuff
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <vector>
+#include <unordered_map>
+#include <span>
 
 // ODBC stuff
 #include <sql.h>
@@ -13,223 +17,130 @@
 
 // private enums
 
-enum class BindingFamily {
-    NOT_SET,
-    NARROW_STRING,
-    WIDE_STRING,
-    INT_BOOL,
-    NUMERIC,
-    BINARY,
-    GUID,
-    DATETIME,
-    INTERVAL
+enum class BindingFamily : uint8_t {
+    NOT_SET         = 0,
+    STRING_UTF8     = 1,
+    STRING_UTF16    = 2,
+    NUMERIC         = 3,
+    BOOL_INT        = 4,
+    GUID            = 5,
+    DATETIME        = 6,
+    BLOB            = 7
 };
 
 // helper functions
 
-static bool get_odbc_data_types(const SimpleSqlTypes::SQLDataType &data_type, SQLSMALLINT &odbc_c_type, SQLSMALLINT &odbc_sql_type) {
+static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType &data_type, SQLSMALLINT &odbc_c_type, SQLSMALLINT &odbc_sql_type) {
 
     switch (data_type) {
-    case NOT_SET:
-        return false;
-    case CHAR:
-        odbc_c_type = SQL_C_CHAR;
-        odbc_sql_type = SQL_CHAR;
-        break;
-    case VARCHAR:
+    case SimpleSqlTypes::SimDataType::STRING_UTF8:
         odbc_c_type = SQL_C_CHAR;
         odbc_sql_type = SQL_VARCHAR;
         break;
-    case LONG_VARCHAR:
-        odbc_c_type = SQL_C_CHAR;
-        odbc_sql_type = SQL_LONGVARCHAR;
-        break;
-    case WCHAR:
-        odbc_c_type = SQL_C_WCHAR;
-        odbc_sql_type = SQL_CHAR;
-        break;
-    case VARWCHAR:
+    case SimpleSqlTypes::SimDataType::STRING_UTF16:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WVARCHAR;
         break;
-    case LONG_VARWCHAR:
+    case SimpleSqlTypes::SimDataType::LONG_STRING_UTF8:
+        odbc_c_type = SQL_C_CHAR;
+        odbc_sql_type = SQL_LONGVARCHAR;
+        break;
+    case SimpleSqlTypes::SimDataType::LONG_STRING_UTF16:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WLONGVARCHAR;
         break;
-    case TINYINT:
-        odbc_c_type = SQL_C_STINYINT;
-        odbc_sql_type = SQL_TINYINT;
-        break;
-    case SMALLINT:
-        odbc_c_type = SQL_C_SSHORT;
-        odbc_sql_type = SQL_SMALLINT;
-        break;
-    case INTEGER:
-        odbc_c_type = SQL_C_SLONG;
-        odbc_sql_type = SQL_INTEGER;
-        break;
-    case BIGINT:
-        odbc_c_type = SQL_SBIGINT;
-        odbc_sql_type = SQL_BIGINT;
-        break;
-    case FLOAT:
+    case SimpleSqlTypes::SimDataType::FLOAT:
         odbc_c_type = SQL_C_FLOAT;
         odbc_sql_type = SQL_FLOAT;
         break;
-    case DOUBLE:
+    case SimpleSqlTypes::SimDataType::DOUBLE:
         odbc_c_type = SQL_C_DOUBLE;
         odbc_sql_type = SQL_DOUBLE;
         break;
-    case BIT:
+    case SimpleSqlTypes::SimDataType::BOOLEAN:
         odbc_c_type = SQL_C_BIT;
         odbc_sql_type = SQL_BIT;
         break;
-    case BINARY:
-        odbc_c_type = SQL_C_BINARY;
-        odbc_sql_type = SQL_BINARY;
+    case SimpleSqlTypes::SimDataType::INT_8:
+        odbc_c_type = SQL_C_STINYINT;
+        odbc_sql_type = SQL_TINYINT;
         break;
-    case VARBINARY:
-        odbc_c_type = SQL_C_BINARY;
-        odbc_sql_type = SQL_VARBINARY;
+    case SimpleSqlTypes::SimDataType::INT_16:
+        odbc_c_type = SQL_C_SSHORT;
+        odbc_sql_type = SQL_SMALLINT;
         break;
-    case LONG_VARBINARY:
-        odbc_c_type = SQL_C_BINARY;
-        odbc_sql_type = SQL_LONGVARBINARY;
+    case SimpleSqlTypes::SimDataType::INT_32:
+        odbc_c_type = SQL_C_SLONG;
+        odbc_sql_type = SQL_INTEGER;
         break;
-    case GUID:
+    case SimpleSqlTypes::SimDataType::INT_64:
+        odbc_c_type = SQL_C_SBIGINT;
+        odbc_sql_type = SQL_BIGINT;
+        break;
+    case SimpleSqlTypes::SimDataType::GUID:
         odbc_c_type = SQL_C_GUID;
         odbc_sql_type = SQL_GUID;
         break;
-    case DATE:
-        odbc_c_type = SQL_C_TYPE_DATE;
-        odbc_sql_type = SQL_TYPE_DATE;
-        break;
-    case TIME:
-        odbc_c_type = SQL_C_TYPE_TIME;
-        odbc_sql_type = SQL_TYPE_TIME;
-        break;
-    case TIMESTAMP:
+    case SimpleSqlTypes::SimDataType::DATETIME:
         odbc_c_type = SQL_C_TYPE_TIMESTAMP;
         odbc_sql_type = SQL_TYPE_TIMESTAMP;
         break;
-    case UTC_DATETIME:
-        odbc_c_type = SQL_C_TYPE_TIMESTAMP;
-        odbc_sql_type = SQL_TYPE_UTCDATETIME;
+    case SimpleSqlTypes::SimDataType::DATE:
+        odbc_c_type = SQL_C_TYPE_DATE;
+        odbc_sql_type = SQL_TYPE_DATE;
         break;
-    case UTC_TIME:
+    case SimpleSqlTypes::SimDataType::TIME:
         odbc_c_type = SQL_C_TYPE_TIME;
-        odbc_sql_type = SQL_TYPE_UTCTIME;
+        odbc_sql_type = SQL_TYPE_TIME;
         break;
-    case INTERVAL_YEAR:
-        odbc_c_type = SQL_C_INTERVAL_YEAR;
-        odbc_sql_type = SQL_INTERVAL_YEAR;
+    case SimpleSqlTypes::SimDataType::BLOB:
+        odbc_c_type = SQL_C_BINARY;
+        odbc_sql_type = SQL_VARBINARY;
         break;
-    case INTERVAL_MONTH:
-        odbc_c_type = SQL_C_INTERVAL_MONTH;
-        odbc_sql_type = SQL_INTERVAL_MONTH;
+    case SimpleSqlTypes::SimDataType::LONG_BLOB:
+        odbc_c_type = SQL_C_BINARY;
+        odbc_sql_type = SQL_LONGVARBINARY;
         break;
-    case INTERVAL_DAY:
-        odbc_c_type = SQL_C_INTERVAL_DAY;
-        odbc_sql_type = SQL_INTERVAL_DAY;
-        break;
-    case INTERVAL_HOUR:
-        odbc_c_type = SQL_C_INTERVAL_HOUR;
-        odbc_sql_type = SQL_INTERVAL_HOUR;
-        break;
-    case INTERVAL_MINUTE:
-        odbc_c_type = SQL_C_INTERVAL_MINUTE;
-        odbc_sql_type = SQL_INTERVAL_MINUTE;
-        break;
-    case INTERVAL_SECOND:
-        odbc_c_type = SQL_C_INTERVAL_SECOND;
-        odbc_sql_type = SQL_INTERVAL_SECOND;
-        break;
-    case INTERVAL_YEAR2MONTH:
-        odbc_c_type = SQL_C_INTERVAL_YEAR_TO_MONTH;
-        odbc_sql_type = SQL_INTERVAL_YEAR_TO_MONTH;
-        break;
-    case INTERVAL_DAY2HOUR:
-        odbc_c_type = SQL_C_INTERVAL_DAY_TO_HOUR;
-        odbc_sql_type = SQL_INTERVAL_DAY_TO_HOUR;
-        break;
-    case INTERVAL_DAY2MINUTE:
-        odbc_c_type = SQL_C_INTERVAL_DAY_TO_MINUTE;
-        odbc_sql_type = SQL_INTERVAL_DAY_TO_MINUTE;
-        break;
-    case INTERVAL_DAY2SECOND:
-        odbc_c_type = SQL_C_INTERVAL_DAY_TO_SECOND;
-        odbc_sql_type = SQL_INTERVAL_DAY_TO_SECOND;
-        break;
-    case INTERVAL_HOUR2MINUTE:
-        odbc_c_type = SQL_C_INTERVAL_HOUR_TO_MINUTE;
-        odbc_sql_type = SQL_INTERVAL_HOUR_TO_MINUTE;
-        break;
-    case INTERVAL_HOUR2SECOND:
-        odbc_c_type = SQL_C_INTERVAL_HOUR_TO_SECOND;
-        odbc_sql_type = SQL_INTERVAL_HOUR_TO_SECOND;
-        break;
-    case INTERVAL_MINUTE2SECOND:
-        odbc_c_type = SQL_C_INTERVAL_MINUTE_TO_SECOND;
-        odbc_sql_type = SQL_INTERVAL_MINUTE_TO_SECOND;
-        break;
+    default:
+        return false;
     }
     return true;
 }
 
-static bool get_binding_family(const SimpleSqlTypes::SQLDataType &data_type, BindingFamily &family) {
+static bool get_binding_family(const SimpleSqlTypes::SimDataType &data_type, BindingFamily &family) {
 
     family = BindingFamily::NOT_SET;
 
     // for narrow strings
-    family = binding.sql_data_type ^ SQLDataType::CHAR &&
-             binding.sql_data_type ^ SQLDataType::VARCHAR &&
-             binding.sql_data_type ^ SQLDataType::LONG_VARCHAR ? BindingFamily::NARROW_STRING : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::STRING_UTF8 &&
+             data_type ^ SimpleSqlTypes::SimDataType::LONG_STRING_UTF8 ? BindingFamily::STRING_UTF8 : family;
 
     // for wide strings
-    family = binding.sql_data_type ^ SQLDataType::WCHAR &&
-             binding.sql_data_type ^ SQLDataType::VARWCHAR &&
-             binding.sql_data_type ^ SQLDataType::LONG_VARWCHAR ? BindingFamily::WIDE_STRING : family;
-
-    // for integer / boolean types
-    family = binding.sql_data_type ^ SQLDataType::TINYINT &&
-             binding.sql_data_type ^ SQLDataType::SMALLINT &&
-             binding.sql_data_type ^ SQLDataType::INTEGER &&
-             binding.sql_data_type ^ SQLDataType::BIGINT &&
-             binding.sql_data_type ^ SQLDataType::BIT ? BindingFamily::INT_BOOL : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::STRING_UTF16 &&
+             data_type ^ SimpleSqlTypes::SimDataType::LONG_STRING_UTF16 ? BindingFamily::STRING_UTF16 : family;
 
     // for numeric types
-    family = binding.sql_data_type ^ SQLDataType::FLOAT &&
-             binding.sql_data_type ^ SQLDataType::DOUBLE ? BindingFamily::NUMERIC : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::FLOAT &&
+             data_type ^ SimpleSqlTypes::SimDataType::DOUBLE ? BindingFamily::NUMERIC : family;
 
-    // for binary types
-    family = binding.sql_data_type ^ SQLDataType::BINARY &&
-             binding.sql_data_type ^ SQLDataType::VARBINARY &&
-             binding.sql_data_type ^ SQLDataType::LONG_VARBINARY ? BindingFamily::BINARY : family;
+    // for integer / boolean types
+    family = data_type ^ SimpleSqlTypes::SimDataType::BOOLEAN &&
+             data_type ^ SimpleSqlTypes::SimDataType::INT_8 &&
+             data_type ^ SimpleSqlTypes::SimDataType::INT_16 &&
+             data_type ^ SimpleSqlTypes::SimDataType::INT_32 &&
+             data_type ^ SimpleSqlTypes::SimDataType::INT_64 ? BindingFamily::BOOL_INT : family;
 
     // for GUID types
-    family = binding.sql_data_type ^ SQLDataType::GUID ? BindingFamily::GUID : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::GUID ? BindingFamily::GUID : family;
 
     // for datetime types
-    family = binding.sql_data_type ^ SQLDataType::DATE &&
-             binding.sql_data_type ^ SQLDataType::TIME &&
-             binding.sql_data_type ^ SQLDataType::TIMESTAMP &&
-             binding.sql_data_type ^ SQLDataType::UTC_DATETIME &&
-             binding.sql_data_type ^ SQLDataType::UTC_TIME ? BindingFamily::DATETIME : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::DATETIME &&
+             data_type ^ SimpleSqlTypes::SimDataType::DATE &&
+             data_type ^ SimpleSqlTypes::SimDataType::TIME ? BindingFamily::DATETIME : family;
 
-    // for interval types
-    family = binding.sql_data_type ^ SQLDataType::INTERVAL_YEAR &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_MONTH &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_DAY &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_HOUR &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_MINUTE &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_SECOND &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_YEAR2MONTH &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_DAY2HOUR &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_DAY2MINUTE &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_DAY2SECOND &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_HOUR2MINUTE &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_HOUR2SECOND &&
-             binding.sql_data_type ^ SQLDataType::INTERVAL_MINUTE2SECOND ? BindingFamily::INTERVAL : family;
+    // for binary types
+    family = data_type ^ SimpleSqlTypes::SimDataType::BLOB &&
+             data_type ^ SimpleSqlTypes::SimDataType::LONG_BLOB ? BindingFamily::BLOB : family;
 
     if (family == BindingFamily::NOT_SET)
         return false;
@@ -247,47 +158,29 @@ static bool get_io_type(const SimpleSqlTypes::BindingType &binding_type, SQLSMAL
     return true;
 }
 
-static SimpleSqlTypes::SQLDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT &data_type) {
+static SimpleSqlTypes::SimDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT &data_type) {
     switch (data_type) {
-    case SQL_CHAR:                      return SimpleSqlTypes::SQLDataType::CHAR;
-    case SQL_VARCHAR:                   return SimpleSqlTypes::SQLDataType::VARCHAR;
-    case SQL_LONGVARCHAR:               return SimpleSqlTypes::SQLDataType::LONG_VARCHAR;
-    case SQL_WCHAR:                     return SimpleSqlTypes::SQLDataType::WCHAR;
-    case SQL_WVARCHAR:                  return SimpleSqlTypes::SQLDataType::VARWCHAR;
-    case SQL_WLONGVARCHAR:              return SimpleSqlTypes::SQLDataType::LONG_VARWCHAR;
-    case SQL_DECIMAL:                   return SimpleSqlTypes::SQLDataType::DECIMAL;
-    case SQL_NUMERIC:                   return SimpleSqlTypes::SQLDataType::NUMERIC;
-    case SQL_SMALLINT:                  return SimpleSqlTypes::SQLDataType::SMALLINT;
-    case SQL_INTEGER:                   return SimpleSqlTypes::SQLDataType::INTEGER;
-    case SQL_REAL:                      return SimpleSqlTypes::SQLDataType::REAL;
-    case SQL_FLOAT:                     return SimpleSqlTypes::SQLDataType::FLOAT;
-    case SQL_DOUBLE:                    return SimpleSqlTypes::SQLDataType::DOUBLE;
-    case SQL_BIT:                       return SimpleSqlTypes::SQLDataType::BIT;
-    case SQL_TINYINT:                   return SimpleSqlTypes::SQLDataType::TINYINT;
-    case SQL_BIGINT:                    return SimpleSqlTypes::SQLDataType::BIGINT;
-    case SQL_BINARY:                    return SimpleSqlTypes::SQLDataType::BINARY;
-    case SQL_VARBINARY:                 return SimpleSqlTypes::SQLDataType::VARBINARY;
-    case SQL_LONGVARBINARY:             return SimpleSqlTypes::SQLDataType::LONG_VARBINARY;
-    case SQL_TYPE_DATE:                 return SimpleSqlTypes::SQLDataType::DATE;
-    case SQL_TYPE_TIME:                 return SimpleSqlTypes::SQLDataType::TIME;
-    case SQL_TYPE_TIMESTAMP:            return SimpleSqlTypes::SQLDataType::TIMESTAMP;
-    case SQL_TYPE_UTCDATETIME:          return SimpleSqlTypes::SQLDataType::UTC_DATETIME;
-    case SQL_TYPE_UTCTIME:              return SimpleSqlTypes::SQLDataType::UTC_TIME;
-    case SQL_INTERVAL_YEAR:             return SimpleSqlTypes::SQLDataType::INTERVAL_YEAR;
-    case SQL_INTERVAL_MONTH:            return SimpleSqlTypes::SQLDataType::INTERVAL_MONTH;
-    case SQL_INTERVAL_DAY:              return SimpleSqlTypes::SQLDataType::INTERVAL_DAY;
-    case SQL_INTERVAL_HOUR:             return SimpleSqlTypes::SQLDataType::INTERVAL_HOUR;
-    case SQL_INTERVAL_MINUTE:           return SimpleSqlTypes::SQLDataType::INTERVAL_MINUTE;
-    case SQL_INTERVAL_SECOND:           return SimpleSqlTypes::SQLDataType::INTERVAL_SECOND;
-    case SQL_INTERVAL_YEAR_TO_MONTH:    return SimpleSqlTypes::SQLDataType::INTERVAL_YEAR2MONTH;
-    case SQL_INTERVAL_DAY_TO_HOUR:      return SimpleSqlTypes::SQLDataType::INTERVAL_DAY2HOUR;
-    case SQL_INTERVAL_DAY_TO_MINUTE:    return SimpleSqlTypes::SQLDataType::INTERVAL_DAY2MINUTE;
-    case SQL_INTERVAL_DAY_TO_SECOND:    return SimpleSqlTypes::SQLDataType::INTERVAL_DAY2SECOND;
-    case SQL_INTERVAL_HOUR_TO_MINUTE:   return SimpleSqlTypes::SQLDataType::INTERVAL_HOUR2MINUTE;
-    case SQL_INTERVAL_HOUR_TO_SECOND:   return SimpleSqlTypes::SQLDataType::INTERVAL_HOUR2SECOND;
-    case SQL_INTERVAL_MINUTE_TO_SECOND: return SimpleSqlTypes::SQLDataType::INTERVAL_MINUTE2SECOND;
-    case SQL_GUID:                      return SimpleSqlTypes::SQLDataType::GUID;
-    default:                            return SimpleSqlTypes::SQLDataType::UNKNOWN;
+    case SQL_CHAR:                      return SimpleSqlTypes::SimDataType::STRING_UTF8;
+    case SQL_VARCHAR:                   return SimpleSqlTypes::SimDataType::STRING_UTF8;
+    case SQL_LONGVARCHAR:               return SimpleSqlTypes::SimDataType::LONG_STRING_UTF8;
+    case SQL_WCHAR:                     return SimpleSqlTypes::SimDataType::STRING_UTF16;
+    case SQL_WVARCHAR:                  return SimpleSqlTypes::SimDataType::STRING_UTF16;
+    case SQL_WLONGVARCHAR:              return SimpleSqlTypes::SimDataType::LONG_STRING_UTF16;
+    case SQL_FLOAT:                     return SimpleSqlTypes::SimDataType::FLOAT;
+    case SQL_DOUBLE:                    return SimpleSqlTypes::SimDataType::DOUBLE;
+    case SQL_BIT:                       return SimpleSqlTypes::SimDataType::BOOLEAN;
+    case SQL_TINYINT:                   return SimpleSqlTypes::SimDataType::INT_8;
+    case SQL_SMALLINT:                  return SimpleSqlTypes::SimDataType::INT_16;
+    case SQL_INTEGER:                   return SimpleSqlTypes::SimDataType::INT_32;
+    case SQL_BIGINT:                    return SimpleSqlTypes::SimDataType::INT_64;
+    case SQL_GUID:                      return SimpleSqlTypes::SimDataType::GUID;
+    case SQL_TYPE_TIMESTAMP:            return SimpleSqlTypes::SimDataType::DATETIME;
+    case SQL_TYPE_DATE:                 return SimpleSqlTypes::SimDataType::DATE;
+    case SQL_TYPE_TIME:                 return SimpleSqlTypes::SimDataType::TIME;
+    case SQL_BINARY:                    return SimpleSqlTypes::SimDataType::BLOB;
+    case SQL_VARBINARY:                 return SimpleSqlTypes::SimDataType::BLOB;
+    case SQL_LONGVARBINARY:             return SimpleSqlTypes::SimDataType::LONG_BLOB;
+    default:                            return SimpleSqlTypes::SimDataType::UNKNOWN;
     }
 }
 
@@ -315,282 +208,268 @@ static bool infer_column_metadata(void* handle, const SQLUSMALLINT &parameter_in
     }
 }
 
-static SQLRETURN bind_narrow_string(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding) {
+static SQLRETURN bind_string_utf8(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
-    std::string str = std::get<std::string>(binding.data);
-
-    // try to get the column metadata
-    SQLULEN column_size; // column size or character count
-    SQLSMALLINT precision; // unused, only here for compatability
-    if (!infer_column_metadata(handle, index, column_size, precision))
-        column_size = static_cast<SQLULEN>(str.size());
-
+    SQLULEN column_size;
+    SQLSMALLINT precision;
     SQLRETURN return_code;
     switch (io_type) {
     case SQL_PARAM_INPUT_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = SQL_NTS;
-        m_output_buffer.push_back(output);
-        std::string& bound_str = std::get<std::string>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, SQL_NTS));
+
+        // get the value
+        std::string& str = std::get<std::string&>(output_buffer.back().binding().data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // ensure the value buffer is large enough
+        str.resize(column_size);
+
+        // define specific parameters
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
+
+        // finally bind the parameter
         return_code = SQLBindParameter(
             handle,
-            parameter_number,
-            binding_type,
-            odbc_c_type,
-            odbc_sql_type,
-            bound_str.size(),
-            0,
-            bound_str.data(),
-            bound_str.size(),
-            &m_output_buffer.back().buffer_size
-        );
-        break;
-    case SQL_PARAM_INPUT:
-        SQLLEN indicator = binding.set_null ? SQL_NULL_DATA : SQL_NTS;
-        SQLLEN buffer_size = static_cast<SQLLEN>(str.size()); // count of bytes
-        SQLCHAR* string_value = reinterpret_cast<SQLCHAR*>(const_cast<char*>(str.c_str()));
-        return_code = SQLBindParameter(
-            handle,
-            parameter_number,
-            binding_type,
+            index,
+            io_type,
             odbc_c_type,
             odbc_sql_type,
             column_size,
             0,
-            (SQLPOINTER)string_value,
-            buffer_size,
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        std::string& str = std::get<std::string&>(binding.data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : SQL_NTS;
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            column_size,
+            0,
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
             &indicator
         );
         break;
     case SQL_PARAM_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = 0;
-        m_output_buffer.push_back(output);
-        std::string& bound_str = std::get<std::string>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        std::string& str = std::get<std::string&>(output_buffer.back().binding().data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // ensure the value buffer is large enough
+        str.resize(column_size);
+
+        // define specific parameters
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
+
+        // finally bind the parameter
         return_code = SQLBindParameter(
             handle,
-            parameter_number,
-            binding_type,
+            index,
+            io_type,
             odbc_c_type,
             odbc_sql_type,
-            bound_str.size(),
+            column_size,
             0,
-            bound_str.data(),
-            bound_str.size(),
-            &m_output_buffer.back().buffer_size
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
+            &output_buffer.back().buffer_size()
         );
         break;
     }
     return return_code;
 }
 
-static SQLRETURN bind_wide_string(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding) {
+static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
-    std::wstring str = std::get<std::wstring>(binding.data);
-
-    // try to get the column metadata
-    SQLULEN column_size; // column size or character count
-    SQLSMALLINT precision; // unused, only here for compatability
-    if (!infer_column_metadata(handle, index, column_size, precision))
-        column_size = static_cast<SQLULEN>(str.size());
-
+    SQLULEN column_size;
+    SQLSMALLINT precision;
     SQLRETURN return_code;
     switch (io_type) {
     case SQL_PARAM_INPUT_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = SQL_NTS;
-        m_output_buffer.push_back(output);
-        std::wstring& bound_str = std::get<std::wstring>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, SQL_NTS));
+
+        // get the value
+        std::wstring& str = std::get<std::wstring&>(output_buffer.back().binding().data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // ensure the value buffer is large enough (plus null-terminator)
+        str.resize(column_size);
+
+        // define specific parameters
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+
+        // finally bind the parameter
         return_code = SQLBindParameter(
             handle,
-            parameter_number,
-            binding_type,
-            odbc_c_type,
-            odbc_sql_type,
-            bound_str.size(),
-            0,
-            bound_str.data(),
-            bound_str.size() * sizeof(SQLWCHAR),
-            &m_output_buffer.back().buffer_size
-        );
-        break;
-    case SQL_PARAM_INPUT:
-        SQLLEN indicator = binding.set_null ? SQL_NULL_DATA : SQL_NTS;
-        SQLLEN buffer_size = static_cast<SQLLEN>(str.size()) * sizeof(SQLWCHAR); // count of bytes
-        SQLCHAR* string_value = reinterpret_cast<SQLCHAR*>(const_cast<char*>(str.c_str()));
-        return_code = SQLBindParameter(
-            handle,
-            parameter_number,
-            binding_type,
+            index,
+            io_type,
             odbc_c_type,
             odbc_sql_type,
             column_size,
             0,
-            (SQLPOINTER)string_value,
-            buffer_size,
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        std::wstring& str = std::get<std::wstring&>(binding.data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : SQL_NTS;
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            column_size,
+            0,
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
             &indicator
         );
         break;
     case SQL_PARAM_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = 0;
-        m_output_buffer.push_back(output);
-        std::wstring& bound_str = std::get<std::wstring>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        std::wstring& str = std::get<std::wstring&>(output_buffer.back().binding().data());
+
+        // infer column metadata
+        if (!infer_column_metadata(handle, index, column_size, precision))
+            column_size = static_cast<SQLULEN>(str.size()) + 1;
+
+        // ensure the value buffer is large enough
+        str.resize(column_size);
+
+        // define specific parameters
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+
+        // finally bind the parameter
         return_code = SQLBindParameter(
             handle,
-            parameter_number,
-            binding_type,
+            index,
+            io_type,
             odbc_c_type,
             odbc_sql_type,
-            bound_str.size(),
+            column_size,
             0,
-            bound_str.data(),
-            bound_str.size() * sizeof(SQLWCHAR),
-            &m_output_buffer.back().buffer_size
+            (SQLPOINTER)str.c_str(),
+            input_buffer_size,
+            &output_buffer.back().buffer_size()
         );
         break;
     }
     return return_code;
 }
 
-static SQLRETURN bind_interval(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding) {
+static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
-    SimpleSqlTypes::Interval& intv = std::get<SimpleSqlTypes::Interval>(binding.data);
+}
 
-    SQL_INTERVAL_STRUCT interval;
-    interval.interval_sign = intv.interval_sign == SimpleSqlTypes::IntervalSign::POSITIVE ? SQL_FALSE : SQL_TRUE;
-    switch (odbc_c_type) {
-    case SQL_C_INTERVAL_YEAR:
-        interval.interval_type = SQL_IS_YEAR;
-        interval.year_month.year = binding_value;
-        break;
-    case SQL_C_INTERVAL_MONTH:
-        
-        break;
-    case SQL_C_INTERVAL_DAY:
-        
-        break;
-    case SQL_C_INTERVAL_HOUR:
-        
-        break;
-    case SQL_C_INTERVAL_MINUTE:
-        
-        break;
-    case SQL_C_INTERVAL_SECOND:
-        
-        break;
-    case SQL_C_INTERVAL_YEAR_TO_MONTH:
-        
-        break;
-    case SQL_C_INTERVAL_DAY_TO_HOUR:
-        
-        break;
-    case SQL_C_INTERVAL_DAY_TO_MINUTE:
-        
-        break;
-    case SQL_C_INTERVAL_DAY_TO_SECOND:
-        
-        break;
-    case SQL_C_INTERVAL_HOUR_TO_MINUTE:
-        
-        break;
-    case SQL_C_INTERVAL_HOUR_TO_SECOND:
-        
-        break;
-    case SQL_C_INTERVAL_MINUTE_TO_SECOND:
-        
-        break;
-    }
+static SQLRETURN bind_bool_int(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+    
+}
 
-    int8_t binding_value = std::get<int8_t>(value);
+static SQLRETURN bind_guid(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
     
-    
-    column_size = 0;
-    
-    
-    SQLLEN indicator = sizeof(SQL_INTERVAL_STRUCT);
-    
-    
-    
-    SQLBindParameter(handle, index, SQL_PARAM_INPUT, c_data_type, sql_data_type, sizeof(SQL_INTERVAL_STRUCT), &indicator);
-    
+}
 
-    SQLRETURN return_code;
-    switch (io_type) {
-    case SQL_PARAM_INPUT_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = SQL_NTS;
-        m_output_buffer.push_back(output);
-        std::string& bound_str = std::get<std::string>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
-        return_code = SQLBindParameter(
-            handle,
-            parameter_number,
-            binding_type,
-            odbc_c_type,
-            odbc_sql_type,
-            bound_str.size(),
-            0,
-            bound_str.data(),
-            bound_str.size(),
-            &m_output_buffer.back().buffer_size
-        );
-        break;
-    case SQL_PARAM_INPUT:
-        SQLLEN indicator = binding.set_null ? SQL_NULL_DATA : SQL_NTS;
-        SQLLEN buffer_size = static_cast<SQLLEN>(str.size()); // count of bytes
-        SQLCHAR* string_value = reinterpret_cast<SQLCHAR*>(const_cast<char*>(str.c_str()));
-        return_code = SQLBindParameter(
-            handle,
-            parameter_number,
-            binding_type,
-            odbc_c_type,
-            odbc_sql_type,
-            column_size,
-            0,
-            (SQLPOINTER)string_value,
-            buffer_size,
-            &indicator
-        );
-        break;
-    case SQL_PARAM_OUTPUT:
-        Output output;
-        output.binding = binding;
-        output.buffer_size = 0;
-        m_output_buffer.push_back(output);
-        std::string& bound_str = std::get<std::string>(m_output_buffer.back().data);
-        bound_str.resize(column_size);
-        return_code = SQLBindParameter(
-            handle,
-            parameter_number,
-            binding_type,
-            odbc_c_type,
-            odbc_sql_type,
-            bound_str.size(),
-            0,
-            bound_str.data(),
-            bound_str.size(),
-            &m_output_buffer.back().buffer_size
-        );
-        break;
-    }
-    return return_code;
+static SQLRETURN bind_datetime(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+    
+}
+
+static SQLRETURN bind_blob(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+    
 }
 
 // class definition
 
 bool SimpleSql::SimQuery::define_columns(std::string &error) {
 
-    SQLSMALLINT column_count;
+    auto get_columns = [&](SQLSMALLINT &column_count, std::string &error) -> bool {
+        for (SQLUSMALLINT i = 0; i < column_count; ++i) {
+            std::vector<SQLCHAR> column_name_buffer(cm_colname_size);
+            SQLSMALLINT column_name_length;
+            SQLSMALLINT data_type_id;
+            SQLULEN data_size;
+            SQLSMALLINT precision;
+            SQLSMALLINT null_id;
+            switch (SQLDescribeCol(mp_stmt_handle.get(), i, column_name_buffer.data(), cm_colname_size, &column_name_length, &data_type_id, &data_size, &precision, &null_id)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                m_info_pending = true;
+                define_diagnostics();
+                break;
+            default:
+                define_diagnostics();
+                error = std::string("could not fully define the selected column(s)");
+                return false;
+            }
+
+            std::string column_name(reinterpret_cast<const char*>(column_name_buffer.data()), column_name_length);
+            m_column_map.emplace(column_name, static_cast<uint8_t>(i));
+            m_columns.push_back(SimpleSqlTypes::ColumnMetadata(
+                    static_cast<uint16_t>(i),
+                    column_name,
+                    ODBC_SQL_to_SQLDataType(data_type_id),
+                    static_cast<uint64_t>(data_size),
+                    static_cast<uint16_t>(precision),
+                    ODBC_NULL_to_NullRuleType(null_id)
+                )
+            );
+        }
+    };
+
+    SQLSMALLINT column_count = 0;
     switch (SQLNumResultCols(mp_stmt_handle.get(), &column_count)) {
     case SQL_SUCCESS:
         break;
@@ -616,58 +495,36 @@ bool SimpleSql::SimQuery::define_columns(std::string &error) {
         return false;
     }
 
-    bool columns_defined = false;
-    m_is_select = column_count == 0;
-    m_is_select ? columns_defined = [&column_count, &error]() -> bool {
-        for (SQLUSMALLINT i = 0; i < column_count; ++i) {
-            SQLCHAR[m_max_column_name_length] column_name;
-            SQLSMALLINT column_name_length;
-            SQLSMALLINT data_type_id;
-            SQLULEN data_size;
-            SQLSMALLINT precision;
-            SQLSMALLINT null_id;
-            switch (SQLDescribeCol(mp_stmt_handle.get(), i, &column_name, sizeof(column_name), &column_name_length, &data_type_id, &data_size, &precision, &null_id)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                m_info_pending = true;
-                define_diagnostics();
-                break;
-            default:
-                define_diagnostics();
-                error = std::string("could not fully define the selected column(s)");
-                return false;
-            }
+    if (column_count > 0) {
+        m_is_select = true;
+        if (!get_columns(column_count, error))
+            return false;
 
-            m_columns.push_back(SimpleSqlTypes::ColumnMetadata(
-                    static_cast<uint16_t>(i),
-                    std::string(reinterpret_cast<const char*>(column_name)),
-                    ODBC_SQL_to_SQLDataType(data_type_id),
-                    static_cast<uint64_t>(data_size),
-                    static_cast<uint16_t>(precision),
-                    ODBC_NULL_to_NullRuleType(null_id)
-                )
-            );
+        if (column_count != m_column_map.size()) {
+            error = std::string("probable duplicate column names detected");
+            return false;
         }
-    } : (void)0;
+
+        m_matrix.make_valid(column_count);
+    } else {
+        m_is_select = false;
+    }
+    return true;
 }
 
 void SimpleSql::SimQuery::define_diagnostics() {
-    if (reset)
-        m_diagnostics.clear();
-
     SQLSMALLINT current_record_number = static_cast<SQLSMALLINT>(m_diagnostic_record_number);
-    SQLCHAR sql_state[6];
+    std::vector<SQLCHAR> sql_state(6);
     SQLINTEGER native_error;
-    SQLCHAR message[SQL_MAX_MESSAGE_LENGTH];
+    std::vector<SQLCHAR> message(SQL_MAX_MESSAGE_LENGTH);
     SQLSMALLINT message_length;
-    SQLRETURN rc = SQLGetDiagRec(SQL_HANDLE_STMT, mp_stmt_handle.get(), current_record_number, &sql_state, &native_error, &message, sizeof(message), &message_length);
+    SQLRETURN rc = SQLGetDiagRec(SQL_HANDLE_STMT, mp_stmt_handle.get(), current_record_number, sql_state.data(), &native_error, message.data(), sizeof(message), &message_length);
     while (rc != SQL_NO_DATA || rc != SQL_ERROR || rc != SQL_INVALID_HANDLE) {
         m_diagnostics.push_back(SimpleSqlTypes::DiagnosticRecord(
                 static_cast<int16_t>(current_record_number),
-                std::string(reinterpret_cast<const char*>(sql_state)),
+                std::string(reinterpret_cast<const char*>(sql_state.data()), 6),
                 static_cast<int32_t>(native_error),
-                std::string(reinterpret_cast<const char*>(message))
+                std::string(reinterpret_cast<const char*>(message.data()), message_length)
             )
         );
         current_record_number++;
@@ -685,7 +542,7 @@ bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void> &&stmt_handle, std:
 }
 
 std::unique_ptr<void> SimpleSql::SimQuery::return_handle() {
-    return mp_stmt_handle;
+    return std::move(mp_stmt_handle);
 }
 
 bool SimpleSql::SimQuery::set_sql(const std::string &sql, std::string &error) {
@@ -700,15 +557,13 @@ bool SimpleSql::SimQuery::set_sql(const std::string &sql, std::string &error) {
 bool SimpleSql::SimQuery::prepare(std::string &error) {
 
     SQLCHAR* sql = reinterpret_cast<SQLCHAR*>(const_cast<char*>(m_sql.c_str()));
-    switch (SQLPrepare(mp_stmt_handle, sql, SQL_NTS)) {
+    switch (SQLPrepare(mp_stmt_handle.get(), sql, SQL_NTS)) {
     case SQL_SUCCESS:
-        define_columns();
-        return true;
+        return define_columns(error);
     case SQL_SUCCESS_WITH_INFO:
         m_info_pending = true;
         define_diagnostics();
-        define_columns();
-        return true;
+        return define_columns(error);
     case SQL_STILL_EXECUTING:
         error = std::string("SQLPrepare() is still executing");
         return false;
@@ -730,47 +585,115 @@ bool SimpleSql::SimQuery::prepare(std::string &error) {
 
 bool SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &binding, std::string &error) {
 
-    // use SQLNumParams to ensure there are parameters in the SQL statement
+    SQLSMALLINT parameter_count;
+    SQLRETURN return_code = SQLNumParams(mp_stmt_handle.get(), &parameter_count);
+    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
+        error = std::string("could not calculate the prepared SQL statement's parameter count");
+        return false;
+    }
 
-    SQLUSMALLINT parameter_number = static_cast<SQLUSMALLINT>(m_binding_index);
+    if (parameter_count < 1) {
+        error = std::string("the prepared SQL statement does not contain any parameters");
+        return false;
+    }
+
+    SQLUSMALLINT parameter_index = static_cast<SQLUSMALLINT>(m_binding_index);
 
     SQLSMALLINT io_type;
-    if (!get_io_type(binding.binding_type, io_type))
-        return false; // could not determine the ODBC Input-Output type
+    if (!get_io_type(binding.type(), io_type)) {
+        error = std::string("could not determine the ODBC Input-Output type");
+        return false;
+    }
 
     BindingFamily family;
-    if (!get_binding_family(binding.sql_data_type, family))
-        return false; // could not determine a proper binding family
+    if (!get_binding_family(binding.data_type(), family)) {
+        error = std::string("could not determine a proper binding family");
+        return false;
+    }
 
     SQLSMALLINT c_data_type, sql_data_type;
-    if (!get_odbc_data_types(binding.sql_data_type, c_data_type, sql_data_type))
-        return false; // could not determine the ODBC C & SQL data types
+    if (!get_odbc_data_types(binding.data_type(), c_data_type, sql_data_type)) {
+        error = std::string("could not determine the ODBC C & SQL data types");
+        return false;
+    }
 
-    SQLRETURN return_code;
     switch (family) {
-    case BindingFamily::NARROW_STRING:
-        return_code = bind_narrow_string(mp_stmt_handle.get(), parameter_number, io_type, c_data_type, sql_data_type, binding.data);
+    case BindingFamily::STRING_UTF8:
+        return_code = bind_string_utf8(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
-    case BindingFamily::WIDE_STRING:
-        return_code = bind_narrow_string(mp_stmt_handle.get(), parameter_number, io_type, c_data_type, sql_data_type, binding.data);
-        break;
-    case BindingFamily::INT_BOOL:
-        
+    case BindingFamily::STRING_UTF16:
+        return_code = bind_string_utf16(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
     case BindingFamily::NUMERIC:
-        
+        return_code = bind_numeric(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
-    case BindingFamily::BINARY:
-        
+    case BindingFamily::BOOL_INT:
+        return_code = bind_bool_int(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
     case BindingFamily::GUID:
-        
+        return_code = bind_guid(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
     case BindingFamily::DATETIME:
-        
+        return_code = bind_datetime(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
-    case BindingFamily::INTERVAL:
-        return_code = bind_interval(mp_stmt_handle.get(), parameter_number, io_type, c_data_type, sql_data_type, binding.data);
+    case BindingFamily::BLOB:
+        return_code = bind_blob(
+            mp_stmt_handle.get(),
+            parameter_index,
+            io_type,
+            c_data_type,
+            sql_data_type,
+            binding,
+            m_output_buffer
+        );
         break;
     }
 
@@ -801,34 +724,97 @@ bool SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &bindi
     return true;
 }
 
-bool SimpleSql::SimQuery::bulk_bind_parameters(const std::vector<SimpleSqlTypes::SQLBinding> &bindings, std::string &error) {
-    
-    
-    return true;
+const size_t& SimpleSql::SimQuery::get_row_count() const {
+    if (!m_matrix.is_valid())
+        return -1;
+
+    return m_matrix.rows();
 }
 
-SimpleSqlTypes::Cell SimpleSql::SimQuery::get_cell(const std::string &key) {
+const size_t& SimpleSql::SimQuery::get_column_count() const {
+    if (!m_matrix.is_valid())
+        return -1;
 
+    return m_matrix.columns();
 }
 
-SimpleSqlTypes::Cell SimpleSql::SimQuery::get_cell(const std::string &column_name, const int &row) {
-
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &key) const {
+    auto iterator = m_key_data.find(key);
+    if (iterator != m_key_data.end()) {
+        return iterator->second;
+    } else {
+        return m_invalid_cell;
+    }
 }
 
-SimpleSqlTypes::Cell SimpleSql::SimQuery::get_cell(const int &column_index, const int &row) {
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &column, const size_t &row) const {
+    if (!m_matrix.is_valid())
+        return m_invalid_cell;
 
+    auto iterator = m_column_map.find(column);
+    if (iterator == m_column_map.end())
+        return m_invalid_cell;
+
+    size_t column_index = iterator->second;
+    return get_cell(column_index, row);
 }
 
-std::vector<SimpleSqlTypes::Cell> SimpleSql::SimQuery::claim_data() {
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const size_t &column, const size_t &row) const {
+    if (column >= m_matrix.columns() || row >= m_matrix.rows() || !m_matrix.is_valid())
+        return m_invalid_cell;
 
+    return m_matrix.cells()[column + row * m_matrix.columns()];
 }
 
-uint64_t SimpleSql::SimQuery::get_rowcount() {
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const std::string &column) const {
+    auto iterator = m_column_map.find(column);
+    if (iterator == m_column_map.end()) {
+        std::vector<SimpleSqlTypes::SQLCell> v;
+        return v;
+    }
 
+    size_t column_index = iterator->second;
+    return get_column(column_index);
 }
 
-uint8_t SimpleSql::SimQuery::get_columncount() {
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const size_t &column) const {
+    if (column >= m_matrix.columns() || !m_matrix.is_valid()) {
+        std::vector<SimpleSqlTypes::SQLCell> v;
+        return v;
+    }
 
+    auto column_count = m_matrix.columns();
+    auto cells = m_matrix.cells();
+    std::vector<SimpleSqlTypes::SQLCell> output;
+    for (int i = 0; i < m_matrix.rows(); ++i) {
+        output.push_back(cells[i * column_count + column]);
+    }
+    return output;
+}
+
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_row(const size_t &row) const {
+    if (row >= m_matrix.rows() || !m_matrix.is_valid()) {
+        std::vector<SimpleSqlTypes::SQLCell> v;
+        return v;
+    }
+
+    size_t column_count = m_matrix.columns();
+    std::vector<SimpleSqlTypes::SQLCell> cells = m_matrix.cells();
+    size_t beginning = row * column_count;
+    size_t ending = row * column_count + column_count;
+
+    return std::vector<SimpleSqlTypes::SQLCell>(
+        cells.begin() + row * m_matrix.columns(),
+        cells.end() + row * m_matrix.columns() + m_matrix.columns()
+    );
+}
+
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_data() const {
+    if (!m_matrix.is_valid()) {
+        std::vector<SimpleSqlTypes::SQLCell> v;
+        return v;
+    }
+    return m_matrix.cells();
 }
 
 void SimpleSql::SimQuery::destroy() {
