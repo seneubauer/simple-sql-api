@@ -11,6 +11,7 @@
 #include <vector>
 #include <array>
 #include <span>
+#include <concepts>
 
 namespace SimpleSqlTypes {
 
@@ -42,12 +43,13 @@ namespace SimpleSqlTypes {
         INT_16              = 9,
         INT_32              = 10,
         INT_64              = 11,
-        GUID                = 12,
-        DATETIME            = 13,
-        DATE                = 14,
-        TIME                = 15,
-        BLOB                = 16,
-        LONG_BLOB           = 17
+        ODBC_GUID           = 12,
+        GUID                = 13,
+        DATETIME            = 14,
+        DATE                = 15,
+        TIME                = 16,
+        BLOB                = 17,
+        LONG_BLOB           = 18
     };
     constexpr uint8_t operator^(SimDataType l, SimDataType r) {
         return static_cast<uint8_t>(l) ^ static_cast<uint8_t>(r);
@@ -99,79 +101,63 @@ namespace SimpleSqlTypes {
         std::string message() const { return m_message; }
     };
 
-    struct Datetime {
-    private:
-        uint16_t m_year;
-        uint8_t m_month;
-        uint8_t m_day;
-        uint8_t m_hour;
-        uint8_t m_minute;
-        uint8_t m_second;
-        uint16_t m_millisecond;
-        bool m_is_utc;
-    public:
-        Datetime(
-            const uint16_t &year,
-            const uint8_t &month,
-            const uint8_t &day,
-            const uint8_t &hour,
-            const uint8_t &minute,
-            const uint8_t &second,
-            const uint16_t &millisecond = 0,
-            const bool &is_utc = false
-        ) : m_year(year), m_month(month), m_day(day), m_hour(hour), m_minute(minute), m_second(second), m_millisecond(millisecond), m_is_utc(is_utc) {}
-        uint16_t year() const { return m_year; }
-        uint8_t month() const { return m_month; }
-        uint8_t day() const { return m_day; }
-        uint8_t hour() const { return m_hour; }
-        uint8_t minute() const { return m_minute; }
-        uint8_t second() const { return m_second; }
-        uint16_t millisecond() const { return m_millisecond; }
-        bool is_utc() const { return m_is_utc; }
-        std::string tostring() const { return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", m_year, m_month, m_day, m_hour, m_minute, m_second, m_millisecond); }
+    struct _Datetime {
+        int16_t year;
+        uint16_t month;
+        uint16_t day;
+        uint16_t hour;
+        uint16_t minute;
+        uint16_t second;
+        uint32_t fraction;
     };
 
-    struct Date {
-    private:
-        uint16_t m_year;
-        uint8_t m_month;
-        uint8_t m_day;
-        bool m_is_utc;
-    public:
-        Date(
-            const uint16_t &year,
-            const uint8_t &month,
-            const uint8_t &day,
-            const bool &is_utc = false
-        ) : m_year(year), m_month(month), m_day(day), m_is_utc(is_utc) {}
-        uint16_t year() const { return m_year; }
-        uint8_t month() const { return m_month; }
-        uint8_t day() const { return m_day; }
-        bool is_utc() const { return m_is_utc; }
-        std::string tostring() const { return std::format("{:04}-{:02}-{:02}", year, month, day); }
+    struct _Date {
+        int16_t year;
+        uint16_t month;
+        uint16_t day;
     };
 
-    struct Time {
+    struct _Time {
+        uint16_t hour;
+        uint16_t minute;
+        uint16_t second;
+    };
+
+    template<typename T>
+    concept temporal_types = requires(T& t) {
+        std::is_same_v<T, _Datetime> ||
+        std::is_same_v<T, _Date> ||
+        std::is_same_v<T, _Time>;
+    };
+
+    template<temporal_types T>
+    struct BaseTemporal {
     private:
-        uint8_t m_hour;
-        uint8_t m_minute;
-        uint8_t m_second;
-        uint16_t m_millisecond;
+        T m_temporal;
         bool m_is_utc;
     public:
-        Time(
-            const uint8_t &hour,
-            const uint8_t &minute,
-            const uint8_t &second,
-            const uint8_t &millisecond = 0,
-            const bool &is_utc = false
-        ) : m_hour(hour), m_minute(minute), m_second(second), m_millisecond(millisecond), m_is_utc(is_utc) {}
-        uint8_t hour() const { return m_hour; }
-        uint8_t minute() const { return m_minute; }
-        uint8_t second() const { return m_second; }
-        uint16_t millisecond() const { return m_millisecond; }
-        bool is_utc() const { return m_is_utc; }
-        std::string tostring() const { return std::format("{:02}:{:02}:{:02}.{:03}", m_hour, m_minute, m_second, m_millisecond); }
+        BaseTemporal(T&& t, const bool &is_utc) : m_temporal(std::move(t)), m_is_utc(is_utc) {}
+        T& temporal() { return m_temporal; }
+        const bool is_utc() const { return m_is_utc; }
+    };
+
+    struct Datetime : BaseTemporal<_Datetime> {
+        std::string to_string() { return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", temporal().year, temporal().month, temporal().day, temporal().hour, temporal().minute, temporal().second, temporal().fraction / 1000000); }
+    };
+
+    struct Date : BaseTemporal<_Date> {
+        std::string to_string() { return std::format("{:04}-{:02}-{:02}", temporal().year, temporal().month, temporal().day); }
+    };
+
+    struct Time : BaseTemporal<_Time> {
+        std::string to_string() { return std::format("{:02}:{:02}:{:02}", temporal().hour, temporal().minute, temporal().second); }
+    };
+
+    struct ODBC_GUID {
+        uint32_t Data1;
+        uint16_t Data2;
+        uint16_t Data3;
+        uint8_t Data4[8];
     };
 
     using GUID = std::array<uint8_t, 16>;
@@ -186,6 +172,7 @@ namespace SimpleSqlTypes {
         int16_t,
         int32_t,
         int64_t,
+        ODBC_GUID,
         GUID,
         Datetime,
         Date,
@@ -194,17 +181,20 @@ namespace SimpleSqlTypes {
 
     struct SQLBinding {
     private:
+        std::string m_name;
         SQLData m_data;
         BindingType m_type;
         SimDataType m_data_type;
         bool m_set_null;
     public:
         SQLBinding(
+            const std::string &name,
             const SQLData &data,
             const BindingType &type,
             const SimDataType &data_type,
             const bool &set_null = false
-        ) : m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
+        ) : m_name(name), m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
+        const std::string& name() const { return m_name; }
         const SQLData& data() const { return m_data; }
         const BindingType& type() const { return m_type; }
         const SimDataType& data_type() const { return m_data_type; }
@@ -265,8 +255,7 @@ namespace SimpleSqlTypes {
         }
 
         void set_data(std::vector<SQLCell>&& cells, const size_t &rows) {
-            m_cells.clear();
-            m_cells = std::move(cells);
+            m_cells = cells;
             m_rows = rows;
         }
 

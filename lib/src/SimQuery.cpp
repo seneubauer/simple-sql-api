@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <span>
+#include <concepts>
 
 // ODBC stuff
 #include <sql.h>
@@ -26,6 +27,25 @@ enum class BindingFamily : uint8_t {
     GUID            = 5,
     DATETIME        = 6,
     BLOB            = 7
+};
+
+template<typename T>
+concept string_like = requires(T& t) {
+    std::is_same_v<T, std::string> ||
+    std::is_same_v<T, std::wstring> ||
+    std::is_same_v<T, std::string_view> ||
+    std::is_same_v<T, std::wstring_view>;
+};
+
+template<typename T>
+concept fixed_size = requires(T& t) {
+    std::is_same_v<T, float> ||
+    std::is_same_v<T, double> ||
+    std::is_same_v<T, bool> ||
+    std::is_same_v<T, int8_t> ||
+    std::is_same_v<T, int16_t> ||
+    std::is_same_v<T, int32_t> ||
+    std::is_same_v<T, int64_t>;
 };
 
 // helper functions
@@ -76,6 +96,10 @@ static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType &data_type, SQ
     case SimpleSqlTypes::SimDataType::INT_64:
         odbc_c_type = SQL_C_SBIGINT;
         odbc_sql_type = SQL_BIGINT;
+        break;
+    case SimpleSqlTypes::SimDataType::ODBC_GUID:
+        odbc_c_type = SQL_C_BINARY;
+        odbc_sql_type = SQL_BINARY;
         break;
     case SimpleSqlTypes::SimDataType::GUID:
         odbc_c_type = SQL_C_GUID;
@@ -131,7 +155,8 @@ static bool get_binding_family(const SimpleSqlTypes::SimDataType &data_type, Bin
              data_type ^ SimpleSqlTypes::SimDataType::INT_64 ? BindingFamily::BOOL_INT : family;
 
     // for GUID types
-    family = data_type ^ SimpleSqlTypes::SimDataType::GUID ? BindingFamily::GUID : family;
+    family = data_type ^ SimpleSqlTypes::SimDataType::ODBC_GUID &&
+             data_type ^ SimpleSqlTypes::SimDataType::GUID ? BindingFamily::GUID : family;
 
     // for datetime types
     family = data_type ^ SimpleSqlTypes::SimDataType::DATETIME &&
@@ -193,7 +218,7 @@ static SimpleSqlTypes::NullRuleType ODBC_NULL_to_NullRuleType(const SQLSMALLINT 
     }
 }
 
-static bool infer_column_metadata(void* handle, const SQLUSMALLINT &parameter_index, SQLULEN &size, SQLSMALLINT &precision) {
+static bool infer_parameter_metadata(void* handle, const SQLUSMALLINT &parameter_index, SQLULEN &size, SQLSMALLINT &precision) {
     SQLSMALLINT data_type;
     SQLSMALLINT null_rule;
     switch (SQLDescribeParam(handle, parameter_index, &data_type, &size, &precision, &null_rule)) {
@@ -208,130 +233,31 @@ static bool infer_column_metadata(void* handle, const SQLUSMALLINT &parameter_in
     }
 }
 
-static SQLRETURN bind_string_utf8(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+template<string_like T, typename SQL_CHARACTER_TYPE> // should be SQLCHAR for UTF8 or SQLWCHAR for UTF16
+static SQLRETURN bind_string(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
-    SQLULEN column_size;
+    T& val;
+    SQLULEN parameter_size;
     SQLSMALLINT precision;
     SQLRETURN return_code;
     switch (io_type) {
     case SQL_PARAM_INPUT_OUTPUT:
 
         // create the output object and store it
-        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, SQL_NTS));
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : SQL_NTS));
 
         // get the value
-        std::string& str = std::get<std::string&>(output_buffer.back().binding().data());
+        val = std::get<T&>(output_buffer.back().binding().data());
 
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
-
-        // ensure the value buffer is large enough
-        str.resize(column_size);
-
-        // define specific parameters
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
-
-        // finally bind the parameter
-        return_code = SQLBindParameter(
-            handle,
-            index,
-            io_type,
-            odbc_c_type,
-            odbc_sql_type,
-            column_size,
-            0,
-            (SQLPOINTER)str.c_str(),
-            input_buffer_size,
-            &output_buffer.back().buffer_size()
-        );
-        break;
-    case SQL_PARAM_INPUT:
-
-        // get the value
-        std::string& str = std::get<std::string&>(binding.data());
-
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
-
-        // define specific parameters
-        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : SQL_NTS;
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
-
-        // finally bind the parameter
-        return_code = SQLBindParameter(
-            handle,
-            index,
-            io_type,
-            odbc_c_type,
-            odbc_sql_type,
-            column_size,
-            0,
-            (SQLPOINTER)str.c_str(),
-            input_buffer_size,
-            &indicator
-        );
-        break;
-    case SQL_PARAM_OUTPUT:
-
-        // create the output object and store it
-        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
-
-        // get the value
-        std::string& str = std::get<std::string&>(output_buffer.back().binding().data());
-
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
-
-        // ensure the value buffer is large enough
-        str.resize(column_size);
-
-        // define specific parameters
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size()) + 1;
-
-        // finally bind the parameter
-        return_code = SQLBindParameter(
-            handle,
-            index,
-            io_type,
-            odbc_c_type,
-            odbc_sql_type,
-            column_size,
-            0,
-            (SQLPOINTER)str.c_str(),
-            input_buffer_size,
-            &output_buffer.back().buffer_size()
-        );
-        break;
-    }
-    return return_code;
-}
-
-static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
-
-    SQLULEN column_size;
-    SQLSMALLINT precision;
-    SQLRETURN return_code;
-    switch (io_type) {
-    case SQL_PARAM_INPUT_OUTPUT:
-
-        // create the output object and store it
-        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, SQL_NTS));
-
-        // get the value
-        std::wstring& str = std::get<std::wstring&>(output_buffer.back().binding().data());
-
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
+        // infer parameter metadata
+        if (!infer_parameter_metadata(handle, index, parameter_size, precision))
+            parameter_size = static_cast<SQLULEN>(val.size()) + 1;
 
         // ensure the value buffer is large enough (plus null-terminator)
-        str.resize(column_size);
+        val.resize(parameter_size);
 
         // define specific parameters
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(val.size() * sizeof(SQL_CHARACTER_TYPE)) + 1;
 
         // finally bind the parameter
         return_code = SQLBindParameter(
@@ -340,9 +266,9 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
             io_type,
             odbc_c_type,
             odbc_sql_type,
-            column_size,
+            parameter_size,
             0,
-            (SQLPOINTER)str.c_str(),
+            (SQLPOINTER)val.c_str(),
             input_buffer_size,
             &output_buffer.back().buffer_size()
         );
@@ -350,15 +276,15 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
     case SQL_PARAM_INPUT:
 
         // get the value
-        std::wstring& str = std::get<std::wstring&>(binding.data());
+        val = std::get<T&>(binding.data());
 
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
+        // infer parameter metadata
+        if (!infer_parameter_metadata(handle, index, parameter_size, precision))
+            parameter_size = static_cast<SQLULEN>(val.size()) + 1;
 
         // define specific parameters
         SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : SQL_NTS;
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(val.size() * sizeof(SQL_CHARACTER_TYPE)) + 1;
 
         // finally bind the parameter
         return_code = SQLBindParameter(
@@ -367,9 +293,9 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
             io_type,
             odbc_c_type,
             odbc_sql_type,
-            column_size,
+            parameter_size,
             0,
-            (SQLPOINTER)str.c_str(),
+            (SQLPOINTER)val.c_str(),
             input_buffer_size,
             &indicator
         );
@@ -380,17 +306,17 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
         output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
 
         // get the value
-        std::wstring& str = std::get<std::wstring&>(output_buffer.back().binding().data());
+        val = std::get<T&>(output_buffer.back().binding().data());
 
-        // infer column metadata
-        if (!infer_column_metadata(handle, index, column_size, precision))
-            column_size = static_cast<SQLULEN>(str.size()) + 1;
+        // infer parameter metadata
+        if (!infer_parameter_metadata(handle, index, parameter_size, precision))
+            parameter_size = static_cast<SQLULEN>(val.size()) + 1;
 
         // ensure the value buffer is large enough
-        str.resize(column_size);
+        val.resize(parameter_size);
 
         // define specific parameters
-        SQLLEN input_buffer_size = static_cast<SQLLEN>(str.size() * sizeof(SQLWCHAR)) + 1;
+        SQLLEN input_buffer_size = static_cast<SQLLEN>(val.size() * sizeof(SQL_CHARACTER_TYPE)) + 1;
 
         // finally bind the parameter
         return_code = SQLBindParameter(
@@ -399,9 +325,9 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
             io_type,
             odbc_c_type,
             odbc_sql_type,
-            column_size,
+            parameter_size,
             0,
-            (SQLPOINTER)str.c_str(),
+            (SQLPOINTER)val.c_str(),
             input_buffer_size,
             &output_buffer.back().buffer_size()
         );
@@ -410,18 +336,19 @@ static SQLRETURN bind_string_utf16(void* handle, const SQLUSMALLINT &index, cons
     return return_code;
 }
 
-template<typename T>
-static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+template<fixed_size T>
+static SQLRETURN bind_fixed_size(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
 
+    T& val;
     SQLRETURN return_code;
     switch (io_type) {
     case SQL_PARAM_INPUT_OUTPUT:
 
         // create the output object and store it
-        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : 0));
 
         // get the value
-        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+        val = std::get<T&>(output_buffer.back().binding().data());
 
         // finally bind the parameter
         return_code = SQLBindParameter(
@@ -432,7 +359,7 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
             odbc_sql_type,
             0,
             0,
-            &dbl,
+            &val,
             0,
             &output_buffer.back().buffer_size()
         );
@@ -440,7 +367,7 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
     case SQL_PARAM_INPUT:
 
         // get the value
-        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+        val = std::get<T&>(binding.data());
 
         // define specific parameters
         SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : 0;
@@ -454,7 +381,7 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
             odbc_sql_type,
             0,
             0,
-            &dbl,
+            &val,
             0,
             &indicator
         );
@@ -465,7 +392,7 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
         output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
 
         // get the value
-        T& dbl = std::get<T&>(output_buffer.back().binding().data());
+        val = std::get<T&>(output_buffer.back().binding().data());
 
         // finally bind the parameter
         return_code = SQLBindParameter(
@@ -476,7 +403,7 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
             odbc_sql_type,
             0,
             0,
-            &dbl,
+            &val,
             0,
             &output_buffer.back().buffer_size()
         );
@@ -485,20 +412,316 @@ static SQLRETURN bind_numeric(void* handle, const SQLUSMALLINT &index, const SQL
     return return_code;
 }
 
-static SQLRETURN bind_bool_int(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
-    
+static SQLRETURN bind_odbc_guid(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+
+    SQLRETURN return_code;
+    switch (io_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : 16ULL));
+
+        // get the value
+        SimpleSqlTypes::ODBC_GUID& val = std::get<SimpleSqlTypes::ODBC_GUID&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            sizeof(val),
+            0,
+            &val,
+            sizeof(val),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        SimpleSqlTypes::ODBC_GUID& val = std::get<SimpleSqlTypes::ODBC_GUID&>(binding.data());
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : sizeof(val);
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            sizeof(val),
+            0,
+            &val,
+            sizeof(val),
+            &indicator
+        );
+        break;
+    case SQL_PARAM_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 16ULL));
+
+        // get the value
+        SimpleSqlTypes::ODBC_GUID& val = std::get<SimpleSqlTypes::ODBC_GUID&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            sizeof(val),
+            0,
+            &val,
+            sizeof(val),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    }
+    return return_code;
 }
 
 static SQLRETURN bind_guid(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
-    
+
+    SQLRETURN return_code;
+    switch (io_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : 0));
+
+        // get the value
+        SimpleSqlTypes::GUID& val = std::get<SimpleSqlTypes::GUID&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            &val,
+            val.size(),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        SimpleSqlTypes::GUID& val = std::get<SimpleSqlTypes::GUID&>(binding.data());
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : 0;
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            &val,
+            val.size(),
+            &indicator
+        );
+        break;
+    case SQL_PARAM_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        SimpleSqlTypes::GUID& val = std::get<SimpleSqlTypes::GUID&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            &val,
+            val.size(),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    }
+    return return_code;
 }
 
+template<SimpleSqlTypes::temporal_types T>
 static SQLRETURN bind_datetime(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
-    
+
+    T& val;
+    SQLRETURN return_code;
+    switch (io_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : 0));
+
+        // get the value
+        val = std::get<T&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &val.temporal(),
+            0,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        val = std::get<T&>(binding.data());
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : 0;
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &val.temporal(),
+            0,
+            &indicator
+        );
+        break;
+    case SQL_PARAM_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        val = std::get<T&>(output_buffer.back().binding().data());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            0,
+            0,
+            &val.temporal(),
+            0,
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    }
+    return return_code;
 }
 
 static SQLRETURN bind_blob(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, const SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
-    
+
+    SQLULEN parameter_size;
+    SQLSMALLINT precision;
+    SQLRETURN return_code;
+    switch (io_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, binding.set_null() ? SQL_NULL_DATA : 0));
+
+        // get the value
+        std::vector<uint8_t>& val = std::get<std::vector<uint8_t>&>(output_buffer.back().binding().data());
+
+        // infer parameter metadata
+        if (infer_parameter_metadata(handle, index, parameter_size, precision))
+            val.resize(static_cast<size_t>(parameter_size));
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            val.data(),
+            val.size(),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    case SQL_PARAM_INPUT:
+
+        // get the value
+        std::vector<uint8_t>& val = std::get<std::vector<uint8_t>&>(binding.data());
+
+        // infer parameter metadata
+        if (infer_parameter_metadata(handle, index, parameter_size, precision))
+            val.resize(static_cast<size_t>(parameter_size));
+
+        // define specific parameters
+        SQLLEN indicator = binding.set_null() ? SQL_NULL_DATA : static_cast<SQLLEN>(val.size());
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            val.data(),
+            val.size(),
+            &indicator
+        );
+        break;
+    case SQL_PARAM_OUTPUT:
+
+        // create the output object and store it
+        output_buffer.push_back(SimpleSqlTypes::SQLBoundOutput(binding, 0));
+
+        // get the value
+        std::vector<uint8_t>& val = std::get<std::vector<uint8_t>&>(output_buffer.back().binding().data());
+
+        // infer parameter metadata
+        if (infer_parameter_metadata(handle, index, parameter_size, precision))
+            val.resize(static_cast<size_t>(parameter_size));
+
+        // finally bind the parameter
+        return_code = SQLBindParameter(
+            handle,
+            index,
+            io_type,
+            odbc_c_type,
+            odbc_sql_type,
+            val.size(),
+            0,
+            val.data(),
+            val.size(),
+            &output_buffer.back().buffer_size()
+        );
+        break;
+    }
+    return return_code;
 }
 
 // class definition
@@ -690,50 +913,18 @@ bool SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &bindi
 
     switch (family) {
     case BindingFamily::STRING_UTF8:
-        return_code = bind_string_utf8(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        return_code = bind_string<std::string, SQLCHAR>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
         break;
     case BindingFamily::STRING_UTF16:
-        return_code = bind_string_utf16(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        return_code = bind_string<std::wstring, SQLWCHAR>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
         break;
     case BindingFamily::NUMERIC:
         switch (binding.data_type()) {
         case SimpleSqlTypes::SimDataType::FLOAT:
-            return_code = bind_numeric<float>(
-                mp_stmt_handle.get(),
-                parameter_index,
-                io_type,
-                c_data_type,
-                sql_data_type,
-                binding,
-                m_output_buffer
-            );
+            return_code = bind_fixed_size<float>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
             break;
         case SimpleSqlTypes::SimDataType::DOUBLE:
-            return_code = bind_numeric<double>(
-                mp_stmt_handle.get(),
-                parameter_index,
-                io_type,
-                c_data_type,
-                sql_data_type,
-                binding,
-                m_output_buffer
-            );
+            return_code = bind_fixed_size<double>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
             break;
         default:
             error = std::string("cannot bind an undefined numeric type");
@@ -741,48 +932,58 @@ bool SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &bindi
         }
         break;
     case BindingFamily::BOOL_INT:
-        return_code = bind_bool_int(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        switch (binding.data_type()) {
+        case SimpleSqlTypes::SimDataType::BOOLEAN:
+            return_code = bind_fixed_size<bool>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::INT_8:
+            return_code = bind_fixed_size<int8_t>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::INT_16:
+            return_code = bind_fixed_size<int16_t>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::INT_32:
+            return_code = bind_fixed_size<int32_t>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::INT_64:
+            return_code = bind_fixed_size<int64_t>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        default:
+            error = std::string("cannot bind an undefined boolean/integer type");
+            return false;
+        }
         break;
     case BindingFamily::GUID:
-        return_code = bind_guid(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        switch (binding.data_type()) {
+        case SimpleSqlTypes::SimDataType::ODBC_GUID:
+            return_code = bind_odbc_guid(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::GUID:
+            return_code = bind_guid(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        default:
+            error = std::string("cannot bind an undefined GUID type");
+            return false;
+        }
         break;
     case BindingFamily::DATETIME:
-        return_code = bind_datetime(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        switch (binding.data_type()) {
+        case SimpleSqlTypes::SimDataType::DATETIME:
+            return_code = bind_datetime<SimpleSqlTypes::Datetime>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::DATE:
+            return_code = bind_datetime<SimpleSqlTypes::Date>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        case SimpleSqlTypes::SimDataType::TIME:
+            return_code = bind_datetime<SimpleSqlTypes::Time>(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
+            break;
+        default:
+            error = std::string("cannot bind an undefined date/time type");
+            return false;
+        }
         break;
     case BindingFamily::BLOB:
-        return_code = bind_blob(
-            mp_stmt_handle.get(),
-            parameter_index,
-            io_type,
-            c_data_type,
-            sql_data_type,
-            binding,
-            m_output_buffer
-        );
+        return_code = bind_blob(mp_stmt_handle.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_output_buffer);
         break;
     }
 
