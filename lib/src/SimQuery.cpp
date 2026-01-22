@@ -727,7 +727,7 @@ static SQLRETURN bind_blob(void* handle, const SQLUSMALLINT &index, const SQLSMA
 
 // class definition
 
-const uint8_t SimpleSql::SimQuery::define_columns() {
+uint8_t SimpleSql::SimQuery::define_columns() {
 
     auto get_columns = [&](SQLSMALLINT &column_count) -> uint8_t {
         for (SQLUSMALLINT i = 0; i < column_count; ++i) {
@@ -801,7 +801,7 @@ void SimpleSql::SimQuery::define_diagnostics() {
     m_diagnostic_record_number = current_record_number;
 }
 
-const bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void> &&stmt_handle) {
+bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void> &&stmt_handle) {
     if (!stmt_handle)
         return false;
 
@@ -813,7 +813,7 @@ std::unique_ptr<void> SimpleSql::SimQuery::return_handle() {
     return std::move(mp_stmt_handle);
 }
 
-const uint8_t SimpleSql::SimQuery::set_sql(const std::string &sql) {
+uint8_t SimpleSql::SimQuery::set_sql(const std::string &sql) {
     if (sql.empty())
         return SimpleSqlConstants::ReturnCodes::Q_EMPTY_SQL;
 
@@ -821,7 +821,7 @@ const uint8_t SimpleSql::SimQuery::set_sql(const std::string &sql) {
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const uint8_t SimpleSql::SimQuery::prepare() {
+uint8_t SimpleSql::SimQuery::prepare() {
 
     SQLCHAR* sql = reinterpret_cast<SQLCHAR*>(const_cast<char*>(m_sql.c_str()));
     SQLRETURN sr = SQLPrepare(mp_stmt_handle.get(), sql, SQL_NTS);
@@ -831,7 +831,7 @@ const uint8_t SimpleSql::SimQuery::prepare() {
     return define_columns();
 }
 
-const uint8_t SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &binding) {
+uint8_t SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQLBinding &binding) {
 
     SQLSMALLINT parameter_count;
     SQLRETURN sr = SQLNumParams(mp_stmt_handle.get(), &parameter_count);
@@ -1026,6 +1026,10 @@ const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_data() cons
         return v;
     }
     return m_matrix.cells();
+}
+
+std::vector<SimpleSqlTypes::SQLCell> SimpleSql::SimQuery::claim_data() {
+    return m_matrix.claim_cells();
 }
 
 void SimpleSql::SimQuery::destroy() {

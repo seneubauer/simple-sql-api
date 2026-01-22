@@ -41,7 +41,7 @@ namespace SimpleSql {
         SimpleSqlTypes::SQLCell m_invalid_cell;
 
         // get internal buffers
-        const uint8_t define_columns();
+        uint8_t define_columns();
         void define_diagnostics();
 
     public:
@@ -50,17 +50,17 @@ namespace SimpleSql {
         SimQuery& operator=(SimQuery&&) = default;
 
         // control ownership of statement handle
-        const bool has_handle() { return mp_stmt_handle != nullptr; }
-        const bool claim_handle(std::unique_ptr<void> &&stmt_handle);
+        const bool has_handle() const { return mp_stmt_handle != nullptr; }
+        bool claim_handle(std::unique_ptr<void> &&stmt_handle);
         std::unique_ptr<void> return_handle();
 
         // setting up the sql statement for execution
-        const uint8_t set_sql(const std::string &sql);
-        const uint8_t prepare();
-        const uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
+        uint8_t set_sql(const std::string &sql);
+        uint8_t prepare();
+        uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
 
         // property getters
-        const bool is_select() const { return m_is_select; }
+        bool is_select() const { return m_is_select; }
         const size_t& get_row_count() const;
         const size_t& get_column_count() const;
 

@@ -138,7 +138,7 @@ namespace SimpleSqlTypes {
     public:
         BaseTemporal(T&& t, const bool &is_utc) : m_temporal(std::move(t)), m_is_utc(is_utc) {}
         T& temporal() { return m_temporal; }
-        const bool is_utc() const { return m_is_utc; }
+        bool is_utc() const { return m_is_utc; }
     };
 
     struct Datetime : BaseTemporal<_Datetime> {
