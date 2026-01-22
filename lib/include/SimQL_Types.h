@@ -18,10 +18,9 @@ namespace SimpleSqlTypes {
     /* ENUMS */
 
     enum class NullRuleType : std::uint8_t {
-        NOT_SET             = 0,
-        UNKNOWN             = 1,
-        ALLOWED             = 2,
-        NOT_ALLOWED         = 3
+        UNKNOWN             = 0,
+        ALLOWED             = 1,
+        NOT_ALLOWED         = 2
     };
 
     enum class BindingType : std::uint8_t {
@@ -172,11 +171,11 @@ namespace SimpleSqlTypes {
         std::int16_t,
         std::int32_t,
         std::int64_t,
-        ODBC_GUID,
-        GUID,
-        Datetime,
-        Date,
-        Time,
+        SimpleSqlTypes::ODBC_GUID,
+        SimpleSqlTypes::GUID,
+        SimpleSqlTypes::Datetime,
+        SimpleSqlTypes::Date,
+        SimpleSqlTypes::Time,
         std::vector<std::uint8_t>>;
 
     struct SQLBinding {
@@ -194,8 +193,9 @@ namespace SimpleSqlTypes {
             const SimDataType &data_type,
             const bool &set_null = false
         ) : m_name(name), m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
+        ~SQLBinding() {}
         const std::string& name() const { return m_name; }
-        const SQLData& data() const { return m_data; }
+        SQLData& data() { return m_data; }
         const BindingType& type() const { return m_type; }
         const SimDataType& data_type() const { return m_data_type; }
         const bool& set_null() const { return m_set_null; } 
@@ -210,6 +210,7 @@ namespace SimpleSqlTypes {
             const SimpleSqlTypes::SQLBinding &binding,
             const size_t &buffer_size
         ) : m_binding(binding), m_buffer_size(buffer_size) {}
+        ~SQLBoundOutput() {}
         SQLBinding& binding() { return m_binding; }
         std::int64_t& buffer_size() { return m_buffer_size; }
     };
@@ -227,6 +228,7 @@ namespace SimpleSqlTypes {
             const SimDataType &data_type,
             const bool &is_null = false
         ) : m_data(data), m_data_type(data_type), m_is_null(is_null), m_is_valid(true) {}
+        ~SQLCell() {}
         const SQLData& data() const { return m_data; }
         const SimDataType& data_type() const { return m_data_type; }
         const bool& is_null() const { return m_is_null; }
@@ -246,6 +248,7 @@ namespace SimpleSqlTypes {
             const size_t &rows,
             const size_t &columns
         ) : m_cells(std::move(cells)), m_rows(rows), m_columns(columns), m_is_valid(true) {}
+        ~SQLMatrix() {}
         const std::vector<SQLCell>& cells() const { return m_cells; }
         const size_t& rows() const { return m_rows; }
         const size_t& columns() const { return m_columns; }

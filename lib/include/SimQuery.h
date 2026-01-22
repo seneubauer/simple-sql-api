@@ -27,6 +27,8 @@ namespace SimpleSql {
         // utility storage
         std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
         std::unordered_map<std::string, size_t> m_column_map;
+        mutable std::vector<SimpleSqlTypes::SQLCell> m_column;
+        mutable std::vector<SimpleSqlTypes::SQLCell> m_row;
 
         // index trackers
         std::int32_t m_diagnostic_record_number;
@@ -35,14 +37,18 @@ namespace SimpleSql {
         // idk just basic stuff
         bool m_is_select;
         std::string m_sql;
+
+        // invalid returns
         SimpleSqlTypes::SQLCell m_invalid_cell;
+        size_t m_invalid_count;
+        std::vector<SimpleSqlTypes::SQLCell> m_invalid_matrix;
 
         // get internal buffers
         std::uint8_t define_columns();
         void define_diagnostics();
 
     public:
-        SimQuery() : m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()) {}
+        SimQuery() : m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
         ~SimQuery() { destroy(); }
         SimQuery& operator=(SimQuery&&) = default;
 
@@ -54,12 +60,12 @@ namespace SimpleSql {
         // setting up the sql statement for execution
         std::uint8_t set_sql(const std::string &sql);
         std::uint8_t prepare();
-        std::uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
+        std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding &binding);
 
         // property getters
         bool is_select() const { return m_is_select; }
-        const size_t& get_row_count() const;
-        const size_t& get_column_count() const;
+        const size_t& get_row_count(bool &invalid) const;
+        const size_t& get_column_count(bool &invalid) const;
 
         // data getters
         const SimpleSqlTypes::SQLCell& get_cell(const std::string &key) const;

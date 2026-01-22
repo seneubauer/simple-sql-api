@@ -11,32 +11,33 @@ namespace SimpleSqlConstants {
     namespace ReturnCodes {
 
         // standard return codes
-        static constexpr std::uint8_t SUCCESS                    = 0;
-        static constexpr std::uint8_t UNKNOWN                    = 255;
+        static constexpr std::uint8_t SUCCESS                   = 0;
+        static constexpr std::uint8_t UNKNOWN                   = 255;
 
         // query return codes
-        static constexpr std::uint8_t Q_UNDEFINED_COLUMNS        = 1;
-        static constexpr std::uint8_t Q_CALC_COLUMNS             = 2;
-        static constexpr std::uint8_t Q_DUPLICATE_COLUMNS        = 3;
-        static constexpr std::uint8_t Q_EMPTY_SQL                = 4;
-        static constexpr std::uint8_t Q_PREPARE                  = 5;
-        static constexpr std::uint8_t Q_PARAMETER_CALC           = 6;
-        static constexpr std::uint8_t Q_NO_PARAMETERS            = 7;
-        static constexpr std::uint8_t Q_UNKNOWN_IO_TYPE          = 8;
-        static constexpr std::uint8_t Q_UNKNOWN_BINDING_FAMILY   = 9;
-        static constexpr std::uint8_t Q_UNKNOWN_SQL_C_TYPE       = 10;
-        static constexpr std::uint8_t Q_NUMERIC_BIND             = 11;
-        static constexpr std::uint8_t Q_BOOL_INT_BIND            = 12;
-        static constexpr std::uint8_t Q_GUID_BIND                = 13;
-        static constexpr std::uint8_t Q_DATETIME_BIND            = 14;
-        static constexpr std::uint8_t Q_BINDING                  = 15;
+        static constexpr std::uint8_t Q_UNDEFINED_COLUMNS       = 1;
+        static constexpr std::uint8_t Q_CALC_COLUMNS            = 2;
+        static constexpr std::uint8_t Q_DUPLICATE_COLUMNS       = 3;
+        static constexpr std::uint8_t Q_EMPTY_SQL               = 4;
+        static constexpr std::uint8_t Q_PREPARE                 = 5;
+        static constexpr std::uint8_t Q_PARAMETER_CALC          = 6;
+        static constexpr std::uint8_t Q_NO_PARAMETERS           = 7;
+        static constexpr std::uint8_t Q_UNKNOWN_IO_TYPE         = 8;
+        static constexpr std::uint8_t Q_UNKNOWN_BINDING_FAMILY  = 9;
+        static constexpr std::uint8_t Q_UNKNOWN_SQL_C_TYPE      = 10;
+        static constexpr std::uint8_t Q_NUMERIC_BIND            = 11;
+        static constexpr std::uint8_t Q_BOOL_INT_BIND           = 12;
+        static constexpr std::uint8_t Q_GUID_BIND               = 13;
+        static constexpr std::uint8_t Q_DATETIME_BIND           = 14;
+        static constexpr std::uint8_t Q_BINDING_NOT_SET         = 15;
+        static constexpr std::uint8_t Q_BINDING                 = 16;
 
         // database return codes
-        static constexpr std::uint8_t D_STMT_HANDLE_ASSIGNMENT   = 16;
-        static constexpr std::uint8_t D_ENV_HANDLE_ALLOC         = 17;
-        static constexpr std::uint8_t D_ODBC_VERSION3            = 18;
-        static constexpr std::uint8_t D_DBC_HANDLE_ALLOC         = 19;
-        static constexpr std::uint8_t D_CONNECTION               = 20;
+        static constexpr std::uint8_t D_STMT_HANDLE_ASSIGNMENT  = 17;
+        static constexpr std::uint8_t D_ENV_HANDLE_ALLOC        = 18;
+        static constexpr std::uint8_t D_ODBC_VERSION3           = 19;
+        static constexpr std::uint8_t D_DBC_HANDLE_ALLOC        = 20;
+        static constexpr std::uint8_t D_CONNECTION              = 21;
     }
     static std::unordered_map<std::uint8_t, std::string_view> return_code_definitions {
         {ReturnCodes::SUCCESS,                      std::string_view("process was successful")},
@@ -55,6 +56,7 @@ namespace SimpleSqlConstants {
         {ReturnCodes::Q_BOOL_INT_BIND,              std::string_view("cannot bind an unknown boolean or integer type")},
         {ReturnCodes::Q_GUID_BIND,                  std::string_view("cannot bind an unknown GUID type")},
         {ReturnCodes::Q_DATETIME_BIND,              std::string_view("cannot bind an unknown date/time type")},
+        {ReturnCodes::Q_BINDING_NOT_SET,            std::string_view("the binding family is undefined")},
         {ReturnCodes::Q_BINDING,                    std::string_view("could not bind the provided parameter")},
         {ReturnCodes::D_STMT_HANDLE_ASSIGNMENT,     std::string_view("could not assign the statement handle")},
         {ReturnCodes::D_ENV_HANDLE_ALLOC,           std::string_view("could not allocate the environment handle")},
