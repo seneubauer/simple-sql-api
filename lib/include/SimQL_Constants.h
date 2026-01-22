@@ -11,34 +11,34 @@ namespace SimpleSqlConstants {
     namespace ReturnCodes {
 
         // standard return codes
-        static constexpr uint8_t SUCCESS                    = 0;
-        static constexpr uint8_t UNKNOWN                    = 255;
+        static constexpr std::uint8_t SUCCESS                    = 0;
+        static constexpr std::uint8_t UNKNOWN                    = 255;
 
         // query return codes
-        static constexpr uint8_t Q_UNDEFINED_COLUMNS        = 1;
-        static constexpr uint8_t Q_CALC_COLUMNS             = 2;
-        static constexpr uint8_t Q_DUPLICATE_COLUMNS        = 3;
-        static constexpr uint8_t Q_EMPTY_SQL                = 4;
-        static constexpr uint8_t Q_PREPARE                  = 5;
-        static constexpr uint8_t Q_PARAMETER_CALC           = 6;
-        static constexpr uint8_t Q_NO_PARAMETERS            = 7;
-        static constexpr uint8_t Q_UNKNOWN_IO_TYPE          = 8;
-        static constexpr uint8_t Q_UNKNOWN_BINDING_FAMILY   = 9;
-        static constexpr uint8_t Q_UNKNOWN_SQL_C_TYPE       = 10;
-        static constexpr uint8_t Q_NUMERIC_BIND             = 11;
-        static constexpr uint8_t Q_BOOL_INT_BIND            = 12;
-        static constexpr uint8_t Q_GUID_BIND                = 13;
-        static constexpr uint8_t Q_DATETIME_BIND            = 14;
-        static constexpr uint8_t Q_BINDING                  = 15;
+        static constexpr std::uint8_t Q_UNDEFINED_COLUMNS        = 1;
+        static constexpr std::uint8_t Q_CALC_COLUMNS             = 2;
+        static constexpr std::uint8_t Q_DUPLICATE_COLUMNS        = 3;
+        static constexpr std::uint8_t Q_EMPTY_SQL                = 4;
+        static constexpr std::uint8_t Q_PREPARE                  = 5;
+        static constexpr std::uint8_t Q_PARAMETER_CALC           = 6;
+        static constexpr std::uint8_t Q_NO_PARAMETERS            = 7;
+        static constexpr std::uint8_t Q_UNKNOWN_IO_TYPE          = 8;
+        static constexpr std::uint8_t Q_UNKNOWN_BINDING_FAMILY   = 9;
+        static constexpr std::uint8_t Q_UNKNOWN_SQL_C_TYPE       = 10;
+        static constexpr std::uint8_t Q_NUMERIC_BIND             = 11;
+        static constexpr std::uint8_t Q_BOOL_INT_BIND            = 12;
+        static constexpr std::uint8_t Q_GUID_BIND                = 13;
+        static constexpr std::uint8_t Q_DATETIME_BIND            = 14;
+        static constexpr std::uint8_t Q_BINDING                  = 15;
 
         // database return codes
-        static constexpr uint8_t D_STMT_HANDLE_ASSIGNMENT   = 16;
-        static constexpr uint8_t D_ENV_HANDLE_ALLOC         = 17;
-        static constexpr uint8_t D_ODBC_VERSION3            = 18;
-        static constexpr uint8_t D_DBC_HANDLE_ALLOC         = 19;
-        static constexpr uint8_t D_CONNECTION               = 20;
+        static constexpr std::uint8_t D_STMT_HANDLE_ASSIGNMENT   = 16;
+        static constexpr std::uint8_t D_ENV_HANDLE_ALLOC         = 17;
+        static constexpr std::uint8_t D_ODBC_VERSION3            = 18;
+        static constexpr std::uint8_t D_DBC_HANDLE_ALLOC         = 19;
+        static constexpr std::uint8_t D_CONNECTION               = 20;
     }
-    static std::unordered_map<uint8_t, std::string_view> return_code_definitions {
+    static std::unordered_map<std::uint8_t, std::string_view> return_code_definitions {
         {ReturnCodes::SUCCESS,                      std::string_view("process was successful")},
         {ReturnCodes::UNKNOWN,                      std::string_view("fallback return code for undefined unsigned 8bit integers")},
         {ReturnCodes::Q_UNDEFINED_COLUMNS,          std::string_view("could not retrieve the column metadata from the database")},
@@ -62,16 +62,16 @@ namespace SimpleSqlConstants {
         {ReturnCodes::D_DBC_HANDLE_ALLOC,           std::string_view("could not allocate the connection handle")},
         {ReturnCodes::D_CONNECTION,                 std::string_view("could not open a connection to the database")}
     };
-    inline std::string_view& return_code_def(const uint8_t &return_code) {
+    inline std::string_view& return_code_def(const std::uint8_t &return_code) {
         auto it = return_code_definitions.find(return_code);
         if (it != return_code_definitions.end())
             return it->second;
         return return_code_definitions[ReturnCodes::UNKNOWN];
     }
 
-    // sets the upper limit for user defined statement pool size
-    static constexpr uint8_t max_parallel_query_count = 8;
-    static constexpr uint8_t max_statement_handle_pool_size = 16;
+    static constexpr std::uint8_t max_sql_column_name_size = 255;
+    static constexpr std::uint8_t max_parallel_query_count = 8;
+    static constexpr std::uint8_t max_statement_handle_pool_size = 16;
 
 }
 

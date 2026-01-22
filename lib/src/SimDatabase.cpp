@@ -15,9 +15,9 @@
 #include <condition_variable>
 
 // ODBC stuff
-#include <sql.h>
 #include <sqltypes.h>
 #include <sqlext.h>
+#include <sql.h>
 
 void SimpleSql::SimDatabase::remove_stmt_handle() {
 
@@ -105,12 +105,12 @@ void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery &query) {
     }
 }
 
-const uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
+const std::uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
 
     if (!assign_stmt_handle(query))
         return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
 
-    uint8_t rc = SimpleSqlConstants::ReturnCodes::SUCCESS;
+    std::uint8_t rc = SimpleSqlConstants::ReturnCodes::SUCCESS;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         // perform query execution
@@ -139,9 +139,9 @@ void SimpleSql::SimDatabase::process_async() {
     }
 }
 
-const uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
+const std::uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
 
-    uint8_t rc;
+    std::uint8_t rc;
     SQLRETURN sr;
     SQLCHAR* conn_str_in = const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(conn_str.c_str()));
     unsigned char conn_str_out[1024];
@@ -175,7 +175,7 @@ const uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
         goto free_dbc_handle;
     }
 
-    for (uint8_t i = 0; i < m_stmt_count; ++i) {
+    for (std::uint8_t i = 0; i < m_stmt_count; ++i) {
         SQLHANDLE h;
         sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
 
@@ -202,10 +202,10 @@ void SimpleSql::SimDatabase::disconnect() {
     
 }
 
-const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
+const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
 
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt);
-    uint8_t rc = connect(conn_str);
+    std::uint8_t rc = connect(conn_str);
     if (rc > 0)
         return rc;
 
@@ -213,10 +213,10 @@ const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
+const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
     
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt, username, password);
-    uint8_t rc = connect(conn_str);
+    std::uint8_t rc = connect(conn_str);
     if (rc > 0)
         return rc;
 
@@ -224,7 +224,7 @@ const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery &query) {
+const std::uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery &query) {
     if (!assign_stmt_handle(query))
         return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
 
@@ -243,7 +243,7 @@ void SimpleSql::SimDatabase::run_async(SimpleSql::SimQuery query) {
     m_cvar.notify_one();
 }
 
-void SimpleSql::SimDatabase::run_parallel(const uint8_t &max_concurrency, std::vector<SimpleSql::SimQuery> &queries) {
+void SimpleSql::SimDatabase::run_parallel(const std::uint8_t &max_concurrency, std::vector<SimpleSql::SimQuery> &queries) {
 
 }
 

@@ -17,20 +17,20 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
-    enum class NullRuleType : uint8_t {
+    enum class NullRuleType : std::uint8_t {
         NOT_SET             = 0,
         UNKNOWN             = 1,
         ALLOWED             = 2,
         NOT_ALLOWED         = 3
     };
 
-    enum class BindingType : uint8_t {
+    enum class BindingType : std::uint8_t {
         INPUT_OUTPUT        = 0,
         INPUT               = 1,
         OUTPUT              = 2
     };
 
-    enum class SimDataType : uint8_t {
+    enum class SimDataType : std::uint8_t {
         UNKNOWN             = 0,
         STRING_UTF8         = 1,
         STRING_UTF16        = 2,
@@ -51,76 +51,76 @@ namespace SimpleSqlTypes {
         BLOB                = 17,
         LONG_BLOB           = 18
     };
-    constexpr uint8_t operator^(SimDataType l, SimDataType r) {
-        return static_cast<uint8_t>(l) ^ static_cast<uint8_t>(r);
+    constexpr std::uint8_t operator^(SimDataType l, SimDataType r) {
+        return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
     }
 
     /* STRUCTS */
 
     struct ColumnMetadata {
     private:
-        uint16_t m_position;
+        std::uint16_t m_position;
         std::string m_name;
         SimDataType m_sim_data_type;
-        uint64_t m_data_size;
-        uint16_t m_precision;
+        std::uint64_t m_data_size;
+        std::uint16_t m_precision;
         NullRuleType m_null_rule;
     public:
         ColumnMetadata(
-            const uint16_t &position,
+            const std::uint16_t &position,
             const std::string &name,
             const SimDataType &sim_data_type,
-            const uint64_t &data_size,
-            const uint16_t &precision,
+            const std::uint64_t &data_size,
+            const std::uint16_t &precision,
             const NullRuleType &null_rule
         ) : m_position(position), m_name(name), m_sim_data_type(sim_data_type), m_data_size(data_size), m_precision(precision), m_null_rule(null_rule) {}
-        uint16_t position() const { return m_position; }
+        std::uint16_t position() const { return m_position; }
         std::string name() const { return m_name; }
         SimDataType sim_data_type() const { return m_sim_data_type; }
-        uint64_t data_size() const { return m_data_size; }
-        uint16_t precision() const { return m_precision; }
+        std::uint64_t data_size() const { return m_data_size; }
+        std::uint16_t precision() const { return m_precision; }
         NullRuleType null_rule() const { return m_null_rule; }
     };
 
     struct DiagnosticRecord {
     private:
-        int16_t m_record_number;
+        std::int16_t m_record_number;
         std::string m_sql_state;
-        int32_t m_native_error;
+        std::int32_t m_native_error;
         std::string m_message;
     public:
         DiagnosticRecord(
-            const int16_t &record_number,
+            const std::int16_t &record_number,
             const std::string &sql_state,
-            const int32_t &native_error,
+            const std::int32_t &native_error,
             const std::string &message
         ) : m_record_number(record_number), m_sql_state(sql_state), m_native_error(native_error), m_message(message) {}
-        int16_t record_number() const { return m_record_number; }
+        std::int16_t record_number() const { return m_record_number; }
         std::string sql_state() const { return m_sql_state; }
-        int32_t native_error() const { return m_native_error; }
+        std::int32_t native_error() const { return m_native_error; }
         std::string message() const { return m_message; }
     };
 
     struct _Datetime {
-        int16_t year;
-        uint16_t month;
-        uint16_t day;
-        uint16_t hour;
-        uint16_t minute;
-        uint16_t second;
-        uint32_t fraction;
+        std::int16_t year;
+        std::uint16_t month;
+        std::uint16_t day;
+        std::uint16_t hour;
+        std::uint16_t minute;
+        std::uint16_t second;
+        std::uint32_t fraction;
     };
 
     struct _Date {
-        int16_t year;
-        uint16_t month;
-        uint16_t day;
+        std::int16_t year;
+        std::uint16_t month;
+        std::uint16_t day;
     };
 
     struct _Time {
-        uint16_t hour;
-        uint16_t minute;
-        uint16_t second;
+        std::uint16_t hour;
+        std::uint16_t minute;
+        std::uint16_t second;
     };
 
     template<typename T>
@@ -154,13 +154,13 @@ namespace SimpleSqlTypes {
     };
 
     struct ODBC_GUID {
-        uint32_t Data1;
-        uint16_t Data2;
-        uint16_t Data3;
-        uint8_t Data4[8];
+        std::uint32_t Data1;
+        std::uint16_t Data2;
+        std::uint16_t Data3;
+        std::uint8_t Data4[8];
     };
 
-    using GUID = std::array<uint8_t, 16>;
+    using GUID = std::array<std::uint8_t, 16>;
 
     using SQLData = std::variant<
         std::string,
@@ -168,16 +168,16 @@ namespace SimpleSqlTypes {
         float,
         double,
         bool,
-        int8_t,
-        int16_t,
-        int32_t,
-        int64_t,
+        std::int8_t,
+        std::int16_t,
+        std::int32_t,
+        std::int64_t,
         ODBC_GUID,
         GUID,
         Datetime,
         Date,
         Time,
-        std::vector<uint8_t>>;
+        std::vector<std::uint8_t>>;
 
     struct SQLBinding {
     private:

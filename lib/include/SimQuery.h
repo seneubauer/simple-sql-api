@@ -15,9 +15,6 @@ namespace SimpleSql {
     class SimQuery {
     private:
 
-        // constants
-        static constexpr uint16_t cm_colname_size = 256U;
-
         // handles
         std::unique_ptr<void> mp_stmt_handle;
 
@@ -32,8 +29,8 @@ namespace SimpleSql {
         std::unordered_map<std::string, size_t> m_column_map;
 
         // index trackers
-        int32_t m_diagnostic_record_number;
-        uint32_t m_binding_index;
+        std::int32_t m_diagnostic_record_number;
+        std::uint32_t m_binding_index;
 
         // idk just basic stuff
         bool m_is_select;
@@ -41,23 +38,23 @@ namespace SimpleSql {
         SimpleSqlTypes::SQLCell m_invalid_cell;
 
         // get internal buffers
-        uint8_t define_columns();
+        std::uint8_t define_columns();
         void define_diagnostics();
 
     public:
-        SimQuery() : m_diagnostic_record_number(1), m_binding_index(1), m_matrix(SimpleSqlTypes::SQLMatrix()), m_invalid_cell(SimpleSqlTypes::SQLCell()) {}
+        SimQuery() : m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()) {}
         ~SimQuery() { destroy(); }
         SimQuery& operator=(SimQuery&&) = default;
 
         // control ownership of statement handle
-        const bool has_handle() const { return mp_stmt_handle != nullptr; }
+        bool has_handle() const { return mp_stmt_handle != nullptr; }
         bool claim_handle(std::unique_ptr<void> &&stmt_handle);
         std::unique_ptr<void> return_handle();
 
         // setting up the sql statement for execution
-        uint8_t set_sql(const std::string &sql);
-        uint8_t prepare();
-        uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
+        std::uint8_t set_sql(const std::string &sql);
+        std::uint8_t prepare();
+        std::uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
 
         // property getters
         bool is_select() const { return m_is_select; }
