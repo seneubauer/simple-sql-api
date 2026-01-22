@@ -37,12 +37,11 @@ namespace SimpleSql {
 
         // idk just basic stuff
         bool m_is_select;
-        bool m_info_pending;
         std::string m_sql;
         SimpleSqlTypes::SQLCell m_invalid_cell;
 
         // get internal buffers
-        bool define_columns(std::string &error);
+        const uint8_t define_columns();
         void define_diagnostics();
 
     public:
@@ -52,13 +51,13 @@ namespace SimpleSql {
 
         // control ownership of statement handle
         const bool has_handle() { return mp_stmt_handle != nullptr; }
-        bool claim_handle(std::unique_ptr<void> &&stmt_handle, std::string &error);
+        const bool claim_handle(std::unique_ptr<void> &&stmt_handle);
         std::unique_ptr<void> return_handle();
 
         // setting up the sql statement for execution
-        bool set_sql(const std::string &sql, std::string &error);
-        bool prepare(std::string &error);
-        bool bind_parameter(const SimpleSqlTypes::SQLBinding &binding, std::string &error);
+        const uint8_t set_sql(const std::string &sql);
+        const uint8_t prepare();
+        const uint8_t bind_parameter(const SimpleSqlTypes::SQLBinding &binding);
 
         // property getters
         const bool is_select() const { return m_is_select; }

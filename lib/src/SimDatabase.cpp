@@ -19,22 +19,37 @@
 #include <sqltypes.h>
 #include <sqlext.h>
 
+void SimpleSql::SimDatabase::remove_stmt_handle() {
+
+    // run the statement pool listener
+    (*mp_stmt_pool_listener)();
+
+    // this is the last statement, run object shutdown
+    if (m_stmt_vector.size() == 1)
+        stop();
+
+    // remove handle from the vector
+    m_stmt_vector.erase(m_stmt_vector.begin() + m_stmt_index);
+    if (m_stmt_index >= m_stmt_vector.size())
+        m_stmt_index = 0;
+}
+
 const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (!query.claim_handle(std::move(m_stmt_vector[m_stmt_index]), m_last_error)) {
+    if (!query.claim_handle(std::move(m_stmt_vector[m_stmt_index]))) {
+
+        // the handle could not be moved b/c it is null, so try to make a new one it its place
         SQLHANDLE h;
-        SQLRETURN return_code = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
-        if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-            m_last_error = std::string("could not repair broken statement handle");
-            return false;
-        }
+        SQLRETURN sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
+        if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+            remove_stmt_handle();
+
+        // assign the new handle to the vector
         m_stmt_vector[m_stmt_index] = std::unique_ptr<void>(h);
-        if (!query.claim_handle(std::move(m_stmt_vector[m_stmt_index]), m_last_error)) {
-            m_last_error = std::string("a broken statement handle was repaired but could not be assigned");
-            return false;
-        }
+        query.claim_handle(std::move(m_stmt_vector[m_stmt_index]));
     }
 
+    // advance to the next index so the next assignment starts on the next handle
     m_stmt_index++;
     if (m_stmt_index >= m_stmt_vector.size())
         m_stmt_index = 0;
@@ -42,49 +57,70 @@ const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query
     return true;
 }
 
-const bool SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery &query) {
+void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery &query) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_stmt_vector[m_stmt_index] = query.return_handle();
 
-    SQLRETURN return_code;
-    return_code = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_CLOSE);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        m_last_error = std::string("could not close the recycled statement handle");
-        return false;
+    auto make_stmt_handle = [&](SQLHANDLE &h) -> bool {
+        SQLRETURN sr;
+        sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
+        if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+            return false;
+
+        return true;
+    };
+
+    SQLRETURN sr;
+    sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_CLOSE);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        SQLHANDLE h;
+        if (!make_stmt_handle(h)) {
+            remove_stmt_handle();
+            return;
+        }
+        m_stmt_vector[m_stmt_index].reset(h);
+        return;
     }
 
-    SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_RESET_PARAMS);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        m_last_error = std::string("could not reset the statement handle parameter(s)");
-        return false;
+    sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_RESET_PARAMS);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        SQLHANDLE h;
+        if (!make_stmt_handle(h)) {
+            remove_stmt_handle();
+            return;
+        }
+        m_stmt_vector[m_stmt_index].reset(h);
+        return;
     }
 
-    SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_UNBIND);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        m_last_error = std::string("could not unbind the statement handle");
-        return false;
+    sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_UNBIND);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        SQLHANDLE h;
+        if (!make_stmt_handle(h)) {
+            remove_stmt_handle();
+            return;
+        }
+        m_stmt_vector[m_stmt_index].reset(h);
+        return;
     }
-
-    return true;
 }
 
-const bool SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
+const uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
 
-    bool return_state = assign_stmt_handle(query);
-    if (!return_state)
-        goto listener_emit;
+    if (!assign_stmt_handle(query))
+        return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
 
+    uint8_t rc = SimpleSqlConstants::ReturnCodes::SUCCESS;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        return_state = true; // perform query execution
+        // perform query execution
     }
-    return_state = reclaim_stmt_handle(query);
+    reclaim_stmt_handle(query);
 
-    listener_emit:
-    if (mp_listener)
-        (*mp_listener)(std::move(query));
+    if (mp_query_listener)
+        (*mp_query_listener)(std::move(query));
 
-    return return_state;
+    return rc;
 }
 
 void SimpleSql::SimDatabase::process_async() {
@@ -103,46 +139,47 @@ void SimpleSql::SimDatabase::process_async() {
     }
 }
 
-bool SimpleSql::SimDatabase::connect(std::string &conn_str, std::string &error) {
+const uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
 
-    SQLRETURN return_code;
+    uint8_t rc;
+    SQLRETURN sr;
     SQLCHAR* conn_str_in = const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(conn_str.c_str()));
     unsigned char conn_str_out[1024];
 
     SQLHANDLE env;
-    return_code = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        error = std::string("could not allocate the environment handle");
+    sr = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        rc = SimpleSqlConstants::ReturnCodes::D_ENV_HANDLE_ALLOC;
         goto end_of_function;
     }
     h_env = std::unique_ptr<void>(env);
 
-    return_code = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        error = std::string("could not set ODBC version to 3");
+    sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        rc = SimpleSqlConstants::ReturnCodes::D_ODBC_VERSION3;
         goto free_env_handle;
     }
 
     SQLHANDLE dbc;
-    return_code = SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        error = std::string("could not allocate the connection handle");
+    sr = SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        rc = SimpleSqlConstants::ReturnCodes::D_DBC_HANDLE_ALLOC;
         goto free_dbc_handle;
     }
     h_dbc = std::unique_ptr<void>(dbc);
 
     SQLSMALLINT conn_str_out_len;
-    return_code = SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT);
-    if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
-        error = std::string("could not open a connection");
+    sr = SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT);
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        rc = SimpleSqlConstants::ReturnCodes::D_CONNECTION;
         goto free_dbc_handle;
     }
 
     for (uint8_t i = 0; i < m_stmt_count; ++i) {
         SQLHANDLE h;
-        return_code = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
+        sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
 
-        if (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) {
+        if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
             m_skipped++;
             continue;
         }
@@ -150,7 +187,7 @@ bool SimpleSql::SimDatabase::connect(std::string &conn_str, std::string &error) 
     }
 
     end_of_function:
-    return true;
+    return SimpleSqlConstants::ReturnCodes::SUCCESS;
 
     free_dbc_handle:
     SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());
@@ -158,7 +195,7 @@ bool SimpleSql::SimDatabase::connect(std::string &conn_str, std::string &error) 
     free_env_handle:
     SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
 
-    return false;
+    return rc;
 }
 
 void SimpleSql::SimDatabase::disconnect() {
@@ -168,40 +205,34 @@ void SimpleSql::SimDatabase::disconnect() {
 const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
 
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt);
-    if (!connect(conn_str, m_last_error))
-        return false;
+    uint8_t rc = connect(conn_str);
+    if (rc > 0)
+        return rc;
 
     m_thread = std::thread(&SimpleSql::SimDatabase::process_async, this);
-    return true;
+    return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
 const uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
     
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt, username, password);
-    if (!connect(conn_str, m_last_error))
-        return false;
+    uint8_t rc = connect(conn_str);
+    if (rc > 0)
+        return rc;
 
     m_thread = std::thread(&SimpleSql::SimDatabase::process_async, this);
-    return true;
+    return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
 const uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery &query) {
-    // process the query with the native thread
-
-    uint8_t return_code;
-
-    if (!assign_stmt_handle(query)) {
-        return_code = 0;
-        goto end_of_function;
-    }
-        
+    if (!assign_stmt_handle(query))
+        return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
 
     // run the query
 
     reclaim_stmt_handle(query);
 
-    end_of_function:
-    return return_state;
+    return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
 void SimpleSql::SimDatabase::run_async(SimpleSql::SimQuery query) {
@@ -229,5 +260,9 @@ void SimpleSql::SimDatabase::stop() {
 }
 
 void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> p_listener) {
-    mp_listener = std::move(p_listener);
+    mp_query_listener = std::move(p_listener);
+}
+
+void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void()>> p_listener) {
+    mp_stmt_pool_listener = std::move(p_listener);
 }
