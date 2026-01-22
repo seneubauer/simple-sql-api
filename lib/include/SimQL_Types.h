@@ -204,14 +204,14 @@ namespace SimpleSqlTypes {
     struct SQLBoundOutput {
     private:
         SQLBinding m_binding;
-        size_t m_buffer_size;
+        std::int64_t m_buffer_size;
     public:
         SQLBoundOutput(
             const SimpleSqlTypes::SQLBinding &binding,
             const size_t &buffer_size
         ) : m_binding(binding), m_buffer_size(buffer_size) {}
         SQLBinding& binding() { return m_binding; }
-        size_t& buffer_size() { return m_buffer_size; }
+        std::int64_t& buffer_size() { return m_buffer_size; }
     };
 
     struct SQLCell {
