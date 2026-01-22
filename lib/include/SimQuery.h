@@ -48,8 +48,10 @@ namespace SimpleSql {
     public:
         SimQuery() : m_diagnostic_record_number(1), m_binding_index(1), m_matrix(SimpleSqlTypes::SQLMatrix()), m_invalid_cell(SimpleSqlTypes::SQLCell()) {}
         ~SimQuery() { destroy(); }
+        SimQuery& operator=(SimQuery&&) = default;
 
         // control ownership of statement handle
+        const bool has_handle() { return mp_stmt_handle != nullptr; }
         bool claim_handle(std::unique_ptr<void> &&stmt_handle, std::string &error);
         std::unique_ptr<void> return_handle();
 

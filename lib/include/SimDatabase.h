@@ -23,6 +23,9 @@ namespace SimpleSql {
     class SimDatabase {
     private:
 
+        // utility
+        std::string m_last_error;
+
         // handles
         std::unique_ptr<void> h_env;
         std::unique_ptr<void> h_dbc;
@@ -34,32 +37,37 @@ namespace SimpleSql {
         std::vector<std::unique_ptr<void>> m_stmt_vector;
 
         // async members
-        std::shared_ptr<std::function<void(const SimpleSql::SimQuery &query)>> mp_listener;
+        std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> mp_listener;
         std::queue<SimpleSql::SimQuery> m_queries;
         std::mutex m_mutex;
         std::thread m_thread;
         std::atomic<bool> m_in_progress;
         std::condition_variable m_cvar;
 
-        // async functions
-        void process();
+        // statement functions
+        const bool assign_stmt_handle(SimpleSql::SimQuery &query);
+        const bool reclaim_stmt_handle(SimpleSql::SimQuery &query);
+
+        // processing functions
+        const bool run_query(SimpleSql::SimQuery&& query);
+        void process_async();
 
         // utility functions
         bool connect(std::string &conn_str, std::string &error);
         void disconnect();
 
     public:
-        SimDatabase(const uint8_t &stmt_count) : m_stmt_count(stmt_count), m_skipped(0) {}
+        SimDatabase(const uint8_t &stmt_count) : m_stmt_count(stmt_count), m_skipped(0), m_in_progress(true), mp_listener(nullptr) {}
         ~SimDatabase() { stop(); }
 
-        bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, std::string &error);
-        bool start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password, std::string &error);
-        bool run_sync(SimpleSql::SimQuery &_query);
-        void run_async(std::shared_ptr<SimpleSql::SimQuery> _query);
+        const std::string& last_error() const { return m_last_error; }
+        const uint8_t start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt);
+        const uint8_t start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password);
+        const uint8_t run_sync(SimpleSql::SimQuery &query);
+        void run_async(SimpleSql::SimQuery query);
         void run_parallel(const uint8_t &max_concurrency, std::vector<SimpleSql::SimQuery> &queries);
         void stop();
-        void listen(std::shared_ptr<std::function<void(const SimpleSql::SimQuery &query)>> p_listener);
-
+        void listen(std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> p_listener);
     };
 }
 
