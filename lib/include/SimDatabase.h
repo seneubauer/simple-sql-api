@@ -4,6 +4,7 @@
 // SimQL stuff
 #include <SimQuery.h>
 #include <SimQL_Types.h>
+#include <SimQL_Utility.h>
 #include <SimQL_Constants.h>
 
 // STL stuff
@@ -24,14 +25,14 @@ namespace SimpleSql {
     private:
 
         // handles
-        std::unique_ptr<void> h_env;
-        std::unique_ptr<void> h_dbc;
+        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> h_env;
+        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> h_dbc;
 
         // statement members
         std::uint8_t m_stmt_index;
         std::uint8_t m_stmt_count;
         std::uint8_t m_skipped;
-        std::vector<std::unique_ptr<void>> m_stmt_vector;
+        std::vector<std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>> m_stmt_vector;
 
         // listeners
         std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> mp_query_listener;

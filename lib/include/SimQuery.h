@@ -3,6 +3,7 @@
 
 // SimQL stuff
 #include <SimQL_Types.h>
+#include <SimQL_Utility.h>
 
 // STL stuff
 #include <unordered_map>
@@ -16,7 +17,7 @@ namespace SimpleSql {
     private:
 
         // handles
-        std::unique_ptr<void> mp_stmt_handle;
+        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> mp_stmt_handle;
 
         // data storage
         SimpleSqlTypes::SQLMatrix m_matrix;
@@ -54,8 +55,8 @@ namespace SimpleSql {
 
         // control ownership of statement handle
         bool has_handle() const { return mp_stmt_handle != nullptr; }
-        bool claim_handle(std::unique_ptr<void> &&stmt_handle);
-        std::unique_ptr<void> return_handle();
+        bool claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> &&stmt_handle);
+        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> return_handle();
 
         // setting up the sql statement for execution
         std::uint8_t set_sql(const std::string &sql);

@@ -92,7 +92,7 @@ const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query
             remove_stmt_handle();
 
         // assign the new handle to the vector
-        m_stmt_vector[m_stmt_index] = std::unique_ptr<void>(h);
+        m_stmt_vector[m_stmt_index] = std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>(h);
         query.claim_handle(std::move(m_stmt_vector[m_stmt_index]));
     }
 
@@ -199,7 +199,7 @@ const std::uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
         rc = SimpleSqlConstants::ReturnCodes::D_ENV_HANDLE_ALLOC;
         goto end_of_function;
     }
-    h_env = std::unique_ptr<void>(env);
+    h_env = std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>(env);
 
     sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
@@ -213,7 +213,7 @@ const std::uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
         rc = SimpleSqlConstants::ReturnCodes::D_DBC_HANDLE_ALLOC;
         goto free_dbc_handle;
     }
-    h_dbc = std::unique_ptr<void>(dbc);
+    h_dbc = std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>(dbc);
 
     SQLSMALLINT conn_str_out_len;
     sr = SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT);
@@ -230,7 +230,7 @@ const std::uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
             m_skipped++;
             continue;
         }
-        m_stmt_vector.push_back(std::unique_ptr<void>(h));
+        m_stmt_vector.push_back(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>(h));
     }
 
     end_of_function:

@@ -4,8 +4,11 @@
 // STL stuff
 #include <string>
 #include <format>
+#include <cstdlib>
 
 namespace SimpleSqlUtility {
+
+    struct HandleDeleter { void operator()(void* p) const { std::free(p); } };
 
     inline std::string connection_string(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
         std::string conn_str = "";
