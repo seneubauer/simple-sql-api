@@ -1,9 +1,9 @@
-#include <SimDatabase.h>
-#include <SimQuery.h>
-#include <SimQL_Constants.h>
+#include <SimDatabase.hpp>
+#include <SimQuery.hpp>
+#include <SimQL_Constants.hpp>
 #include <string>
 #include <cstdint>
-#include <secrets.h>
+#include <secrets.hpp>
 #include <iostream>
 
 int main() {

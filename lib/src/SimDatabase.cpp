@@ -1,9 +1,9 @@
 // SimQL stuff
-#include <SimDatabase.h>
-#include <SimQuery.h>
-#include <SimQL_Types.h>
-#include <SimQL_Utility.h>
-#include <SimQL_Constants.h>
+#include <SimDatabase.hpp>
+#include <SimQuery.hpp>
+#include <SimQL_Types.hpp>
+#include <SimQL_Utility.hpp>
+#include <SimQL_Constants.hpp>
 
 // STL stuff
 #include <memory>

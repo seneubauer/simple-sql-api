@@ -12,8 +12,17 @@
 #include <array>
 #include <span>
 #include <concepts>
+#include <memory>
+#include <cstdlib>
 
 namespace SimpleSqlTypes {
+
+    /* HANDLES */
+
+    struct HandleDeleter { void operator()(void* p) const { std::free(p); } };
+    using STMT_HANDLE = std::unique_ptr<void, HandleDeleter>;
+    using DBC_HANDLE = std::unique_ptr<void, HandleDeleter>;
+    using ENV_HANDLE = std::unique_ptr<void, HandleDeleter>;
 
     /* ENUMS */
 

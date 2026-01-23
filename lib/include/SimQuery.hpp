@@ -2,8 +2,8 @@
 #define SimQuery_header_h
 
 // SimQL stuff
-#include <SimQL_Types.h>
-#include <SimQL_Utility.h>
+#include <SimQL_Types.hpp>
+#include <SimQL_Utility.hpp>
 
 // STL stuff
 #include <unordered_map>
