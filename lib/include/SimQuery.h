@@ -36,6 +36,7 @@ namespace SimpleSql {
         std::uint32_t m_binding_index;
 
         // idk just basic stuff
+        bool m_is_valid;
         bool m_is_select;
         std::string m_sql;
 
@@ -55,26 +56,27 @@ namespace SimpleSql {
 
         // control ownership of statement handle
         bool has_handle() const { return mp_stmt_handle != nullptr; }
-        bool claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> &&stmt_handle);
+        bool claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>&& stmt_handle);
         std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> return_handle();
 
         // setting up the sql statement for execution
-        std::uint8_t set_sql(const std::string &sql);
+        std::uint8_t set_sql(const std::string& sql);
         std::uint8_t prepare();
-        std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding &binding);
+        std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding& binding);
 
         // property getters
+        bool is_valid() const { return m_is_valid; }
         bool is_select() const { return m_is_select; }
-        const size_t& get_row_count(bool &invalid) const;
-        const size_t& get_column_count(bool &invalid) const;
+        const size_t& get_row_count(bool& invalid) const;
+        const size_t& get_column_count(bool& invalid) const;
 
         // data getters
-        const SimpleSqlTypes::SQLCell& get_cell(const std::string &key) const;
-        const SimpleSqlTypes::SQLCell& get_cell(const std::string &column, const size_t &row) const;
-        const SimpleSqlTypes::SQLCell& get_cell(const size_t &column, const size_t &row) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const std::string &column) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const size_t &column) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_row(const size_t &row) const;
+        const SimpleSqlTypes::SQLCell& get_cell(const std::string& key) const;
+        const SimpleSqlTypes::SQLCell& get_cell(const std::string& column, const size_t& row) const;
+        const SimpleSqlTypes::SQLCell& get_cell(const size_t& column, const size_t& row) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const std::string& column) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const size_t& column) const;
+        const std::vector<SimpleSqlTypes::SQLCell>& get_row(const size_t& row) const;
         const std::vector<SimpleSqlTypes::SQLCell>& get_data() const;
         std::vector<SimpleSqlTypes::SQLCell> claim_data();
 

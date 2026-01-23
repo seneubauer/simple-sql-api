@@ -98,7 +98,7 @@ concept fixed_size = requires(T& t) {
 
 // helper functions
 
-static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType &data_type, SQLSMALLINT &odbc_c_type, SQLSMALLINT &odbc_sql_type) {
+static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType& data_type, SQLSMALLINT& odbc_c_type, SQLSMALLINT& odbc_sql_type) {
 
     switch (data_type) {
     case SimpleSqlTypes::SimDataType::STRING_UTF8:
@@ -179,7 +179,7 @@ static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType &data_type, SQ
     return true;
 }
 
-static bool get_binding_family(const SimpleSqlTypes::SimDataType &data_type, BindingFamily &family) {
+static bool get_binding_family(const SimpleSqlTypes::SimDataType& data_type, BindingFamily& family) {
 
     family = BindingFamily::NOT_SET;
 
@@ -221,7 +221,7 @@ static bool get_binding_family(const SimpleSqlTypes::SimDataType &data_type, Bin
     return true;
 }
 
-static bool get_io_type(const SimpleSqlTypes::BindingType &binding_type, SQLSMALLINT &output) {
+static bool get_io_type(const SimpleSqlTypes::BindingType& binding_type, SQLSMALLINT& output) {
     switch (binding_type) {
     case SimpleSqlTypes::BindingType::INPUT_OUTPUT:         output = SQL_PARAM_INPUT_OUTPUT; break;
     case SimpleSqlTypes::BindingType::INPUT:                output = SQL_PARAM_INPUT; break;
@@ -231,7 +231,7 @@ static bool get_io_type(const SimpleSqlTypes::BindingType &binding_type, SQLSMAL
     return true;
 }
 
-static SimpleSqlTypes::SimDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT &data_type) {
+static SimpleSqlTypes::SimDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT& data_type) {
     switch (data_type) {
     case SQL_CHAR:                      return SimpleSqlTypes::SimDataType::STRING_UTF8;
     case SQL_VARCHAR:                   return SimpleSqlTypes::SimDataType::STRING_UTF8;
@@ -257,7 +257,7 @@ static SimpleSqlTypes::SimDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT &da
     }
 }
 
-static SimpleSqlTypes::NullRuleType ODBC_NULL_to_NullRuleType(const SQLSMALLINT &null_type) {
+static SimpleSqlTypes::NullRuleType ODBC_NULL_to_NullRuleType(const SQLSMALLINT& null_type) {
     switch (null_type) {
     case SQL_NO_NULLS:                  return SimpleSqlTypes::NullRuleType::NOT_ALLOWED;
     case SQL_NULLABLE:                  return SimpleSqlTypes::NullRuleType::ALLOWED;
@@ -266,7 +266,7 @@ static SimpleSqlTypes::NullRuleType ODBC_NULL_to_NullRuleType(const SQLSMALLINT 
     }
 }
 
-static bool infer_parameter_metadata(void* handle, const SQLUSMALLINT &parameter_index, SQLULEN &size, SQLSMALLINT &precision) {
+static bool infer_parameter_metadata(void* handle, const SQLUSMALLINT& parameter_index, SQLULEN& size, SQLSMALLINT& precision) {
     SQLSMALLINT data_type;
     SQLSMALLINT null_rule;
     switch (SQLDescribeParam(handle, parameter_index, &data_type, &size, &precision, &null_rule)) {
@@ -282,7 +282,7 @@ static bool infer_parameter_metadata(void* handle, const SQLUSMALLINT &parameter
 }
 
 template<string_like T, typename SQL_CHARACTER_TYPE>
-static SQLRETURN bind_string(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_string(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     T& val = std::get<T>(binding.data());
     SQLULEN parameter_size;
@@ -384,7 +384,7 @@ static SQLRETURN bind_string(void* handle, const SQLUSMALLINT &index, const SQLS
 }
 
 template<fixed_size T>
-static SQLRETURN bind_fixed_size(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_fixed_size(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     SQLLEN indicator;
     T& val = std::get<T>(binding.data());
@@ -457,7 +457,7 @@ static SQLRETURN bind_fixed_size(void* handle, const SQLUSMALLINT &index, const 
     return return_code;
 }
 
-static SQLRETURN bind_odbc_guid(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_odbc_guid(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     SQLLEN indicator;
     SimpleSqlTypes::ODBC_GUID& val = std::get<SimpleSqlTypes::ODBC_GUID>(binding.data());
@@ -530,7 +530,7 @@ static SQLRETURN bind_odbc_guid(void* handle, const SQLUSMALLINT &index, const S
     return return_code;
 }
 
-static SQLRETURN bind_guid(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_guid(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     SQLLEN indicator;
     SimpleSqlTypes::GUID& val = std::get<SimpleSqlTypes::GUID>(binding.data());
@@ -604,7 +604,7 @@ static SQLRETURN bind_guid(void* handle, const SQLUSMALLINT &index, const SQLSMA
 }
 
 template<SimpleSqlTypes::temporal_types T>
-static SQLRETURN bind_datetime(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_datetime(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     SQLLEN indicator;
     T& val = std::get<T>(binding.data());
@@ -677,7 +677,7 @@ static SQLRETURN bind_datetime(void* handle, const SQLUSMALLINT &index, const SQ
     return return_code;
 }
 
-static SQLRETURN bind_blob(void* handle, const SQLUSMALLINT &index, const SQLSMALLINT &io_type, const SQLSMALLINT &odbc_c_type, const SQLSMALLINT &odbc_sql_type, SimpleSqlTypes::SQLBinding &binding, std::vector<SimpleSqlTypes::SQLBoundOutput> &output_buffer) {
+static SQLRETURN bind_blob(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& output_buffer) {
 
     SQLLEN indicator;
     std::vector<std::uint8_t>& val = std::get<std::vector<std::uint8_t>>(binding.data());
@@ -840,7 +840,7 @@ void SimpleSql::SimQuery::define_diagnostics() {
     m_diagnostic_record_number = current_record_number;
 }
 
-bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> &&stmt_handle) {
+bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>&& stmt_handle) {
     if (!stmt_handle)
         return false;
 
@@ -852,7 +852,7 @@ std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> SimpleSql::SimQuery::retu
     return std::move(mp_stmt_handle);
 }
 
-std::uint8_t SimpleSql::SimQuery::set_sql(const std::string &sql) {
+std::uint8_t SimpleSql::SimQuery::set_sql(const std::string& sql) {
     if (sql.empty())
         return SimpleSqlConstants::ReturnCodes::Q_EMPTY_SQL;
 
@@ -870,7 +870,7 @@ std::uint8_t SimpleSql::SimQuery::prepare() {
     return define_columns();
 }
 
-std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding &binding) {
+std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& binding) {
 
     SQLSMALLINT parameter_count;
     SQLRETURN sr = SQLNumParams(mp_stmt_handle.get(), &parameter_count);
@@ -976,7 +976,7 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding &bin
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const size_t& SimpleSql::SimQuery::get_row_count(bool &invalid) const {
+const size_t& SimpleSql::SimQuery::get_row_count(bool& invalid) const {
     if (!m_matrix.is_valid()) {
         invalid = true;
         return m_invalid_count;
@@ -986,7 +986,7 @@ const size_t& SimpleSql::SimQuery::get_row_count(bool &invalid) const {
     return m_matrix.rows();
 }
 
-const size_t& SimpleSql::SimQuery::get_column_count(bool &invalid) const {
+const size_t& SimpleSql::SimQuery::get_column_count(bool& invalid) const {
     if (!m_matrix.is_valid()) {
         invalid = true;
         return m_invalid_count;
@@ -996,7 +996,7 @@ const size_t& SimpleSql::SimQuery::get_column_count(bool &invalid) const {
     return m_matrix.columns();
 }
 
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &key) const {
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string& key) const {
     auto iterator = m_key_data.find(key);
     if (iterator != m_key_data.end()) {
         return iterator->second;
@@ -1005,7 +1005,7 @@ const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &
     }
 }
 
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &column, const size_t &row) const {
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string& column, const size_t& row) const {
     if (!m_matrix.is_valid())
         return m_invalid_cell;
 
@@ -1017,14 +1017,14 @@ const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string &
     return get_cell(column_index, row);
 }
 
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const size_t &column, const size_t &row) const {
+const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const size_t& column, const size_t& row) const {
     if (column >= m_matrix.columns() || row >= m_matrix.rows() || !m_matrix.is_valid())
         return m_invalid_cell;
 
     return m_matrix.cells()[column + row * m_matrix.columns()];
 }
 
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const std::string &column) const {
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const std::string& column) const {
     auto iterator = m_column_map.find(column);
     if (iterator == m_column_map.end())
         return m_invalid_matrix;
@@ -1033,7 +1033,7 @@ const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(cons
     return get_column(column_index);
 }
 
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const size_t &column) const {
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const size_t& column) const {
     if (column >= m_matrix.columns() || !m_matrix.is_valid())
         return m_invalid_matrix;
 
@@ -1046,7 +1046,7 @@ const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(cons
     return m_column;
 }
 
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_row(const size_t &row) const {
+const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_row(const size_t& row) const {
     if (row >= m_matrix.rows() || !m_matrix.is_valid())
         return m_invalid_matrix;
 

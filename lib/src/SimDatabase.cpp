@@ -13,6 +13,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <future>
 
 // for compiling on Windows (ew)
 #ifdef _WIN32
@@ -66,22 +67,24 @@
 #include <sqlext.h>
 #include <sql.h>
 
-void SimpleSql::SimDatabase::remove_stmt_handle() {
-
-    // run the statement pool listener
-    (*mp_stmt_pool_listener)();
-
-    // this is the last statement, run object shutdown
-    if (m_stmt_vector.size() == 1)
-        stop();
+bool SimpleSql::SimDatabase::remove_stmt_handle() {
 
     // remove handle from the vector
-    m_stmt_vector.erase(m_stmt_vector.begin() + m_stmt_index);
-    if (m_stmt_index >= m_stmt_vector.size())
-        m_stmt_index = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_stmt_vector.erase(m_stmt_vector.begin() + m_stmt_index);
+        if (m_stmt_index >= m_stmt_vector.size())
+            m_stmt_index = 0;
+    }
+
+    // run the statement pool listener
+    std::uint8_t remaining_stmt_count = m_stmt_vector.size();
+    (*mp_stmt_pool_listener)(std::move(remaining_stmt_count));
+
+    return m_stmt_vector.size() > 0 ? true : false;
 }
 
-const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query) {
+bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery& query) {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (!query.claim_handle(std::move(m_stmt_vector[m_stmt_index]))) {
 
@@ -89,7 +92,8 @@ const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query
         SQLHANDLE h;
         SQLRETURN sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
         if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
-            remove_stmt_handle();
+            if (!remove_stmt_handle())
+                return false;
 
         // assign the new handle to the vector
         m_stmt_vector[m_stmt_index] = std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>(h);
@@ -104,7 +108,7 @@ const bool SimpleSql::SimDatabase::assign_stmt_handle(SimpleSql::SimQuery &query
     return true;
 }
 
-void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery &query) {
+void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery& query) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_stmt_vector[m_stmt_index] = query.return_handle();
 
@@ -152,7 +156,7 @@ void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSql::SimQuery &query) {
     }
 }
 
-const std::uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
+std::uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query) {
 
     if (!assign_stmt_handle(query))
         return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
@@ -160,7 +164,7 @@ const std::uint8_t SimpleSql::SimDatabase::run_query(SimpleSql::SimQuery&& query
     std::uint8_t rc = SimpleSqlConstants::ReturnCodes::SUCCESS;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        // perform query execution
+        // run the query
     }
     reclaim_stmt_handle(query);
 
@@ -186,7 +190,7 @@ void SimpleSql::SimDatabase::process_async() {
     }
 }
 
-const std::uint8_t SimpleSql::SimDatabase::connect(std::string &conn_str) {
+std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
 
     std::uint8_t rc;
     SQLRETURN sr;
@@ -249,7 +253,7 @@ void SimpleSql::SimDatabase::disconnect() {
     
 }
 
-const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt) {
+std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt) {
 
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt);
     std::uint8_t rc = connect(conn_str);
@@ -260,7 +264,7 @@ const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, cons
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, const std::string &server, const std::string &database, const int &port, const bool &readonly, const bool &trusted, const bool &encrypt, const std::string &username, const std::string &password) {
+std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password) {
     
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt, username, password);
     std::uint8_t rc = connect(conn_str);
@@ -271,7 +275,7 @@ const std::uint8_t SimpleSql::SimDatabase::start(const std::string &driver, cons
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-const std::uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery &query) {
+std::uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery& query) {
     if (!assign_stmt_handle(query))
         return SimpleSqlConstants::ReturnCodes::D_STMT_HANDLE_ASSIGNMENT;
 
@@ -290,8 +294,63 @@ void SimpleSql::SimDatabase::run_async(SimpleSql::SimQuery query) {
     m_cvar.notify_one();
 }
 
-void SimpleSql::SimDatabase::run_parallel(const std::uint8_t &max_concurrency, std::vector<SimpleSql::SimQuery> &queries) {
+void SimpleSql::SimDatabase::run_parallel(std::uint8_t& thread_count, std::vector<SimpleSql::SimQuery>& queries) {
 
+    struct QueryResponse {
+        size_t index;
+        SimpleSql::SimQuery query;
+    };
+
+    auto execute = [&](SimpleSql::SimQuery&& query, size_t index, std::promise<QueryResponse> prom) -> void {
+
+        QueryResponse response;
+        response.index = std::move(index);
+        response.query = std::move(query);
+
+        if (!assign_stmt_handle(response.query))
+            goto end_of_lambda;
+
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            // run the query
+        }
+
+        reclaim_stmt_handle(response.query);
+
+        end_of_lambda:
+        prom.set_value(std::move(response));
+    };
+
+    if (thread_count > SimpleSqlConstants::max_parallel_query_count)
+        thread_count = SimpleSqlConstants::max_parallel_query_count;
+
+    size_t iteration_count = (queries.size() + thread_count - 1) / thread_count;
+    for (size_t i = 0; i < queries.size(); i += thread_count) {
+        std::uint8_t used_threads = i + thread_count <= queries.size() ? thread_count : queries.size() % thread_count;
+        
+        std::vector<std::thread> threads;
+        threads.reserve(used_threads);
+
+        std::vector<std::future<QueryResponse>> futures;
+        futures.reserve(used_threads);
+
+        for (std::uint8_t j = 0; j < used_threads; ++j) {
+            std::promise<QueryResponse> p;
+            futures.push_back(p.get_future());
+            threads.emplace_back(execute, queries[j + i], j + i, std::move(p));
+        }
+
+        // let all threads complete
+        for (std::thread& t : threads)
+            if (t.joinable())
+                t.join();
+
+        // collect results
+        for (std::uint8_t j = 0; j < used_threads; ++j) {
+            auto result_struct = futures[j].get();
+            queries[result_struct.index] = std::move(result_struct.query);
+        }
+    }
 }
 
 void SimpleSql::SimDatabase::stop() {
@@ -310,6 +369,6 @@ void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void(SimpleSql
     mp_query_listener = std::move(p_listener);
 }
 
-void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void()>> p_listener) {
+void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void(std::uint8_t&&)>> p_listener) {
     mp_stmt_pool_listener = std::move(p_listener);
 }
