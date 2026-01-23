@@ -250,7 +250,16 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
 }
 
 void SimpleSql::SimDatabase::disconnect() {
-    
+
+    for (std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>& h : m_stmt_vector) {
+        if (h.get() != SQL_NULL_HANDLE)
+            SQLFreeHandle(SQL_HANDLE_STMT, h.get());
+    }
+
+    SQLDisconnect(h_dbc.get());
+    SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());
+    SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
+
 }
 
 std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt) {

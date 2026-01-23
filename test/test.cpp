@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdint>
 #include <secrets.h>
+#include <iostream>
 
 int main() {
 
@@ -16,8 +17,15 @@ int main() {
     bool trusted = true;
     bool encrypt = false;
 
+    std::cout << "creating SimDatabase" << std::endl;
     SimpleSql::SimDatabase db(stmt_count);
-    db.start(driver, server, database, port, readonly, trusted, encrypt);
 
+    std::cout << "starting..." << std::endl;
+    
+    std::uint8_t rc = db.start(driver, server, database, port, readonly, trusted, encrypt);
+    if (rc > 0)
+        std::cout << SimpleSqlConstants::return_code_def(rc) << std::endl;
+
+    std::cout << "end" << std::endl;
     return 0;
 }

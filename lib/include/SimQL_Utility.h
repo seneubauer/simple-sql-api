@@ -17,7 +17,7 @@ namespace SimpleSqlUtility {
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
         conn_str += database.empty() ? std::string() : std::format("Database={{{}}};", database);
         conn_str += std::format("Port={{{}}};", port);
-        conn_str += readonly ? std::string("Application_Intent=ReadOnly};") : std::string("Application_Intent={ReadWrite};");
+        conn_str += readonly ? std::string("ApplicationIntent={ReadOnly};") : std::string("ApplicationIntent={ReadWrite};");
         conn_str += trusted ? std::string("Trusted_Connection={Yes};") : std::string("Trusted_Connection={No};");
         conn_str += encrypt ? std::string("Encrypt={Yes};") : std::string("Encrypt={No};");
         return conn_str;
@@ -29,7 +29,7 @@ namespace SimpleSqlUtility {
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
         conn_str += database.empty() ? std::string() : std::format("Database={{{}}};", database);
         conn_str += std::format("Port={{{}}};", port);
-        conn_str += readonly ? std::string("Application_Intent=ReadOnly};") : std::string("Application_Intent={ReadWrite};");
+        conn_str += readonly ? std::string("ApplicationIntent={ReadOnly};") : std::string("ApplicationIntent={ReadWrite};");
         conn_str += trusted ? std::string("Trusted_Connection={Yes};") : std::string("Trusted_Connection={No};");
         conn_str += encrypt ? std::string("Encrypt={Yes};") : std::string("Encrypt={No};");
         conn_str += username.empty() ? std::string() : std::format("UID={{{}}};", username);
