@@ -253,7 +253,7 @@ void SimpleSql::SimDatabase::disconnect() {
     
 }
 
-std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt) {
+std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt) {
 
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt);
     std::uint8_t rc = connect(conn_str);
@@ -264,7 +264,7 @@ std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std:
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password) {
+std::uint8_t SimpleSql::SimDatabase::start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password) {
     
     auto conn_str = SimpleSqlUtility::connection_string(driver, server, database, port, readonly, trusted, encrypt, username, password);
     std::uint8_t rc = connect(conn_str);

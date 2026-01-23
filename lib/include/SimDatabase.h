@@ -62,8 +62,8 @@ namespace SimpleSql {
         SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::max_statement_handle_pool_size ? SimpleSqlConstants::max_statement_handle_pool_size : stmt_count), m_skipped(0), mp_query_listener(nullptr), m_in_progress(true) {}
         ~SimDatabase() { stop(); }
 
-        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt);
-        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password);
+        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt);
+        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password);
         std::uint8_t run_sync(SimpleSql::SimQuery& query);
         void run_async(SimpleSql::SimQuery&& query);
         void run_parallel(std::uint8_t& thread_count, std::vector<SimpleSql::SimQuery>& queries);

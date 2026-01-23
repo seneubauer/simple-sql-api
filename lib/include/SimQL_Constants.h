@@ -7,7 +7,10 @@
 
 namespace SimpleSqlConstants {
 
-    // SimDatabase return codes values
+    namespace DatabaseDrivers {
+        static std::string ODBC_17_SQL_SERVER                   = "ODBC Driver 17 for SQL Server";
+    }
+
     namespace ReturnCodes {
 
         // standard return codes
