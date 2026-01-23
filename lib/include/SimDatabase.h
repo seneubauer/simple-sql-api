@@ -65,7 +65,7 @@ namespace SimpleSql {
         std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt);
         std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const int& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password);
         std::uint8_t run_sync(SimpleSql::SimQuery& query);
-        void run_async(SimpleSql::SimQuery query);
+        void run_async(SimpleSql::SimQuery&& query);
         void run_parallel(std::uint8_t& thread_count, std::vector<SimpleSql::SimQuery>& queries);
         void stop();
         void listen(std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> p_listener);

@@ -286,28 +286,19 @@ std::uint8_t SimpleSql::SimDatabase::run_sync(SimpleSql::SimQuery& query) {
     return SimpleSqlConstants::ReturnCodes::SUCCESS;
 }
 
-void SimpleSql::SimDatabase::run_async(SimpleSql::SimQuery query) {
+void SimpleSql::SimDatabase::run_async(SimpleSql::SimQuery&& query) {
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_queries.push(query);
+        m_queries.push(std::move(query));
     }
     m_cvar.notify_one();
 }
 
 void SimpleSql::SimDatabase::run_parallel(std::uint8_t& thread_count, std::vector<SimpleSql::SimQuery>& queries) {
 
-    struct QueryResponse {
-        size_t index;
-        SimpleSql::SimQuery query;
-    };
+    auto execute = [&](size_t&& index, SimpleSql::SimQuery&& query, std::promise<std::pair<size_t, SimpleSql::SimQuery>>&& prom) -> void {
 
-    auto execute = [&](SimpleSql::SimQuery&& query, size_t index, std::promise<QueryResponse> prom) -> void {
-
-        QueryResponse response;
-        response.index = std::move(index);
-        response.query = std::move(query);
-
-        if (!assign_stmt_handle(response.query))
+        if (!assign_stmt_handle(query))
             goto end_of_lambda;
 
         {
@@ -315,41 +306,42 @@ void SimpleSql::SimDatabase::run_parallel(std::uint8_t& thread_count, std::vecto
             // run the query
         }
 
-        reclaim_stmt_handle(response.query);
+        reclaim_stmt_handle(query);
 
         end_of_lambda:
-        prom.set_value(std::move(response));
+        auto output = std::make_pair<size_t&&, SimpleSql::SimQuery&&>(std::move(index), std::move(query));
+        prom.set_value(std::move(output));
     };
 
     if (thread_count > SimpleSqlConstants::max_parallel_query_count)
         thread_count = SimpleSqlConstants::max_parallel_query_count;
 
-    size_t iteration_count = (queries.size() + thread_count - 1) / thread_count;
     for (size_t i = 0; i < queries.size(); i += thread_count) {
         std::uint8_t used_threads = i + thread_count <= queries.size() ? thread_count : queries.size() % thread_count;
         
         std::vector<std::thread> threads;
         threads.reserve(used_threads);
 
-        std::vector<std::future<QueryResponse>> futures;
+        std::vector<std::future<std::pair<size_t, SimpleSql::SimQuery>>> futures;
         futures.reserve(used_threads);
 
         for (std::uint8_t j = 0; j < used_threads; ++j) {
-            std::promise<QueryResponse> p;
+            std::promise<std::pair<size_t, SimpleSql::SimQuery>> p;
             futures.push_back(p.get_future());
-            threads.emplace_back(execute, queries[j + i], j + i, std::move(p));
+            size_t index = static_cast<size_t>(j) + i;
+            threads.emplace_back(execute, std::move(index), std::move(queries[index]), std::move(p));
+        }
+
+        // collect results
+        for (std::uint8_t j = 0; j < used_threads; ++j) {
+            auto result_pair = futures[j].get();
+            queries[result_pair.first] = std::move(result_pair.second);
         }
 
         // let all threads complete
         for (std::thread& t : threads)
             if (t.joinable())
                 t.join();
-
-        // collect results
-        for (std::uint8_t j = 0; j < used_threads; ++j) {
-            auto result_struct = futures[j].get();
-            queries[result_struct.index] = std::move(result_struct.query);
-        }
     }
 }
 

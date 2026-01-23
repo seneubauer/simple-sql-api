@@ -50,6 +50,7 @@ namespace SimpleSql {
         void define_diagnostics();
 
     public:
+        SimQuery(SimQuery&&) {}
         SimQuery() : m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
         ~SimQuery() { destroy(); }
         SimQuery& operator=(SimQuery&&) = default;
