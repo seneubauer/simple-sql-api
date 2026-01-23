@@ -16,7 +16,7 @@ namespace SimpleSqlUtility {
         conn_str += driver.empty() ? std::string() : std::format("Driver={{{}}};", driver);
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
         conn_str += database.empty() ? std::string() : std::format("Database={{{}}};", database);
-        conn_str += port < 0 ? std::string() : std::format("Port={{{}}};", port);
+        conn_str += std::format("Port={{{}}};", port);
         conn_str += readonly ? std::string("Application_Intent=ReadOnly};") : std::string("Application_Intent={ReadWrite};");
         conn_str += trusted ? std::string("Trusted_Connection={Yes};") : std::string("Trusted_Connection={No};");
         conn_str += encrypt ? std::string("Encrypt={Yes};") : std::string("Encrypt={No};");
@@ -28,7 +28,7 @@ namespace SimpleSqlUtility {
         conn_str += driver.empty() ? std::string() : std::format("Driver={{{}}};", driver);
         conn_str += server.empty() ? std::string() : std::format("Server={{{}}};", server);
         conn_str += database.empty() ? std::string() : std::format("Database={{{}}};", database);
-        conn_str += port < 0 ? std::string() : std::format("Port={{{}}};", port);
+        conn_str += std::format("Port={{{}}};", port);
         conn_str += readonly ? std::string("Application_Intent=ReadOnly};") : std::string("Application_Intent={ReadWrite};");
         conn_str += trusted ? std::string("Trusted_Connection={Yes};") : std::string("Trusted_Connection={No};");
         conn_str += encrypt ? std::string("Encrypt={Yes};") : std::string("Encrypt={No};");
