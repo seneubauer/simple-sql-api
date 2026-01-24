@@ -26,6 +26,11 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
+    enum class DatabaseType : std::uint8_t {
+        SQL_SERVER          = 0,
+        POSTGRESQL          = 1
+    };
+
     enum class NullRuleType : std::uint8_t {
         UNKNOWN             = 0,
         ALLOWED             = 1,
