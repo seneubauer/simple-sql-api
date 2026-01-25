@@ -9,10 +9,12 @@
 int main() {
 
     std::uint8_t stmt_count = 16;
-    std::string driver = SimpleSqlConstants::DatabaseDrivers::ODBC_17_SQL_SERVER;
-    std::string server = Secrets::SERVER_ADDRESS;
-    std::string database = Secrets::DATABASE_NAME;
-    std::uint16_t port = Secrets::SERVER_PORT;
+    std::string driver = std::string(SimpleSqlConstants::DatabaseDrivers::PSQL_ODBC_ANSI);
+    std::string server = std::string(Secrets::SERVER);
+    std::string database = std::string(Secrets::DATABASE);
+    std::string uid = std::string(Secrets::UID);
+    std::string password = std::string(Secrets::PASSWORD);
+    std::uint16_t port = Secrets::PORT;
     bool readonly = true;
     bool trusted = true;
     bool encrypt = false;

@@ -3,12 +3,14 @@
 
 #include <unordered_map>
 #include <cstdint>
-#include <string>
+#include <string_view>
 
 namespace SimpleSqlConstants {
 
     namespace DatabaseDrivers {
-        static std::string ODBC_17_SQL_SERVER                   = "ODBC Driver 17 for SQL Server";
+        static constexpr std::string_view ODBC_17_SQL_SERVER    = std::string_view("ODBC Driver 17 for SQL Server");
+        static constexpr std::string_view PSQL_ODBC_ANSI        = std::string_view("PostgreSQL ANSI");
+        static constexpr std::string_view PSQL_ODBC_UNI         = std::string_view("PostgreSQL UNICODE");
     }
 
     namespace ReturnCodes {
