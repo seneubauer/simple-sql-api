@@ -26,6 +26,27 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
+    enum class ConnectionPoolingType : std::uint8_t {
+        OFF                 = 0,
+        ONE_PER_DRIVER      = 1,
+        ONE_PER_ENV         = 2
+    };
+
+    enum class AccessModeType : std::uint8_t {
+        READ_ONLY           = 0,
+        READ_WRITE          = 1
+    };
+
+    enum class AsyncModeType : std::uint8_t {
+        ENABLED             = 0,
+        DISABLED            = 1
+    };
+
+    enum class AutocommitType : std::uint8_t {
+        ENABLED             = 0,
+        DISABLED            = 1
+    };
+
     enum class DatabaseType : std::uint8_t {
         SQL_SERVER          = 0,
         POSTGRESQL          = 1

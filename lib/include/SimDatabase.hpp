@@ -12,11 +12,7 @@
 #include <memory>
 #include <functional>
 #include <utility>
-#include <queue>
 #include <mutex>
-#include <thread>
-#include <atomic>
-#include <condition_variable>
 #include <cstdint>
 #include <vector>
 
@@ -25,50 +21,59 @@ namespace SimpleSql {
     private:
 
         // handles
-        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> h_env;
-        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> h_dbc;
+        SimpleSqlTypes::ENV_HANDLE h_env;
+        SimpleSqlTypes::DBC_HANDLE h_dbc;
 
         // statement members
         std::uint8_t m_stmt_index;
         std::uint8_t m_stmt_count;
         std::uint8_t m_skipped;
-        std::vector<std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>> m_stmt_vector;
+        std::vector<SimpleSqlTypes::STMT_HANDLE> m_stmt_vector;
 
         // listeners
-        std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> mp_query_listener;
         std::shared_ptr<std::function<void(std::uint8_t&&)>> mp_stmt_pool_listener;
 
-        // async members
-        std::queue<SimpleSql::SimQuery> m_queries;
+        // concurrency members
         std::mutex m_mutex;
-        std::thread m_thread;
-        std::atomic<bool> m_in_progress;
-        std::condition_variable m_cvar;
 
-        // statement functions
+        // internal statement function
         bool remove_stmt_handle();
-        bool assign_stmt_handle(SimpleSql::SimQuery& query);
-        void reclaim_stmt_handle(SimpleSql::SimQuery& query);
 
-        // processing functions
-        std::uint8_t run_query(SimpleSql::SimQuery&& query);
-        void process_async();
+    public:
+        SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::max_statement_handle_pool_size ? SimpleSqlConstants::max_statement_handle_pool_size : stmt_count), m_skipped(0) {}
+        ~SimDatabase() { disconnect(); }
 
-        // utility functions
+        // dbc attibutes (before opening a connection)
+        bool set_connection_pooling(const SimpleSqlTypes::ConnectionPoolingType& value);
+        bool set_access_mode(const SimpleSqlTypes::AccessModeType& value);
+        bool set_driver_async(const SimpleSqlTypes::AsyncModeType& value);
+        bool set_autocommit(const SimpleSqlTypes::AutocommitType& value);
+        bool set_login_timeout(const std::uint32_t& value);
+        bool set_connection_timeout(const std::uint32_t& value);
+
+        // attribute getters
+        bool get_connection_pooling(SimpleSqlTypes::ConnectionPoolingType& value);
+        bool get_access_mode(SimpleSqlTypes::AccessModeType& value);
+        bool get_driver_async(SimpleSqlTypes::AsyncModeType& value);
+        bool get_autocommit(SimpleSqlTypes::AutocommitType& value);
+        bool get_login_timeout(std::uint32_t& value);
+        bool get_connection_timeout(std::uint32_t& value);
+        bool get_connection_state(bool& connected);
+
+        // transactions
+        bool open_transaction();
+        bool rollback_transaction();
+        bool commit_transaction();
+
+        // lifecycle handling
         std::uint8_t connect(std::string& conn_str);
         void disconnect();
 
-    public:
-        SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::max_statement_handle_pool_size ? SimpleSqlConstants::max_statement_handle_pool_size : stmt_count), m_skipped(0), mp_query_listener(nullptr), m_in_progress(true) {}
-        ~SimDatabase() { stop(); }
+        // statement handling
+        bool assign_stmt_handle(SimpleSql::SimQuery& query);
+        void reclaim_stmt_handle(SimpleSql::SimQuery& query);
 
-        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt);
-        std::uint8_t start(const std::string& driver, const std::string& server, const std::string& database, const std::uint16_t& port, const bool& readonly, const bool& trusted, const bool& encrypt, const std::string& username, const std::string& password);
-        std::uint8_t run_sync(SimpleSql::SimQuery& query);
-        void run_async(SimpleSql::SimQuery&& query);
-        void run_parallel(std::uint8_t& thread_count, std::vector<SimpleSql::SimQuery>& queries);
-        void stop();
-        void listen(std::shared_ptr<std::function<void(SimpleSql::SimQuery&&)>> p_listener);
+        // listener handling
         void listen(std::shared_ptr<std::function<void(std::uint8_t&&)>> p_listener);
     };
 }

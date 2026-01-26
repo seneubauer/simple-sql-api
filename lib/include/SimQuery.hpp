@@ -17,7 +17,7 @@ namespace SimpleSql {
     private:
 
         // handles
-        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> mp_stmt_handle;
+        SimpleSqlTypes::STMT_HANDLE mp_stmt_handle;
 
         // data storage
         SimpleSqlTypes::SQLMatrix m_matrix;
@@ -57,8 +57,8 @@ namespace SimpleSql {
 
         // control ownership of statement handle
         bool has_handle() const { return mp_stmt_handle != nullptr; }
-        bool claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>&& stmt_handle);
-        std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> return_handle();
+        bool claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle);
+        SimpleSqlTypes::STMT_HANDLE return_handle();
 
         // setting up the sql statement for execution
         std::uint8_t set_sql(const std::string& sql);

@@ -840,7 +840,7 @@ void SimpleSql::SimQuery::define_diagnostics() {
     m_diagnostic_record_number = current_record_number;
 }
 
-bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void, SimpleSqlUtility::HandleDeleter>&& stmt_handle) {
+bool SimpleSql::SimQuery::claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle) {
     if (!stmt_handle)
         return false;
 
@@ -848,7 +848,7 @@ bool SimpleSql::SimQuery::claim_handle(std::unique_ptr<void, SimpleSqlUtility::H
     return true;
 }
 
-std::unique_ptr<void, SimpleSqlUtility::HandleDeleter> SimpleSql::SimQuery::return_handle() {
+SimpleSqlTypes::STMT_HANDLE SimpleSql::SimQuery::return_handle() {
     return std::move(mp_stmt_handle);
 }
 
