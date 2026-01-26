@@ -252,7 +252,8 @@ bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
-    return static_cast<std::uint32_t>(odbc_value);
+    value = static_cast<std::uint32_t>(odbc_value);
+    return true;
 }
 
 bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
@@ -261,7 +262,8 @@ bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
-    return static_cast<std::uint32_t>(odbc_value);
+    value = static_cast<std::uint32_t>(odbc_value);
+    return true;
 }
 
 bool SimpleSql::SimDatabase::get_connection_state(bool& connected) {
