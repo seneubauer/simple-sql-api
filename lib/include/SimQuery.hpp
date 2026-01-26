@@ -3,7 +3,6 @@
 
 // SimQL stuff
 #include <SimQL_Types.hpp>
-#include <SimQL_Utility.hpp>
 
 // STL stuff
 #include <unordered_map>
@@ -58,7 +57,7 @@ namespace SimpleSql {
         // control ownership of statement handle
         bool has_handle() const { return mp_stmt_handle != nullptr; }
         bool claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle);
-        SimpleSqlTypes::STMT_HANDLE return_handle();
+        SimpleSqlTypes::STMT_HANDLE&& return_handle();
 
         // setting up the sql statement for execution
         std::uint8_t set_sql(const std::string& sql);

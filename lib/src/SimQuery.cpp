@@ -841,14 +841,16 @@ void SimpleSql::SimQuery::define_diagnostics() {
 }
 
 bool SimpleSql::SimQuery::claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle) {
-    if (!stmt_handle)
+    if (!stmt_handle) {
+        m_is_valid = false;
         return false;
+    }
 
     mp_stmt_handle = std::move(stmt_handle);
     return true;
 }
 
-SimpleSqlTypes::STMT_HANDLE SimpleSql::SimQuery::return_handle() {
+SimpleSqlTypes::STMT_HANDLE&& SimpleSql::SimQuery::return_handle() {
     return std::move(mp_stmt_handle);
 }
 

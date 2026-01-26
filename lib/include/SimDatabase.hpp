@@ -2,10 +2,8 @@
 #define SimDatabase_header_h
 
 // SimQL stuff
-#include <SimQuery.hpp>
-#include <SimQL_Types.hpp>
-#include <SimQL_Utility.hpp>
 #include <SimQL_Constants.hpp>
+#include <SimQL_Types.hpp>
 
 // STL stuff
 #include <string>
@@ -70,8 +68,8 @@ namespace SimpleSql {
         void disconnect();
 
         // statement handling
-        bool assign_stmt_handle(SimpleSql::SimQuery& query);
-        void reclaim_stmt_handle(SimpleSql::SimQuery& query);
+        SimpleSqlTypes::STMT_HANDLE&& extract_stmt_handle();
+        void reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle);
 
         // listener handling
         void listen(std::shared_ptr<std::function<void(std::uint8_t&&)>> p_listener);
