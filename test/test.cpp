@@ -1,11 +1,17 @@
-#include <secrets.hpp>
-#include <SimDatabase.hpp>
+// SimQL stuff
 #include <SimQuery.hpp>
+#include <SimDatabase.hpp>
+#include <SimQL_Types.hpp>
 #include <SimQL_Constants.hpp>
 #include <SimConnectionBuilder.hpp>
+
+// STL stuff
 #include <string>
 #include <cstdint>
 #include <iostream>
+
+// secrets
+#include <secrets.hpp>
 
 int main() {
 
@@ -16,8 +22,7 @@ int main() {
     // std::string uid(Secrets::UID);
     // std::string password(Secrets::PWD);
 
-    // std::uint8_t stmt_count = 16;
-
+    // build connection string
     auto builder = SimpleSql::SimConnectionBuilder(SimpleSqlTypes::DatabaseType::SQL_SERVER);
     builder.set_driver(driver);
     builder.set_server(server);
@@ -25,13 +30,17 @@ int main() {
     builder.set_database(database);
     builder.set_readonly(true);
     builder.set_trusted(true);
+    std::string conn_str = builder.get();
 
-    std::cout << "connection string: " << builder.get() << std::endl;
+    // initialize & configure SimDatabase
+    SimpleSql::SimDatabase db(16);
+    db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
+    db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
+    db.set_login_timeout(5);
 
-    // std::cout << "creating SimDatabase" << std::endl;
-    // SimpleSql::SimDatabase db(stmt_count);
+    std::uint8_t rc = db.connect(conn_str);
+    if (rc > 0)
+        std::cout << SimpleSqlConstants::return_code_def(rc);
 
-
-    // std::cout << "end" << std::endl;
     return 0;
 }
