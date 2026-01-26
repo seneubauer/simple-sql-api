@@ -28,7 +28,6 @@ namespace SimpleSql {
 
         // funcs
         std::string assemble() const;
-        void destroy();
 
     public:
         SimConnectionBuilder(const SimpleSqlTypes::DatabaseType& database_type) : m_database_type(database_type) {}
@@ -45,6 +44,7 @@ namespace SimpleSql {
         void set_readonly(const bool& readonly);
         void set_trusted(const bool& trusted);
         void set_encrypt(const bool& encrypt);
+        void destroy();
     };
 }
 

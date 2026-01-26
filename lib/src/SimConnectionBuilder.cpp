@@ -44,23 +44,10 @@ std::string SimpleSql::SimConnectionBuilder::assemble() const {
     return output;
 }
 
-void SimpleSql::SimConnectionBuilder::destroy() {
-    m_driver.clear();
-    m_server.clear();
-    m_port = 0;
-    m_database.clear();
-    m_username.clear();
-    m_password.clear();
-    m_mars = false;
-    m_readonly = false;
-    m_trusted = false;
-    m_encrypt = false;
-}
-
 std::string SimpleSql::SimConnectionBuilder::get() {
     std::string connection_string = assemble();
     destroy();
-    return std::move(connection_string);
+    return connection_string;
 }
 
 void SimpleSql::SimConnectionBuilder::set_driver(const std::string& driver) {
@@ -111,4 +98,17 @@ void SimpleSql::SimConnectionBuilder::set_trusted(const bool& trusted) {
 void SimpleSql::SimConnectionBuilder::set_encrypt(const bool& encrypt) {
     if (m_encrypt != encrypt)
         m_encrypt = encrypt;
+}
+
+void SimpleSql::SimConnectionBuilder::destroy() {
+    m_driver.clear();
+    m_server.clear();
+    m_port = 0;
+    m_database.clear();
+    m_username.clear();
+    m_password.clear();
+    m_mars = false;
+    m_readonly = false;
+    m_trusted = false;
+    m_encrypt = false;
 }
