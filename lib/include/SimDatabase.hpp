@@ -68,7 +68,7 @@ namespace SimpleSql {
         void disconnect();
 
         // statement handling
-        SimpleSqlTypes::STMT_HANDLE&& extract_stmt_handle();
+        bool extract_stmt_handle(SimpleSqlTypes::STMT_HANDLE& handle);
         void reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle);
 
         // listener handling

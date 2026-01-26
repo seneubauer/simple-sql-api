@@ -370,7 +370,7 @@ void SimpleSql::SimDatabase::disconnect() {
     SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
 }
 
-SimpleSqlTypes::STMT_HANDLE&& SimpleSql::SimDatabase::extract_stmt_handle() {
+bool SimpleSql::SimDatabase::extract_stmt_handle(SimpleSqlTypes::STMT_HANDLE& handle) {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     if (m_stmt_vector[m_stmt_index] == SQL_NULL_HSTMT || m_stmt_vector[m_stmt_index] == nullptr) {
@@ -380,19 +380,19 @@ SimpleSqlTypes::STMT_HANDLE&& SimpleSql::SimDatabase::extract_stmt_handle() {
         SQLRETURN sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
         if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
             if (!remove_stmt_handle())
-                return nullptr;
+                return false;
 
         // assign the new handle to the vector
         m_stmt_vector[m_stmt_index] = SimpleSqlTypes::STMT_HANDLE(h);
     }
+    handle = std::move(m_stmt_vector[m_stmt_index]);
 
     // advance to the next index so the next assignment starts on the next handle
-    std::uint8_t move_index = m_stmt_index;
     m_stmt_index++;
     if (m_stmt_index >= m_stmt_vector.size())
         m_stmt_index = 0;
 
-    return std::move(m_stmt_vector[move_index]);
+    return true;
 }
 
 void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle) {
