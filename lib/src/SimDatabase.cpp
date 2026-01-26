@@ -365,6 +365,11 @@ void SimpleSql::SimDatabase::disconnect() {
             SQLFreeHandle(SQL_HANDLE_STMT, h.get());
     }
 
+    bool is_connected = false;
+    get_connection_state(is_connected);
+    if (!is_connected)
+        return;
+
     SQLDisconnect(h_dbc.get());
     SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());
     SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
