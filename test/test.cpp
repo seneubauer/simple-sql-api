@@ -8,13 +8,14 @@
 
 int main() {
 
+    // get secret values >:)    
+    std::string driver(SimpleSqlConstants::DatabaseDrivers::ODBC_17_SQL_SERVER);
+    std::string server(Secrets::SERVER);
+    std::string database(Secrets::DATABASE);
+    std::string uid(Secrets::UID);
+    std::string password(Secrets::PWD);
+
     std::uint8_t stmt_count = 16;
-    std::string driver = std::string(SimpleSqlConstants::DatabaseDrivers::PSQL_ODBC_ANSI);
-    std::string server = std::string(Secrets::SERVER);
-    std::string database = std::string(Secrets::DATABASE);
-    std::string uid = std::string(Secrets::UID);
-    std::string password = std::string(Secrets::PASSWORD);
-    std::uint16_t port = Secrets::PORT;
     bool readonly = true;
     bool trusted = true;
     bool encrypt = false;
@@ -23,8 +24,7 @@ int main() {
     SimpleSql::SimDatabase db(stmt_count);
 
     std::cout << "starting..." << std::endl;
-    
-    std::uint8_t rc = db.start(driver, server, database, port, readonly, trusted, encrypt);
+    std::uint8_t rc = db.start(driver, server, database, Secrets::PORT, readonly, trusted, encrypt);
     if (rc > 0)
         std::cout << SimpleSqlConstants::return_code_def(rc) << std::endl;
 
