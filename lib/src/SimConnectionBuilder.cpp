@@ -39,6 +39,28 @@ std::string SimpleSql::SimConnectionBuilder::assemble() const {
 
         break;
     case SimpleSqlTypes::DatabaseType::POSTGRESQL:
+
+        if (!m_driver.empty())
+            output += std::format("Driver={{{}}};", m_driver);
+
+        if (!m_server.empty())
+            output += std::format("Server={{{}}};", m_server);
+
+        if (!m_database.empty())
+            output += std::format("Database={{{}}};", m_database);
+
+        if (!m_username.empty())
+            output += std::format("Uid={{{}}};", m_username);
+
+        if (!m_password.empty())
+            output += std::format("Pwd={{{}}};", m_password);
+
+        if (m_port > 0)
+            output += std::format("Port={};", std::to_string(m_port));
+
+        if (m_sslmode)
+            output += std::string("sslmode=require;");
+
         break;
     }
     return output;
@@ -80,6 +102,11 @@ void SimpleSql::SimConnectionBuilder::set_password(const std::string& password) 
         m_password = password;
 }
 
+void SimpleSql::SimConnectionBuilder::set_sslmode(const bool& sslmode) {
+    if (m_sslmode != sslmode)
+        m_sslmode = sslmode;
+}
+
 void SimpleSql::SimConnectionBuilder::set_mars(const bool& mars) {
     if (m_mars != mars)
         m_mars = mars;
@@ -107,6 +134,7 @@ void SimpleSql::SimConnectionBuilder::destroy() {
     m_database.clear();
     m_username.clear();
     m_password.clear();
+    m_sslmode = false;
     m_mars = false;
     m_readonly = false;
     m_trusted = false;

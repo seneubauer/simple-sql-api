@@ -10,8 +10,7 @@
 #include <cstdint>
 #include <vector>
 #include <mutex>
-#include <condition_variable>
-#include <future>
+#include <iostream>
 
 // for compiling on Windows (ew)
 #ifdef _WIN32
@@ -97,7 +96,7 @@ bool SimpleSql::SimDatabase::set_connection_pooling(const SimpleSqlTypes::Connec
         return false;
     }
 
-    SQLRETURN sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, &odbc_value, 0);
+    SQLRETURN sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
@@ -115,7 +114,7 @@ bool SimpleSql::SimDatabase::set_access_mode(const SimpleSqlTypes::AccessModeTyp
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, &odbc_value, 0);
+    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
@@ -133,7 +132,7 @@ bool SimpleSql::SimDatabase::set_driver_async(const SimpleSqlTypes::AsyncModeTyp
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, &odbc_value, 0);
+    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
@@ -151,25 +150,25 @@ bool SimpleSql::SimDatabase::set_autocommit(const SimpleSqlTypes::AutocommitType
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, &odbc_value, 0);
+    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
 bool SimpleSql::SimDatabase::set_login_timeout(const std::uint32_t& value) {
     SQLUINTEGER odbc_value = static_cast<SQLUINTEGER>(value);
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, &odbc_value, 0);
+    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
 bool SimpleSql::SimDatabase::set_connection_timeout(const std::uint32_t& value) {
     SQLUINTEGER odbc_value = static_cast<SQLUINTEGER>(value);
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, 0);
+    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
     return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
 }
 
 bool SimpleSql::SimDatabase::get_connection_pooling(SimpleSqlTypes::ConnectionPoolingType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -191,7 +190,7 @@ bool SimpleSql::SimDatabase::get_connection_pooling(SimpleSqlTypes::ConnectionPo
 
 bool SimpleSql::SimDatabase::get_access_mode(SimpleSqlTypes::AccessModeType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -210,7 +209,7 @@ bool SimpleSql::SimDatabase::get_access_mode(SimpleSqlTypes::AccessModeType& val
 
 bool SimpleSql::SimDatabase::get_driver_async(SimpleSqlTypes::AsyncModeType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -229,7 +228,7 @@ bool SimpleSql::SimDatabase::get_driver_async(SimpleSqlTypes::AsyncModeType& val
 
 bool SimpleSql::SimDatabase::get_autocommit(SimpleSqlTypes::AutocommitType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -248,7 +247,7 @@ bool SimpleSql::SimDatabase::get_autocommit(SimpleSqlTypes::AutocommitType& valu
 
 bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -258,7 +257,7 @@ bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
 
 bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, 0, nullptr);
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
@@ -267,21 +266,12 @@ bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
 }
 
 bool SimpleSql::SimDatabase::get_connection_state(bool& connected) {
-    SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, 0, nullptr);
+    SQLUINTEGER odbc_value = SQL_CD_TRUE;
+    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_DEAD, &odbc_value, sizeof(odbc_value), nullptr);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
         return false;
 
-    switch (odbc_value) {
-    case SQL_CD_TRUE:
-        connected = true;
-        break;
-    case SQL_CD_FALSE:
-        connected = false;
-        break;
-    default:
-        return false;
-    }
+    connected = odbc_value == SQL_CD_FALSE;
     return true;
 }
 
@@ -300,7 +290,6 @@ bool SimpleSql::SimDatabase::commit_transaction() {
 }
 
 std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
-
     std::uint8_t rc;
     SQLRETURN sr;
     SQLCHAR* conn_str_in = const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(conn_str.c_str()));
@@ -314,7 +303,7 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
     }
     h_env = SimpleSqlTypes::ENV_HANDLE(env);
 
-    sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+    sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
         rc = SimpleSqlConstants::ReturnCodes::D_ODBC_VERSION3;
         goto free_env_handle;
@@ -360,15 +349,17 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
 
 void SimpleSql::SimDatabase::disconnect() {
 
-    for (SimpleSqlTypes::STMT_HANDLE& h : m_stmt_vector) {
-        if (h.get() != SQL_NULL_HANDLE)
-            SQLFreeHandle(SQL_HANDLE_STMT, h.get());
-    }
+    std::cout << "disconnecting..." << std::endl;
 
     bool is_connected = false;
     get_connection_state(is_connected);
     if (!is_connected)
         return;
+
+    for (SimpleSqlTypes::STMT_HANDLE& h : m_stmt_vector) {
+        if (h.get() != SQL_NULL_HANDLE)
+            SQLFreeHandle(SQL_HANDLE_STMT, h.get());     
+    }
 
     SQLDisconnect(h_dbc.get());
     SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());

@@ -15,32 +15,47 @@
 
 int main() {
 
-    // get secret values >:)    
-    std::string driver(SimpleSqlConstants::DatabaseDrivers::ODBC_17_SQL_SERVER);
-    std::string server(Secrets::SERVER);
-    std::string database(Secrets::DATABASE);
-    // std::string uid(Secrets::UID);
-    // std::string password(Secrets::PWD);
-
     // build connection string
-    auto builder = SimpleSql::SimConnectionBuilder(SimpleSqlTypes::DatabaseType::SQL_SERVER);
-    builder.set_driver(driver);
-    builder.set_server(server);
-    builder.set_port(Secrets::PORT);
-    builder.set_database(database);
-    builder.set_readonly(true);
-    builder.set_trusted(true);
-    std::string conn_str = builder.get();
+    std::string conn_str;
+    switch (Secrets::SYSTEM) {
+    case Secrets::OperatingSystems::Windows:
+        {
+            auto builder = SimpleSql::SimConnectionBuilder(SimpleSqlTypes::DatabaseType::SQL_SERVER);
+            builder.set_driver(std::string(SimpleSqlConstants::DatabaseDrivers::ODBC_17_SQL_SERVER));
+            builder.set_server(std::string(Secrets::SERVER));
+            builder.set_port(Secrets::PORT);
+            builder.set_database(std::string(Secrets::DATABASE));
+            builder.set_trusted(true);
+            conn_str = builder.get();
+        }
+        break;
+    case Secrets::OperatingSystems::Linux:
+        {
+            auto builder = SimpleSql::SimConnectionBuilder(SimpleSqlTypes::DatabaseType::POSTGRESQL);
+            builder.set_driver(std::string(SimpleSqlConstants::DatabaseDrivers::PSQL_ODBC_ANSI));
+            builder.set_server(std::string(Secrets::SERVER));
+            builder.set_database(std::string(Secrets::DATABASE));
+            builder.set_port(Secrets::PORT);
+            builder.set_username(std::string(Secrets::UID));
+            builder.set_password(std::string(Secrets::PWD));
+            conn_str = builder.get();
+        }
+        break;
+    default:
+        return 0;
+    }
 
     // initialize & configure SimDatabase
+    std::cout << "creating db object" << std::endl;
     SimpleSql::SimDatabase db(16);
-    db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
-    db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
-    db.set_login_timeout(5);
+    // db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
+    // db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
+    // db.set_login_timeout(5);
 
+    std::cout << conn_str << std::endl;
     std::uint8_t rc = db.connect(conn_str);
     if (rc > 0)
-        std::cout << SimpleSqlConstants::return_code_def(rc);
+        std::cout << SimpleSqlConstants::return_code_def(rc) << std::endl;
 
     return 0;
 }

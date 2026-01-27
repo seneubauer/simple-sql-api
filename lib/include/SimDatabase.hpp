@@ -9,7 +9,6 @@
 #include <string>
 #include <memory>
 #include <functional>
-#include <utility>
 #include <mutex>
 #include <cstdint>
 #include <vector>
@@ -39,7 +38,7 @@ namespace SimpleSql {
 
     public:
         SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::max_statement_handle_pool_size ? SimpleSqlConstants::max_statement_handle_pool_size : stmt_count), m_skipped(0) {}
-        ~SimDatabase() { disconnect(); }
+        ~SimDatabase() { /* disconnect(); */ }
 
         // dbc attibutes (before opening a connection)
         bool set_connection_pooling(const SimpleSqlTypes::ConnectionPoolingType& value);
