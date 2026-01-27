@@ -17,6 +17,22 @@ namespace SimpleSql {
     class SimDatabase {
     private:
 
+        // return codes
+        static constexpr std::uint8_t SUCCESS                   = 0;
+        static constexpr std::uint8_t STMT_HANDLE_ASSIGNMENT    = 1;
+        static constexpr std::uint8_t ENV_HANDLE_ALLOC          = 2;
+        static constexpr std::uint8_t ODBC_VERSION3             = 3;
+        static constexpr std::uint8_t DBC_HANDLE_ALLOC          = 4;
+        static constexpr std::uint8_t CONNECTION                = 5;
+        const std::unordered_map<std::uint8_t, std::string_view> m_rc_def {
+            {SUCCESS,                   std::string_view("process was successful")},
+            {STMT_HANDLE_ASSIGNMENT,    std::string_view("could not assign the statement handle")},
+            {ENV_HANDLE_ALLOC,          std::string_view("could not allocate the environment handle")},
+            {ODBC_VERSION3,             std::string_view("could not set ODBC to version 3")},
+            {DBC_HANDLE_ALLOC,          std::string_view("could not allocate the connection handle")},
+            {CONNECTION,                std::string_view("could not open a connection to the database")}
+        };
+
         // handles
         SimpleSqlTypes::ENV_HANDLE h_env;
         SimpleSqlTypes::DBC_HANDLE h_dbc;
@@ -37,8 +53,15 @@ namespace SimpleSql {
         bool remove_stmt_handle();
 
     public:
-        SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::max_statement_handle_pool_size ? SimpleSqlConstants::max_statement_handle_pool_size : stmt_count), m_skipped(0) {}
-        ~SimDatabase() { /* disconnect(); */ }
+        SimDatabase(const std::uint8_t& stmt_count) : m_stmt_count(stmt_count > SimpleSqlConstants::Limits::max_statement_handle_pool_size ? SimpleSqlConstants::Limits::max_statement_handle_pool_size : stmt_count), m_skipped(0) {}
+        ~SimDatabase() { disconnect(); }
+
+        std::string_view return_code_definition(const std::uint8_t& return_code) {
+            auto it = m_rc_def.find(return_code);
+            if (it != m_rc_def.end())
+                return it->second;
+            return std::string_view("fallback return code for undefined unsigned 8bit integers");
+        }
 
         // dbc attibutes (before opening a connection)
         bool set_connection_pooling(const SimpleSqlTypes::ConnectionPoolingType& value);

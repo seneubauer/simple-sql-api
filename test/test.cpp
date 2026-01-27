@@ -2,7 +2,6 @@
 #include <SimQuery.hpp>
 #include <SimDatabase.hpp>
 #include <SimQL_Types.hpp>
-#include <SimQL_Constants.hpp>
 #include <SimConnectionBuilder.hpp>
 
 // STL stuff
@@ -55,7 +54,7 @@ int main() {
     std::cout << conn_str << std::endl;
     std::uint8_t rc = db.connect(conn_str);
     if (rc > 0)
-        std::cout << SimpleSqlConstants::return_code_def(rc) << std::endl;
+        std::cout << db.return_code_definition(rc) << std::endl;
 
     return 0;
 }

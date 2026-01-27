@@ -92,8 +92,8 @@ void SimpleSql::SimRunner::run_parallel(std::uint8_t& thread_count, std::vector<
         prom.set_value(std::move(output));
     };
 
-    if (thread_count > SimpleSqlConstants::max_parallel_query_count)
-        thread_count = SimpleSqlConstants::max_parallel_query_count;
+    if (thread_count > SimpleSqlConstants::Limits::max_parallel_query_count)
+        thread_count = SimpleSqlConstants::Limits::max_parallel_query_count;
 
     for (size_t i = 0; i < queries.size(); i += thread_count) {
         std::uint8_t used_threads = i + thread_count <= queries.size() ? thread_count : queries.size() % thread_count;

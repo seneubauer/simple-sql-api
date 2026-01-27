@@ -167,7 +167,7 @@ namespace SimpleSqlTypes {
         T m_temporal;
         bool m_is_utc;
     public:
-        BaseTemporal(T&& t, const bool &is_utc) : m_temporal(std::move(t)), m_is_utc(is_utc) {}
+        BaseTemporal(T&& t, const bool& is_utc) : m_temporal(std::move(t)), m_is_utc(is_utc) {}
         T& temporal() { return m_temporal; }
         bool is_utc() const { return m_is_utc; }
     };
@@ -219,11 +219,11 @@ namespace SimpleSqlTypes {
         bool m_set_null;
     public:
         SQLBinding(
-            const std::string &name,
-            const SQLData &data,
-            const BindingType &type,
-            const SimDataType &data_type,
-            const bool &set_null = false
+            const std::string& name,
+            const SQLData& data,
+            const BindingType& type,
+            const SimDataType& data_type,
+            const bool& set_null = false
         ) : m_name(name), m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
         ~SQLBinding() {}
         const std::string& name() const { return m_name; }
@@ -239,7 +239,10 @@ namespace SimpleSqlTypes {
         std::int64_t m_buffer_size;
     public:
         SQLBoundOutput(
-            const SimpleSqlTypes::SQLBinding &binding,
+            const SimpleSqlTypes::SQLBinding& binding
+        ) : m_binding(binding), m_buffer_size(0) {}
+        SQLBoundOutput(
+            const SimpleSqlTypes::SQLBinding& binding,
             const size_t &buffer_size
         ) : m_binding(binding), m_buffer_size(buffer_size) {}
         ~SQLBoundOutput() {}
@@ -256,9 +259,9 @@ namespace SimpleSqlTypes {
     public:
         SQLCell() : m_is_valid(false) {}
         SQLCell(
-            const SQLData &data,
-            const SimDataType &data_type,
-            const bool &is_null = false
+            const SQLData& data,
+            const SimDataType& data_type,
+            const bool& is_null = false
         ) : m_data(data), m_data_type(data_type), m_is_null(is_null), m_is_valid(true) {}
         ~SQLCell() {}
         const SQLData& data() const { return m_data; }
@@ -277,8 +280,8 @@ namespace SimpleSqlTypes {
         SQLMatrix() : m_is_valid(false) {}
         SQLMatrix(
             std::vector<SQLCell>&& cells,
-            const size_t &rows,
-            const size_t &columns
+            const size_t& rows,
+            const size_t& columns
         ) : m_cells(std::move(cells)), m_rows(rows), m_columns(columns), m_is_valid(true) {}
         ~SQLMatrix() {}
         const std::vector<SQLCell>& cells() const { return m_cells; }
@@ -289,12 +292,12 @@ namespace SimpleSqlTypes {
             return std::move(m_cells);
         }
 
-        void set_data(std::vector<SQLCell>&& cells, const size_t &rows) {
+        void set_data(std::vector<SQLCell>&& cells, const size_t& rows) {
             m_cells = cells;
             m_rows = rows;
         }
 
-        void make_valid(const size_t &columns) {
+        void make_valid(const size_t& columns) {
             m_columns = columns;
             m_is_valid = true;
         }

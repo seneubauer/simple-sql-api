@@ -298,21 +298,21 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
     SQLHANDLE env;
     sr = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = SimpleSqlConstants::ReturnCodes::D_ENV_HANDLE_ALLOC;
+        rc = ENV_HANDLE_ALLOC;
         goto end_of_function;
     }
     h_env = SimpleSqlTypes::ENV_HANDLE(env);
 
     sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = SimpleSqlConstants::ReturnCodes::D_ODBC_VERSION3;
+        rc = ODBC_VERSION3;
         goto free_env_handle;
     }
 
     SQLHANDLE dbc;
     sr = SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = SimpleSqlConstants::ReturnCodes::D_DBC_HANDLE_ALLOC;
+        rc = DBC_HANDLE_ALLOC;
         goto free_dbc_handle;
     }
     h_dbc = SimpleSqlTypes::DBC_HANDLE(dbc);
@@ -320,7 +320,7 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
     SQLSMALLINT conn_str_out_len;
     sr = SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = SimpleSqlConstants::ReturnCodes::D_CONNECTION;
+        rc = CONNECTION;
         goto free_dbc_handle;
     }
 
@@ -336,7 +336,7 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
     }
 
     end_of_function:
-    return SimpleSqlConstants::ReturnCodes::SUCCESS;
+    return SUCCESS;
 
     free_dbc_handle:
     SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());
