@@ -93,7 +93,7 @@ namespace SimpleSql {
 
         // get internal buffers
         std::uint8_t define_columns();
-        void define_diagnostics();
+        void update_diagnostics();
 
     public:
         SimQuery(SimQuery&&) {}
@@ -115,8 +115,6 @@ namespace SimpleSql {
         std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding& binding);
 
         // execution
-        bool execute_non_select();
-        bool execute_select();
         bool execute();
 
         // property getters

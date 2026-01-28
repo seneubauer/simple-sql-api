@@ -979,7 +979,7 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
             SQLSMALLINT null_id;
             SQLRETURN sr = SQLDescribeCol(h_stmt.get(), i, column_name_buffer.data(), SimpleSqlConstants::Limits::max_sql_column_name_size, &column_name_length, &odbc_sql_type, &data_size, &precision, &null_id);
             if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-                define_diagnostics();
+                update_diagnostics();
                 return _RC_UNDEFINED_COLUMNS;
             }
 
@@ -1059,13 +1059,13 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
             case BindingFamily::DATETIME:
                 switch (m_columns.back().sim_data_type()) {
                 case SimpleSqlTypes::SimDataType::DATETIME:
-                    sr = bind_datetime_column<SimpleSqlTypes::_Datetime>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                    sr = bind_datetime_column<SimpleSqlTypes::Datetime>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 case SimpleSqlTypes::SimDataType::DATE:
-                    sr = bind_datetime_column<SimpleSqlTypes::_Date>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                    sr = bind_datetime_column<SimpleSqlTypes::Date>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 case SimpleSqlTypes::SimDataType::TIME:
-                    sr = bind_datetime_column<SimpleSqlTypes::_Time>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                    sr = bind_datetime_column<SimpleSqlTypes::Time>(h_stmt.get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 default:
                     return _RC_DATETIME_BIND;
@@ -1084,7 +1084,7 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
     SQLSMALLINT column_count = 0;
     SQLRETURN sr = SQLNumResultCols(h_stmt.get(), &column_count);
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        define_diagnostics();
+        update_diagnostics();
         return _RC_CALC_COLUMNS;
     }
 
@@ -1104,7 +1104,7 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
     return _RC_SUCCESS;
 }
 
-void SimpleSql::SimQuery::define_diagnostics() {
+void SimpleSql::SimQuery::update_diagnostics() {
     SQLSMALLINT current_record_number = static_cast<SQLSMALLINT>(m_diagnostic_record_number);
     std::vector<SQLCHAR> sql_state(6);
     SQLINTEGER native_error;
@@ -1245,13 +1245,13 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
     case BindingFamily::DATETIME:
         switch (binding.data_type()) {
         case SimpleSqlTypes::SimDataType::DATETIME:
-            sr = bind_datetime_parameter<SimpleSqlTypes::_Datetime>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
+            sr = bind_datetime_parameter<SimpleSqlTypes::Datetime>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         case SimpleSqlTypes::SimDataType::DATE:
-            sr = bind_datetime_parameter<SimpleSqlTypes::_Date>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
+            sr = bind_datetime_parameter<SimpleSqlTypes::Date>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         case SimpleSqlTypes::SimDataType::TIME:
-            sr = bind_datetime_parameter<SimpleSqlTypes::_Time>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
+            sr = bind_datetime_parameter<SimpleSqlTypes::Time>(h_stmt.get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         default:
             return _RC_DATETIME_BIND;
@@ -1265,41 +1265,86 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
     }
 
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        define_diagnostics();
+        update_diagnostics();
         return _RC_BINDING;
     }
     m_binding_index++;
     return _RC_SUCCESS;
 }
 
-bool SimpleSql::SimQuery::execute_non_select() {
-
-    return true;
-}
-
-bool SimpleSql::SimQuery::execute_select() {
-
-    // run SQLExecute
-
-    // iterate calls with SQLFetch until it returns SQL_NO_DATA, the bound values will update so copy those to the SQLMatrix
-    while (SQLFetch(h_stmt.get())) {
-
-
-    }
-
-    return true;
-}
-
 bool SimpleSql::SimQuery::execute() {
 
-    // bind columns 
-    SQLRETURN sr = SQLExecute(h_stmt.get());
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    // run SQLExecute
+    switch (SQLExecute(h_stmt.get())) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        update_diagnostics();
+        break;
+    default:
+        update_diagnostics();
         return false;
+    }
 
-    // populate m_matrix if it was a select query
+    // get select results
+    while (true) {
+        bool exit_condition = false;
+        switch (SQLFetch(h_stmt.get())) {
+        case SQL_SUCCESS:
+            break;
+        case SQL_SUCCESS_WITH_INFO:
+            update_diagnostics();
+            break;
+        case SQL_NO_DATA:
+            exit_condition = true;
+            break;
+        default:
+            update_diagnostics();
+            return false;
+        }
+        if (exit_condition)
+            break;
 
-    // populate key data if there are output parameters
+        if (!m_column_buffer.empty()) {
+            std::vector<SimpleSqlTypes::SQLCell> row;
+            for (SimpleSqlTypes::SQLBoundOutput& output : m_column_buffer) {
+                row.push_back(SimpleSqlTypes::SQLCell(
+                    output.binding().data(),
+                    output.binding().data_type(),
+                    output.buffer_size() == SQL_NULL_DATA
+                ));
+            }
+            m_matrix.add_row(std::move(row));
+        }
+    }
+
+    // get output parameters
+    switch (SQLMoreResults(h_stmt.get())) {
+    case SQL_SUCCESS:
+        for (SimpleSqlTypes::SQLBoundOutput& output : m_parameter_buffer) {
+            m_key_data.emplace(output.binding().name(), SimpleSqlTypes::SQLCell(
+                output.binding().data(),
+                output.binding().data_type(),
+                output.buffer_size() == SQL_NULL_DATA
+            ));
+        }
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        for (SimpleSqlTypes::SQLBoundOutput& output : m_parameter_buffer) {
+            m_key_data.emplace(output.binding().name(), SimpleSqlTypes::SQLCell(
+                output.binding().data(),
+                output.binding().data_type(),
+                output.buffer_size() == SQL_NULL_DATA
+            ));
+        }
+        update_diagnostics();
+        break;
+    case SQL_NO_DATA:
+        break;
+    default:
+        update_diagnostics();
+        return false;
+    }
 
     return true;
 }
