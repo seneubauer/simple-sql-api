@@ -90,8 +90,9 @@ namespace SimpleSql {
         void disconnect();
 
         // statement handling
-        bool extract_stmt_handle(SimpleSqlTypes::STMT_HANDLE& handle);
-        void reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle);
+        SimpleSqlTypes::STMT_HANDLE* statement_handle();
+        // bool extract_stmt_handle(SimpleSqlTypes::STMT_HANDLE& handle);
+        // void reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle);
 
         // listener handling
         void listen(std::shared_ptr<std::function<void(std::uint8_t&&)>> p_listener);

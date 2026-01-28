@@ -61,7 +61,7 @@ namespace SimpleSql {
         };
 
         // handles
-        SimpleSqlTypes::STMT_HANDLE h_stmt;
+        SimpleSqlTypes::STMT_HANDLE* h_stmt;
 
         // data storage
         SimpleSqlTypes::SQLMatrix m_matrix;
@@ -71,6 +71,7 @@ namespace SimpleSql {
         std::vector<SimpleSqlTypes::SQLBoundOutput> m_column_buffer;
 
         // utility storage
+        std::vector<SimpleSqlTypes::SQLBinding> m_parameters;
         std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
         std::unordered_map<std::string, size_t> m_column_map;
         mutable std::vector<SimpleSqlTypes::SQLCell> m_column;
@@ -97,25 +98,30 @@ namespace SimpleSql {
 
     public:
         SimQuery(SimQuery&&) {}
-        SimQuery() : m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
+        SimQuery() : h_stmt(nullptr), m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
+        SimQuery(SimpleSqlTypes::STMT_HANDLE* handle) : h_stmt(handle), m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
         ~SimQuery() { destroy(); }
         SimQuery& operator=(SimQuery&&) noexcept {
             return *this;
         }
 
         // control ownership of statement handle
-        bool has_handle() const { return h_stmt != nullptr; }
-        bool claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle);
-        SimpleSqlTypes::STMT_HANDLE&& return_handle();
+        void set_handle(SimpleSqlTypes::STMT_HANDLE* handle);
+        // bool has_handle() const { return h_stmt != nullptr; }
+        // bool claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle);
+        // SimpleSqlTypes::STMT_HANDLE&& return_handle();
 
         // setting up the sql statement for execution
         void set_batch_size(const std::uint64_t& batch_size);
         std::uint8_t set_sql(const std::string& sql);
         std::uint8_t prepare();
         std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding& binding);
+        void add_parameter(const SimpleSqlTypes::SQLBinding& binding);
+        void bind_parameters();
 
         // execution
-        bool execute();
+        bool execute(const bool& autofinish = true);
+        void finish();
 
         // property getters
         bool is_valid() const { return m_is_valid; }

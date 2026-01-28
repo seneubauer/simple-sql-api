@@ -8,6 +8,7 @@
 #include <string>
 #include <cstdint>
 #include <iostream>
+#include <utility>
 
 // secrets
 #include <secrets.hpp>
@@ -47,9 +48,9 @@ int main() {
     // initialize & configure SimDatabase
     std::cout << "creating db object" << std::endl;
     SimpleSql::SimDatabase db(16);
-    // db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
-    // db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
-    // db.set_login_timeout(5);
+    db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
+    db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
+    db.set_login_timeout(5);
 
     std::cout << conn_str << std::endl;
     std::uint8_t rc = db.connect(conn_str);
