@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <span>
 #include <concepts>
+#include <iostream>
 
 // for compiling on Windows (ew)
 #ifdef _WIN32
@@ -67,14 +68,13 @@
 // private enums
 
 enum class BindingFamily : std::uint8_t {
-    NOT_SET         = 0,
-    STRING_UTF8     = 1,
-    STRING_UTF16    = 2,
-    NUMERIC         = 3,
-    BOOL_INT        = 4,
-    GUID            = 5,
-    DATETIME        = 6,
-    BLOB            = 7
+    STRING_UTF8     = 0,
+    STRING_UTF16    = 1,
+    NUMERIC         = 2,
+    BOOL_INT        = 3,
+    GUID            = 4,
+    DATETIME        = 5,
+    BLOB            = 6
 };
 
 template<typename T>
@@ -98,78 +98,78 @@ concept fixed_size = requires(T& t) {
 
 // helper functions
 
-static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType& data_type, SQLSMALLINT& odbc_c_type, SQLSMALLINT& odbc_sql_type) {
+static bool get_odbc_data_types(const SimpleSqlTypes::DataType& data_type, SQLSMALLINT& odbc_c_type, SQLSMALLINT& odbc_sql_type) {
 
     switch (data_type) {
-    case SimpleSqlTypes::SimDataType::STRING_UTF8:
+    case SimpleSqlTypes::DataType::STRING_UTF8:
         odbc_c_type = SQL_C_CHAR;
         odbc_sql_type = SQL_VARCHAR;
         break;
-    case SimpleSqlTypes::SimDataType::STRING_UTF16:
+    case SimpleSqlTypes::DataType::STRING_UTF16:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WVARCHAR;
         break;
-    case SimpleSqlTypes::SimDataType::LONG_STRING_UTF8:
+    case SimpleSqlTypes::DataType::LONG_STRING_UTF8:
         odbc_c_type = SQL_C_CHAR;
         odbc_sql_type = SQL_LONGVARCHAR;
         break;
-    case SimpleSqlTypes::SimDataType::LONG_STRING_UTF16:
+    case SimpleSqlTypes::DataType::LONG_STRING_UTF16:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WLONGVARCHAR;
         break;
-    case SimpleSqlTypes::SimDataType::FLOAT:
+    case SimpleSqlTypes::DataType::FLOAT:
         odbc_c_type = SQL_C_FLOAT;
         odbc_sql_type = SQL_FLOAT;
         break;
-    case SimpleSqlTypes::SimDataType::DOUBLE:
+    case SimpleSqlTypes::DataType::DOUBLE:
         odbc_c_type = SQL_C_DOUBLE;
         odbc_sql_type = SQL_DOUBLE;
         break;
-    case SimpleSqlTypes::SimDataType::BOOLEAN:
+    case SimpleSqlTypes::DataType::BOOLEAN:
         odbc_c_type = SQL_C_BIT;
         odbc_sql_type = SQL_BIT;
         break;
-    case SimpleSqlTypes::SimDataType::INT_8:
+    case SimpleSqlTypes::DataType::INT_8:
         odbc_c_type = SQL_C_STINYINT;
         odbc_sql_type = SQL_TINYINT;
         break;
-    case SimpleSqlTypes::SimDataType::INT_16:
+    case SimpleSqlTypes::DataType::INT_16:
         odbc_c_type = SQL_C_SSHORT;
         odbc_sql_type = SQL_SMALLINT;
         break;
-    case SimpleSqlTypes::SimDataType::INT_32:
+    case SimpleSqlTypes::DataType::INT_32:
         odbc_c_type = SQL_C_SLONG;
         odbc_sql_type = SQL_INTEGER;
         break;
-    case SimpleSqlTypes::SimDataType::INT_64:
+    case SimpleSqlTypes::DataType::INT_64:
         odbc_c_type = SQL_C_SBIGINT;
         odbc_sql_type = SQL_BIGINT;
         break;
-    case SimpleSqlTypes::SimDataType::ODBC_GUID:
+    case SimpleSqlTypes::DataType::ODBC_GUID:
         odbc_c_type = SQL_C_BINARY;
         odbc_sql_type = SQL_BINARY;
         break;
-    case SimpleSqlTypes::SimDataType::GUID:
+    case SimpleSqlTypes::DataType::GUID:
         odbc_c_type = SQL_C_GUID;
         odbc_sql_type = SQL_GUID;
         break;
-    case SimpleSqlTypes::SimDataType::DATETIME:
+    case SimpleSqlTypes::DataType::DATETIME:
         odbc_c_type = SQL_C_TYPE_TIMESTAMP;
         odbc_sql_type = SQL_TYPE_TIMESTAMP;
         break;
-    case SimpleSqlTypes::SimDataType::DATE:
+    case SimpleSqlTypes::DataType::DATE:
         odbc_c_type = SQL_C_TYPE_DATE;
         odbc_sql_type = SQL_TYPE_DATE;
         break;
-    case SimpleSqlTypes::SimDataType::TIME:
+    case SimpleSqlTypes::DataType::TIME:
         odbc_c_type = SQL_C_TYPE_TIME;
         odbc_sql_type = SQL_TYPE_TIME;
         break;
-    case SimpleSqlTypes::SimDataType::BLOB:
+    case SimpleSqlTypes::DataType::BLOB:
         odbc_c_type = SQL_C_BINARY;
         odbc_sql_type = SQL_VARBINARY;
         break;
-    case SimpleSqlTypes::SimDataType::LONG_BLOB:
+    case SimpleSqlTypes::DataType::LONG_BLOB:
         odbc_c_type = SQL_C_BINARY;
         odbc_sql_type = SQL_LONGVARBINARY;
         break;
@@ -179,46 +179,69 @@ static bool get_odbc_data_types(const SimpleSqlTypes::SimDataType& data_type, SQ
     return true;
 }
 
-static bool get_binding_family(const SimpleSqlTypes::SimDataType& data_type, BindingFamily& family) {
-
-    family = BindingFamily::NOT_SET;
+static bool get_binding_family(const SimpleSqlTypes::DataType& data_type, BindingFamily& family) {
 
     // for narrow strings
-    family = data_type ^ SimpleSqlTypes::SimDataType::STRING_UTF8 &&
-             data_type ^ SimpleSqlTypes::SimDataType::LONG_STRING_UTF8 ? BindingFamily::STRING_UTF8 : family;
+    if (data_type == SimpleSqlTypes::DataType::STRING_UTF8 ||
+        data_type == SimpleSqlTypes::DataType::LONG_STRING_UTF8) {
+
+        family = BindingFamily::STRING_UTF8;
+        return true;
+    }
 
     // for wide strings
-    family = data_type ^ SimpleSqlTypes::SimDataType::STRING_UTF16 &&
-             data_type ^ SimpleSqlTypes::SimDataType::LONG_STRING_UTF16 ? BindingFamily::STRING_UTF16 : family;
+    if (data_type == SimpleSqlTypes::DataType::STRING_UTF16 ||
+        data_type == SimpleSqlTypes::DataType::LONG_STRING_UTF16) {
+
+        family = BindingFamily::STRING_UTF16;
+        return true;
+    }
 
     // for numeric types
-    family = data_type ^ SimpleSqlTypes::SimDataType::FLOAT &&
-             data_type ^ SimpleSqlTypes::SimDataType::DOUBLE ? BindingFamily::NUMERIC : family;
+    if (data_type == SimpleSqlTypes::DataType::FLOAT ||
+        data_type == SimpleSqlTypes::DataType::DOUBLE) {
+
+        family = BindingFamily::NUMERIC;
+        return true;
+    }
 
     // for integer / boolean types
-    family = data_type ^ SimpleSqlTypes::SimDataType::BOOLEAN &&
-             data_type ^ SimpleSqlTypes::SimDataType::INT_8 &&
-             data_type ^ SimpleSqlTypes::SimDataType::INT_16 &&
-             data_type ^ SimpleSqlTypes::SimDataType::INT_32 &&
-             data_type ^ SimpleSqlTypes::SimDataType::INT_64 ? BindingFamily::BOOL_INT : family;
+    if (data_type == SimpleSqlTypes::DataType::BOOLEAN ||
+        data_type == SimpleSqlTypes::DataType::INT_8 ||
+        data_type == SimpleSqlTypes::DataType::INT_16 ||
+        data_type == SimpleSqlTypes::DataType::INT_32 ||
+        data_type == SimpleSqlTypes::DataType::INT_64) {
+
+        family = BindingFamily::BOOL_INT;
+        return true;
+    }
 
     // for GUID types
-    family = data_type ^ SimpleSqlTypes::SimDataType::ODBC_GUID &&
-             data_type ^ SimpleSqlTypes::SimDataType::GUID ? BindingFamily::GUID : family;
+    if (data_type == SimpleSqlTypes::DataType::ODBC_GUID ||
+        data_type == SimpleSqlTypes::DataType::GUID) {
+
+        family = BindingFamily::GUID;
+        return true;
+    }
 
     // for datetime types
-    family = data_type ^ SimpleSqlTypes::SimDataType::DATETIME &&
-             data_type ^ SimpleSqlTypes::SimDataType::DATE &&
-             data_type ^ SimpleSqlTypes::SimDataType::TIME ? BindingFamily::DATETIME : family;
+    if (data_type == SimpleSqlTypes::DataType::DATETIME ||
+        data_type == SimpleSqlTypes::DataType::DATE ||
+        data_type == SimpleSqlTypes::DataType::TIME) {
+
+        family = BindingFamily::DATETIME;
+        return true;
+    }
 
     // for binary types
-    family = data_type ^ SimpleSqlTypes::SimDataType::BLOB &&
-             data_type ^ SimpleSqlTypes::SimDataType::LONG_BLOB ? BindingFamily::BLOB : family;
+    if (data_type == SimpleSqlTypes::DataType::BLOB ||
+        data_type == SimpleSqlTypes::DataType::LONG_BLOB) {
 
-    if (family == BindingFamily::NOT_SET)
-        return false;
+        family = BindingFamily::BLOB;
+        return true;
+    }
 
-    return true;
+    return false;
 }
 
 static bool get_io_type(const SimpleSqlTypes::BindingType& binding_type, SQLSMALLINT& output) {
@@ -293,29 +316,29 @@ static bool OBDC_SQL_to_ODBC_C(const SQLSMALLINT& odbc_sql_type, SQLSMALLINT &od
     return true;
 }
 
-static SimpleSqlTypes::SimDataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT& data_type) {
+static SimpleSqlTypes::DataType ODBC_SQL_to_SQLDataType(const SQLSMALLINT& data_type) {
     switch (data_type) {
-    case SQL_CHAR:                      return SimpleSqlTypes::SimDataType::STRING_UTF8;
-    case SQL_VARCHAR:                   return SimpleSqlTypes::SimDataType::STRING_UTF8;
-    case SQL_LONGVARCHAR:               return SimpleSqlTypes::SimDataType::LONG_STRING_UTF8;
-    case SQL_WCHAR:                     return SimpleSqlTypes::SimDataType::STRING_UTF16;
-    case SQL_WVARCHAR:                  return SimpleSqlTypes::SimDataType::STRING_UTF16;
-    case SQL_WLONGVARCHAR:              return SimpleSqlTypes::SimDataType::LONG_STRING_UTF16;
-    case SQL_FLOAT:                     return SimpleSqlTypes::SimDataType::FLOAT;
-    case SQL_DOUBLE:                    return SimpleSqlTypes::SimDataType::DOUBLE;
-    case SQL_BIT:                       return SimpleSqlTypes::SimDataType::BOOLEAN;
-    case SQL_TINYINT:                   return SimpleSqlTypes::SimDataType::INT_8;
-    case SQL_SMALLINT:                  return SimpleSqlTypes::SimDataType::INT_16;
-    case SQL_INTEGER:                   return SimpleSqlTypes::SimDataType::INT_32;
-    case SQL_BIGINT:                    return SimpleSqlTypes::SimDataType::INT_64;
-    case SQL_GUID:                      return SimpleSqlTypes::SimDataType::GUID;
-    case SQL_TYPE_TIMESTAMP:            return SimpleSqlTypes::SimDataType::DATETIME;
-    case SQL_TYPE_DATE:                 return SimpleSqlTypes::SimDataType::DATE;
-    case SQL_TYPE_TIME:                 return SimpleSqlTypes::SimDataType::TIME;
-    case SQL_BINARY:                    return SimpleSqlTypes::SimDataType::BLOB;
-    case SQL_VARBINARY:                 return SimpleSqlTypes::SimDataType::BLOB;
-    case SQL_LONGVARBINARY:             return SimpleSqlTypes::SimDataType::LONG_BLOB;
-    default:                            return SimpleSqlTypes::SimDataType::UNKNOWN;
+    case SQL_CHAR:                      return SimpleSqlTypes::DataType::STRING_UTF8;
+    case SQL_VARCHAR:                   return SimpleSqlTypes::DataType::STRING_UTF8;
+    case SQL_LONGVARCHAR:               return SimpleSqlTypes::DataType::LONG_STRING_UTF8;
+    case SQL_WCHAR:                     return SimpleSqlTypes::DataType::STRING_UTF16;
+    case SQL_WVARCHAR:                  return SimpleSqlTypes::DataType::STRING_UTF16;
+    case SQL_WLONGVARCHAR:              return SimpleSqlTypes::DataType::LONG_STRING_UTF16;
+    case SQL_FLOAT:                     return SimpleSqlTypes::DataType::FLOAT;
+    case SQL_DOUBLE:                    return SimpleSqlTypes::DataType::DOUBLE;
+    case SQL_BIT:                       return SimpleSqlTypes::DataType::BOOLEAN;
+    case SQL_TINYINT:                   return SimpleSqlTypes::DataType::INT_8;
+    case SQL_SMALLINT:                  return SimpleSqlTypes::DataType::INT_16;
+    case SQL_INTEGER:                   return SimpleSqlTypes::DataType::INT_32;
+    case SQL_BIGINT:                    return SimpleSqlTypes::DataType::INT_64;
+    case SQL_GUID:                      return SimpleSqlTypes::DataType::GUID;
+    case SQL_TYPE_TIMESTAMP:            return SimpleSqlTypes::DataType::DATETIME;
+    case SQL_TYPE_DATE:                 return SimpleSqlTypes::DataType::DATE;
+    case SQL_TYPE_TIME:                 return SimpleSqlTypes::DataType::TIME;
+    case SQL_BINARY:                    return SimpleSqlTypes::DataType::BLOB;
+    case SQL_VARBINARY:                 return SimpleSqlTypes::DataType::BLOB;
+    case SQL_LONGVARBINARY:             return SimpleSqlTypes::DataType::LONG_BLOB;
+    default:                            return SimpleSqlTypes::DataType::UNKNOWN;
     }
 }
 
@@ -970,22 +993,25 @@ static SQLRETURN bind_blob_column(void* handle, const SQLUSMALLINT& index, const
 std::uint8_t SimpleSql::SimQuery::define_columns() {
 
     auto get_columns = [&](SQLSMALLINT &column_count) -> std::uint8_t {
-        for (SQLUSMALLINT i = 1; i < column_count; ++i) {
+        for (SQLUSMALLINT i = 0; i < column_count; ++i) {
             std::vector<SQLCHAR> column_name_buffer(SimpleSqlConstants::Limits::max_sql_column_name_size);
             SQLSMALLINT column_name_length;
             SQLSMALLINT odbc_sql_type;
             SQLULEN data_size;
             SQLSMALLINT precision;
             SQLSMALLINT null_id;
-            SQLRETURN sr = SQLDescribeCol(h_stmt->get(), i, column_name_buffer.data(), SimpleSqlConstants::Limits::max_sql_column_name_size, &column_name_length, &odbc_sql_type, &data_size, &precision, &null_id);
+            SQLRETURN sr = SQLDescribeCol(h_stmt->get(), i + 1, column_name_buffer.data(), SimpleSqlConstants::Limits::max_sql_column_name_size, &column_name_length, &odbc_sql_type, &data_size, &precision, &null_id);
             if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
                 update_diagnostics();
                 return _RC_UNDEFINED_COLUMNS;
             }
 
-
             // build column metadata
             std::string column_name(reinterpret_cast<const char*>(column_name_buffer.data()), column_name_length);
+            auto it = m_column_map.find(column_name);
+            if (it != m_column_map.end())
+                return _RC_DUPLICATE_COLUMNS;
+
             m_column_map.emplace(column_name, static_cast<std::uint8_t>(i));
             m_columns.push_back(SimpleSqlTypes::ColumnMetadata(
                     static_cast<std::uint16_t>(i),
@@ -1007,18 +1033,18 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
 
             switch (family) {
             case BindingFamily::STRING_UTF8:
-                sr = bind_string_column<std::string, SQLCHAR>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                sr = bind_string_column<std::string, SQLCHAR>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                 break;
             case BindingFamily::STRING_UTF16:
-                sr = bind_string_column<std::wstring, SQLWCHAR>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                sr = bind_string_column<std::wstring, SQLWCHAR>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                 break;
             case BindingFamily::NUMERIC:
                 switch (m_columns.back().sim_data_type()) {
-                case SimpleSqlTypes::SimDataType::FLOAT:
-                    sr = bind_fixed_size_column<float>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::FLOAT:
+                    sr = bind_fixed_size_column<float>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::DOUBLE:
-                    sr = bind_fixed_size_column<double>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::DOUBLE:
+                    sr = bind_fixed_size_column<double>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 default:
                     return _RC_NUMERIC_BIND;
@@ -1026,20 +1052,20 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
                 break;
             case BindingFamily::BOOL_INT:
                 switch (m_columns.back().sim_data_type()) {
-                case SimpleSqlTypes::SimDataType::BOOLEAN:
-                    sr = bind_fixed_size_column<bool>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::BOOLEAN:
+                    sr = bind_fixed_size_column<bool>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::INT_8:
-                    sr = bind_fixed_size_column<std::int8_t>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::INT_8:
+                    sr = bind_fixed_size_column<std::int8_t>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::INT_16:
-                    sr = bind_fixed_size_column<std::int16_t>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::INT_16:
+                    sr = bind_fixed_size_column<std::int16_t>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::INT_32:
-                    sr = bind_fixed_size_column<std::int32_t>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::INT_32:
+                    sr = bind_fixed_size_column<std::int32_t>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::INT_64:
-                    sr = bind_fixed_size_column<std::int64_t>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::INT_64:
+                    sr = bind_fixed_size_column<std::int64_t>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 default:
                     return _RC_BOOL_INT_BIND;
@@ -1047,11 +1073,11 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
                 break;
             case BindingFamily::GUID:
                 switch (m_columns.back().sim_data_type()) {
-                case SimpleSqlTypes::SimDataType::ODBC_GUID:
-                    sr = bind_odbc_guid_column(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::ODBC_GUID:
+                    sr = bind_odbc_guid_column(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::GUID:
-                    sr = bind_guid_column(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::GUID:
+                    sr = bind_guid_column(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 default:
                     return _RC_GUID_BIND;
@@ -1059,24 +1085,22 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
                 break;
             case BindingFamily::DATETIME:
                 switch (m_columns.back().sim_data_type()) {
-                case SimpleSqlTypes::SimDataType::DATETIME:
-                    sr = bind_datetime_column<SimpleSqlTypes::Datetime>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::DATETIME:
+                    sr = bind_datetime_column<SimpleSqlTypes::Datetime>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::DATE:
-                    sr = bind_datetime_column<SimpleSqlTypes::Date>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::DATE:
+                    sr = bind_datetime_column<SimpleSqlTypes::Date>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
-                case SimpleSqlTypes::SimDataType::TIME:
-                    sr = bind_datetime_column<SimpleSqlTypes::Time>(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                case SimpleSqlTypes::DataType::TIME:
+                    sr = bind_datetime_column<SimpleSqlTypes::Time>(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                     break;
                 default:
                     return _RC_DATETIME_BIND;
                 }
                 break;
             case BindingFamily::BLOB:
-                sr = bind_blob_column(h_stmt->get(), i, odbc_c_type, m_columns.back(), m_column_buffer);
+                sr = bind_blob_column(h_stmt->get(), i + 1, odbc_c_type, m_columns.back(), m_column_buffer);
                 break;
-            case BindingFamily::NOT_SET:
-                return _RC_BINDING_NOT_SET;
             }
         }
         return _RC_SUCCESS;
@@ -1095,9 +1119,6 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
         if (return_code > 0)
             return return_code;
 
-        if (column_count != static_cast<SQLSMALLINT>(m_column_map.size()))
-            return _RC_DUPLICATE_COLUMNS;
-
         m_matrix.make_valid(column_count);
     } else {
         m_is_select = false;
@@ -1111,8 +1132,17 @@ void SimpleSql::SimQuery::update_diagnostics() {
     SQLINTEGER native_error;
     std::vector<SQLCHAR> message(SQL_MAX_MESSAGE_LENGTH);
     SQLSMALLINT message_length;
-    SQLRETURN rc = SQLGetDiagRec(SQL_HANDLE_STMT, h_stmt->get(), current_record_number, sql_state.data(), &native_error, message.data(), sizeof(message), &message_length);
-    while (rc != SQL_NO_DATA || rc != SQL_ERROR || rc != SQL_INVALID_HANDLE) {
+    while (true) {
+        bool exit_condition = false;
+        switch (SQLGetDiagRec(SQL_HANDLE_STMT, h_stmt->get(), current_record_number, sql_state.data(), &native_error, message.data(), sizeof(message), &message_length)) {
+        case SQL_SUCCESS: break;
+        case SQL_SUCCESS_WITH_INFO: break;
+        case SQL_NO_DATA: exit_condition = true; break;
+        default: exit_condition = true; break;
+        }
+        if (exit_condition)
+            break;
+
         m_diagnostics.push_back(SimpleSqlTypes::DiagnosticRecord(
                 static_cast<std::int16_t>(current_record_number),
                 std::string(reinterpret_cast<const char*>(sql_state.data()), 6),
@@ -1165,13 +1195,17 @@ std::uint8_t SimpleSql::SimQuery::prepare() {
 
     SQLULEN array_size = static_cast<SQLULEN>(m_batch_size);
     SQLRETURN sr = SQLSetStmtAttr(h_stmt->get(), SQL_ATTR_ROW_ARRAY_SIZE, (SQLPOINTER)array_size, 0);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        update_diagnostics();
         return _RC_ROW_SIZE;
+    }
 
     SQLCHAR* sql = reinterpret_cast<SQLCHAR*>(const_cast<char*>(m_sql.c_str()));
     sr = SQLPrepare(h_stmt->get(), sql, SQL_NTS);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        update_diagnostics();
         return _RC_PREPARE;
+    }
 
     return define_columns();
 }
@@ -1209,10 +1243,10 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
         break;
     case BindingFamily::NUMERIC:
         switch (binding.data_type()) {
-        case SimpleSqlTypes::SimDataType::FLOAT:
+        case SimpleSqlTypes::DataType::FLOAT:
             sr = bind_fixed_size_parameter<float>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::DOUBLE:
+        case SimpleSqlTypes::DataType::DOUBLE:
             sr = bind_fixed_size_parameter<double>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         default:
@@ -1221,19 +1255,19 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
         break;
     case BindingFamily::BOOL_INT:
         switch (binding.data_type()) {
-        case SimpleSqlTypes::SimDataType::BOOLEAN:
+        case SimpleSqlTypes::DataType::BOOLEAN:
             sr = bind_fixed_size_parameter<bool>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::INT_8:
+        case SimpleSqlTypes::DataType::INT_8:
             sr = bind_fixed_size_parameter<std::int8_t>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::INT_16:
+        case SimpleSqlTypes::DataType::INT_16:
             sr = bind_fixed_size_parameter<std::int16_t>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::INT_32:
+        case SimpleSqlTypes::DataType::INT_32:
             sr = bind_fixed_size_parameter<std::int32_t>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::INT_64:
+        case SimpleSqlTypes::DataType::INT_64:
             sr = bind_fixed_size_parameter<std::int64_t>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         default:
@@ -1242,10 +1276,10 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
         break;
     case BindingFamily::GUID:
         switch (binding.data_type()) {
-        case SimpleSqlTypes::SimDataType::ODBC_GUID:
+        case SimpleSqlTypes::DataType::ODBC_GUID:
             sr = bind_odbc_guid_parameter(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::GUID:
+        case SimpleSqlTypes::DataType::GUID:
             sr = bind_guid_parameter(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         default:
@@ -1254,13 +1288,13 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
         break;
     case BindingFamily::DATETIME:
         switch (binding.data_type()) {
-        case SimpleSqlTypes::SimDataType::DATETIME:
+        case SimpleSqlTypes::DataType::DATETIME:
             sr = bind_datetime_parameter<SimpleSqlTypes::Datetime>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::DATE:
+        case SimpleSqlTypes::DataType::DATE:
             sr = bind_datetime_parameter<SimpleSqlTypes::Date>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
-        case SimpleSqlTypes::SimDataType::TIME:
+        case SimpleSqlTypes::DataType::TIME:
             sr = bind_datetime_parameter<SimpleSqlTypes::Time>(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
             break;
         default:
@@ -1270,8 +1304,6 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(SimpleSqlTypes::SQLBinding& bin
     case BindingFamily::BLOB:
         sr = bind_blob_parameter(h_stmt->get(), parameter_index, io_type, c_data_type, sql_data_type, binding, m_parameter_buffer);
         break;
-    case BindingFamily::NOT_SET:
-        return _RC_BINDING_NOT_SET;
     }
 
     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
@@ -1409,100 +1441,6 @@ void SimpleSql::SimQuery::finish() {
         update_diagnostics();
         break;
     }
-}
-
-const size_t& SimpleSql::SimQuery::get_row_count(bool& invalid) const {
-    if (!m_matrix.is_valid()) {
-        invalid = true;
-        return m_invalid_count;
-    }
-
-    invalid = false;
-    return m_matrix.rows();
-}
-
-const size_t& SimpleSql::SimQuery::get_column_count(bool& invalid) const {
-    if (!m_matrix.is_valid()) {
-        invalid = true;
-        return m_invalid_count;
-    }
-
-    invalid = false;
-    return m_matrix.columns();
-}
-
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string& key) const {
-    auto iterator = m_key_data.find(key);
-    if (iterator != m_key_data.end()) {
-        return iterator->second;
-    } else {
-        return m_invalid_cell;
-    }
-}
-
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const std::string& column, const size_t& row) const {
-    if (!m_matrix.is_valid())
-        return m_invalid_cell;
-
-    auto iterator = m_column_map.find(column);
-    if (iterator == m_column_map.end())
-        return m_invalid_cell;
-
-    size_t column_index = iterator->second;
-    return get_cell(column_index, row);
-}
-
-const SimpleSqlTypes::SQLCell& SimpleSql::SimQuery::get_cell(const size_t& column, const size_t& row) const {
-    if (column >= m_matrix.columns() || row >= m_matrix.rows() || !m_matrix.is_valid())
-        return m_invalid_cell;
-
-    return m_matrix.cells()[column + row * m_matrix.columns()];
-}
-
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const std::string& column) const {
-    auto iterator = m_column_map.find(column);
-    if (iterator == m_column_map.end())
-        return m_invalid_matrix;
-
-    size_t column_index = iterator->second;
-    return get_column(column_index);
-}
-
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_column(const size_t& column) const {
-    if (column >= m_matrix.columns() || !m_matrix.is_valid())
-        return m_invalid_matrix;
-
-    auto column_count = m_matrix.columns();
-    auto cells = m_matrix.cells();
-    m_column.clear();
-    for (size_t i = 0; i < m_matrix.rows(); ++i) {
-        m_column.push_back(cells[i * column_count + column]);
-    }
-    return m_column;
-}
-
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_row(const size_t& row) const {
-    if (row >= m_matrix.rows() || !m_matrix.is_valid())
-        return m_invalid_matrix;
-
-    auto it = m_matrix.cells().begin();
-    size_t column_count = m_matrix.columns();
-
-    m_row.clear();
-    m_row.insert(m_row.begin(), it + row * column_count, it + row * column_count + column_count);
-
-    return m_row;
-}
-
-const std::vector<SimpleSqlTypes::SQLCell>& SimpleSql::SimQuery::get_data() const {
-    if (!m_matrix.is_valid())
-        return m_invalid_matrix;
-
-    return m_matrix.cells();
-}
-
-std::vector<SimpleSqlTypes::SQLCell> SimpleSql::SimQuery::claim_data() {
-    return m_matrix.claim_cells();
 }
 
 void SimpleSql::SimQuery::destroy() {

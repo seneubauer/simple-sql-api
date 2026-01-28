@@ -4,6 +4,9 @@ add_library(
     src/SimQuery.cpp
     src/SimConnectionBuilder.cpp
     src/SimRunner.cpp
+    src/SimDiagnosticSet.cpp
+    src/SimResultSet.cpp
+    src/SimValueSet.cpp
 )
 
 target_include_directories(

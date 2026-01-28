@@ -126,23 +126,32 @@ namespace SimpleSql {
         // property getters
         bool is_valid() const { return m_is_valid; }
         bool is_select() const { return m_is_select; }
-        const size_t& get_row_count(bool& invalid) const;
-        const size_t& get_column_count(bool& invalid) const;
 
         // data getters
-        const SimpleSqlTypes::SQLCell& get_cell(const std::string& key) const;
-        const SimpleSqlTypes::SQLCell& get_cell(const std::string& column, const size_t& row) const;
-        const SimpleSqlTypes::SQLCell& get_cell(const size_t& column, const size_t& row) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const std::string& column) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_column(const size_t& column) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_row(const size_t& row) const;
-        const std::vector<SimpleSqlTypes::SQLCell>& get_data() const;
-        std::vector<SimpleSqlTypes::SQLCell> claim_data();
+        SimpleSqlTypes::SQLCell* get_value(const std::string& key) {
+            auto it = m_key_data.find(key);
+            if (it != m_key_data.end())
+                return &it->second;
+
+            return nullptr;
+        }
+
+        SimpleSqlTypes::SQLMatrix* get_result_set() {
+            if (!m_matrix.is_valid())
+                return nullptr;
+
+            return &m_matrix;
+        }
+
+        // diagnostics
         std::string_view return_code_definition(const std::uint8_t& return_code) {
             auto it = m_rc_def.find(return_code);
             if (it != m_rc_def.end())
                 return it->second;
             return std::string_view("fallback return code for undefined unsigned 8bit integers");
+        }
+        std::vector<SimpleSqlTypes::DiagnosticRecord>& get_diagnostics() {
+            return m_diagnostics;
         }
 
         // bruh just end me

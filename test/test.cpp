@@ -57,5 +57,41 @@ int main() {
     if (rc > 0)
         std::cout << db.return_code_definition(rc) << std::endl;
 
+    std::cout << "creating query object" << std::endl;
+    SimpleSql::SimQuery query(db.statement_handle());
+
+    std::cout << "settings sql" << std::endl;
+    query.set_batch_size(100);
+    query.set_sql(std::string(Secrets::QUERY));
+
+    std::cout << "preparing" << std::endl;
+    rc = query.prepare();
+    if (rc > 0) {
+        std::cout << "could not prepare..." << std::endl;
+        std::cout << query.return_code_definition(rc) << std::endl;
+
+        // print diagnostics
+        for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
+            std::cout << diag.sql_state() << " " << diag.message() << std::endl;
+        }
+    }
+
+    std::cout << "executing" << std::endl;
+    if (query.execute()) {
+
+        auto result_set = query.get_result_set();
+        if (result_set) {
+            std::cout << "r: " << std::to_string(result_set->rows()) << std::endl;
+            std::cout << "c: " << std::to_string(result_set->columns()) << std::endl;
+            std::cout << "i: " << std::to_string(result_set->size()) << std::endl;
+        }
+
+        // print diagnostics
+        for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
+            std::cout << diag.sql_state() << " " << diag.message() << std::endl;
+        }
+    }
+    std::cout << "finished" << std::endl;
+
     return 0;
 }

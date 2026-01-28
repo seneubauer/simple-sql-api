@@ -23,6 +23,11 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
+    enum class StringEncoding : std::uint8_t {
+        UTF8                = 0,
+        UTF16               = 1
+    };
+
     enum class ConnectionPoolingType : std::uint8_t {
         OFF                 = 0,
         ONE_PER_DRIVER      = 1,
@@ -61,7 +66,7 @@ namespace SimpleSqlTypes {
         OUTPUT              = 2
     };
 
-    enum class SimDataType : std::uint8_t {
+    enum class DataType : std::uint8_t {
         UNKNOWN             = 0,
         STRING_UTF8         = 1,
         STRING_UTF16        = 2,
@@ -82,9 +87,37 @@ namespace SimpleSqlTypes {
         BLOB                = 17,
         LONG_BLOB           = 18
     };
-    constexpr std::uint8_t operator^(SimDataType l, SimDataType r) {
+    constexpr std::uint8_t operator^(DataType l, DataType r) {
         return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
     }
+
+    enum class BindingFamily : std::uint8_t {
+        STRING_UTF8     = 0,
+        STRING_UTF16    = 1,
+        NUMERIC         = 2,
+        BOOL_INT        = 3,
+        GUID            = 4,
+        DATETIME        = 5,
+        BLOB            = 6
+    };
+
+    /* CONCEPTS */
+
+    template<typename T>
+    concept simql_string = requires(T& t) {
+        std::is_same_v<T, std::u8string> ||
+        std::is_same_v<T, std::u16string>;
+    };
+
+    template<typename T>
+    concept simql_numeric = requires(T& t) {
+        std::is_same_v<T, float> ||
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, std::int8_t> ||
+        std::is_same_v<T, std::int16_t> ||
+        std::is_same_v<T, std::int32_t> ||
+        std::is_same_v<T, std::int64_t>;
+    };
 
     /* STRUCTS */
 
@@ -92,7 +125,7 @@ namespace SimpleSqlTypes {
     private:
         std::uint16_t m_position;
         std::string m_name;
-        SimDataType m_sim_data_type;
+        DataType m_sim_data_type;
         std::uint64_t m_data_size;
         std::uint16_t m_precision;
         NullRuleType m_null_rule;
@@ -100,14 +133,14 @@ namespace SimpleSqlTypes {
         ColumnMetadata(
             const std::uint16_t &position,
             const std::string &name,
-            const SimDataType &sim_data_type,
+            const DataType &sim_data_type,
             const std::uint64_t &data_size,
             const std::uint16_t &precision,
             const NullRuleType &null_rule
         ) : m_position(position), m_name(name), m_sim_data_type(sim_data_type), m_data_size(data_size), m_precision(precision), m_null_rule(null_rule) {}
         std::uint16_t position() const { return m_position; }
         std::string name() const { return m_name; }
-        SimDataType sim_data_type() const { return m_sim_data_type; }
+        DataType sim_data_type() const { return m_sim_data_type; }
         std::uint64_t data_size() const { return m_data_size; }
         std::uint16_t precision() const { return m_precision; }
         NullRuleType null_rule() const { return m_null_rule; }
@@ -203,11 +236,11 @@ namespace SimpleSqlTypes {
         std::int16_t,
         std::int32_t,
         std::int64_t,
-        SimpleSqlTypes::ODBC_GUID,
-        SimpleSqlTypes::GUID,
-        SimpleSqlTypes::Datetime,
-        SimpleSqlTypes::Date,
-        SimpleSqlTypes::Time,
+        ODBC_GUID,
+        GUID,
+        Datetime,
+        Date,
+        Time,
         std::vector<std::uint8_t>>;
 
     struct SQLBinding {
@@ -215,21 +248,21 @@ namespace SimpleSqlTypes {
         std::string m_name;
         SQLData m_data;
         BindingType m_type;
-        SimDataType m_data_type;
+        DataType m_data_type;
         bool m_set_null;
     public:
         SQLBinding(
             const std::string& name,
             const SQLData& data,
             const BindingType& type,
-            const SimDataType& data_type,
+            const DataType& data_type,
             const bool& set_null = false
         ) : m_name(name), m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
         ~SQLBinding() {}
         const std::string& name() const { return m_name; }
         SQLData& data() { return m_data; }
         const BindingType& type() const { return m_type; }
-        const SimDataType& data_type() const { return m_data_type; }
+        const DataType& data_type() const { return m_data_type; }
         const bool& set_null() const { return m_set_null; } 
     };
 
@@ -239,10 +272,10 @@ namespace SimpleSqlTypes {
         std::int64_t m_buffer_size;
     public:
         SQLBoundOutput(
-            const SimpleSqlTypes::SQLBinding& binding
+            const SQLBinding& binding
         ) : m_binding(binding), m_buffer_size(0) {}
         SQLBoundOutput(
-            const SimpleSqlTypes::SQLBinding& binding,
+            const SQLBinding& binding,
             const size_t &buffer_size
         ) : m_binding(binding), m_buffer_size(buffer_size) {}
         ~SQLBoundOutput() {}
@@ -253,19 +286,19 @@ namespace SimpleSqlTypes {
     struct SQLCell {
     private:
         SQLData m_data;
-        SimDataType m_data_type;
+        DataType m_data_type;
         bool m_is_null;
         bool m_is_valid;
     public:
         SQLCell() : m_is_valid(false) {}
         SQLCell(
             const SQLData& data,
-            const SimDataType& data_type,
+            const DataType& data_type,
             const bool& is_null = false
         ) : m_data(data), m_data_type(data_type), m_is_null(is_null), m_is_valid(true) {}
         ~SQLCell() {}
         const SQLData& data() const { return m_data; }
-        const SimDataType& data_type() const { return m_data_type; }
+        const DataType& data_type() const { return m_data_type; }
         const bool& is_null() const { return m_is_null; }
         const bool& is_valid() const { return m_is_valid; }
     };
@@ -288,8 +321,11 @@ namespace SimpleSqlTypes {
         const size_t& rows() const { return m_rows; }
         const size_t& columns() const { return m_columns; }
         const bool& is_valid() const { return m_is_valid; }
-        std::vector<SQLCell> claim_cells() const {
-            return std::move(m_cells);
+        size_t size() const { return m_cells.size(); }
+
+        void make_valid(const size_t& columns) {
+            m_columns = columns;
+            m_is_valid = true;
         }
 
         void set_data(std::vector<SQLCell>&& cells, const size_t& rows) {
@@ -297,14 +333,38 @@ namespace SimpleSqlTypes {
             m_rows = rows;
         }
 
-        void make_valid(const size_t& columns) {
-            m_columns = columns;
-            m_is_valid = true;
-        }
-
         void add_row(std::vector<SQLCell>&& row) {
+            m_rows++;
             m_cells.resize(m_cells.size() + row.size());
             m_cells.insert(m_cells.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+        }
+
+        SQLCell* cell(const size_t& row, const size_t& column) {
+            if (!m_is_valid || row > m_rows || column > m_columns)
+                return nullptr;
+
+            return &m_cells[column + row * m_columns];
+        }
+
+        std::vector<SQLCell> row(const size_t& row) {
+            std::vector<SQLCell> arr;
+            if (!m_is_valid || row > m_rows)
+                return arr;
+
+            auto it = m_cells.begin();
+            arr.insert(arr.begin(), it + row * m_columns, it + row * m_columns + m_columns);
+            return arr;
+        }
+
+        std::vector<SQLCell> column(const size_t& column) {
+            std::vector<SQLCell> arr;
+            if (!m_is_valid || column > m_columns)
+                return arr;
+
+            for (size_t i = 0; i < m_rows; ++i) {
+                arr.push_back(m_cells[i * m_columns + column]);
+            }
+            return arr;
         }
     };
 }
