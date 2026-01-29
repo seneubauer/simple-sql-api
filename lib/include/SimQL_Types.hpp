@@ -23,7 +23,7 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
-    enum class StringEncoding : std::uint8_t {
+    enum class StringEncodingType : std::uint8_t {
         UTF8                = 0,
         UTF16               = 1
     };
@@ -66,7 +66,7 @@ namespace SimpleSqlTypes {
         OUTPUT              = 2
     };
 
-    enum class DataType : std::uint8_t {
+    enum class SQLDataType : std::uint8_t {
         UNKNOWN             = 0,
         STRING_UTF8         = 1,
         STRING_UTF16        = 2,
@@ -87,7 +87,7 @@ namespace SimpleSqlTypes {
         BLOB                = 17,
         LONG_BLOB           = 18
     };
-    constexpr std::uint8_t operator^(DataType l, DataType r) {
+    constexpr std::uint8_t operator^(SQLDataType l, SQLDataType r) {
         return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
     }
 
@@ -125,7 +125,7 @@ namespace SimpleSqlTypes {
     private:
         std::uint16_t m_position;
         std::string m_name;
-        DataType m_sim_data_type;
+        SQLDataType m_sim_data_type;
         std::uint64_t m_data_size;
         std::uint16_t m_precision;
         NullRuleType m_null_rule;
@@ -133,14 +133,14 @@ namespace SimpleSqlTypes {
         ColumnMetadata(
             const std::uint16_t &position,
             const std::string &name,
-            const DataType &sim_data_type,
+            const SQLDataType &sim_data_type,
             const std::uint64_t &data_size,
             const std::uint16_t &precision,
             const NullRuleType &null_rule
         ) : m_position(position), m_name(name), m_sim_data_type(sim_data_type), m_data_size(data_size), m_precision(precision), m_null_rule(null_rule) {}
         std::uint16_t position() const { return m_position; }
         std::string name() const { return m_name; }
-        DataType sim_data_type() const { return m_sim_data_type; }
+        SQLDataType sim_data_type() const { return m_sim_data_type; }
         std::uint64_t data_size() const { return m_data_size; }
         std::uint16_t precision() const { return m_precision; }
         NullRuleType null_rule() const { return m_null_rule; }
@@ -226,7 +226,7 @@ namespace SimpleSqlTypes {
 
     using GUID = std::array<std::uint8_t, 16>;
 
-    using SQLData = std::variant<
+    using SQLVariant = std::variant<
         std::string,
         std::wstring,
         float,
@@ -246,23 +246,23 @@ namespace SimpleSqlTypes {
     struct SQLBinding {
     private:
         std::string m_name;
-        SQLData m_data;
+        SQLVariant m_data;
         BindingType m_type;
-        DataType m_data_type;
+        SQLDataType m_data_type;
         bool m_set_null;
     public:
         SQLBinding(
             const std::string& name,
-            const SQLData& data,
+            const SQLVariant& data,
             const BindingType& type,
-            const DataType& data_type,
+            const SQLDataType& data_type,
             const bool& set_null = false
         ) : m_name(name), m_data(data), m_type(type), m_data_type(data_type), m_set_null(set_null) {}
         ~SQLBinding() {}
         const std::string& name() const { return m_name; }
-        SQLData& data() { return m_data; }
+        SQLVariant& data() { return m_data; }
         const BindingType& type() const { return m_type; }
-        const DataType& data_type() const { return m_data_type; }
+        const SQLDataType& data_type() const { return m_data_type; }
         const bool& set_null() const { return m_set_null; } 
     };
 
@@ -285,20 +285,20 @@ namespace SimpleSqlTypes {
 
     struct SQLCell {
     private:
-        SQLData m_data;
-        DataType m_data_type;
+        SQLVariant m_data;
+        SQLDataType m_data_type;
         bool m_is_null;
         bool m_is_valid;
     public:
         SQLCell() : m_is_valid(false) {}
         SQLCell(
-            const SQLData& data,
-            const DataType& data_type,
+            const SQLVariant& data,
+            const SQLDataType& data_type,
             const bool& is_null = false
         ) : m_data(data), m_data_type(data_type), m_is_null(is_null), m_is_valid(true) {}
         ~SQLCell() {}
-        const SQLData& data() const { return m_data; }
-        const DataType& data_type() const { return m_data_type; }
+        const SQLVariant& data() const { return m_data; }
+        const SQLDataType& data_type() const { return m_data_type; }
         const bool& is_null() const { return m_is_null; }
         const bool& is_valid() const { return m_is_valid; }
     };
