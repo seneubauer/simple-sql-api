@@ -2,12 +2,14 @@
 #include <SimQuery.hpp>
 #include <SimQL_Types.hpp>
 #include <SimQL_Constants.hpp>
+#include <SimQL_Strings.hpp>
 
 // STL stuff
 #include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
+#include <array>
 #include <unordered_map>
 #include <span>
 #include <concepts>
@@ -68,12 +70,12 @@
 // private enums
 
 enum class BindingFamily : std::uint8_t {
-    STRING_UTF8     = 0,
-    STRING_UTF16    = 1,
-    NUMERIC         = 2,
-    BOOL_INT        = 3,
+    STRING          = 0,
+    NUMERIC         = 1,
+    INTEGER         = 2,
+    OBDCGUID        = 3,
     GUID            = 4,
-    DATETIME        = 5,
+    TEMPORAL        = 5,
     BLOB            = 6
 };
 
@@ -96,24 +98,29 @@ concept fixed_size = requires(T& t) {
     std::is_same_v<T, std::int64_t>;
 };
 
+std::unordered_map<SimpleSqlTypes::SQLDataType, std::size_t> data_sizes {
+    {SimpleSqlTypes::SQLDataType::FLOAT, sizeof(SQLFLOAT)},
+    {SimpleSqlTypes::SQLDataType::DOUBLE, sizeof(SQLDOUBLE)},
+    {SimpleSqlTypes::SQLDataType::INT_8, sizeof(INT8)},
+    {SimpleSqlTypes::SQLDataType::INT_16, sizeof(INT16)},
+    {SimpleSqlTypes::SQLDataType::INT_32, sizeof(INT32)},
+    {SimpleSqlTypes::SQLDataType::INT_64, sizeof(INT64)},
+    {SimpleSqlTypes::SQLDataType::BOOLEAN, sizeof(BOOLEAN)},
+    {SimpleSqlTypes::SQLDataType::DATETIME, sizeof(SimpleSqlTypes::_Datetime)},
+    {SimpleSqlTypes::SQLDataType::DATE, sizeof(SimpleSqlTypes::_Date)},
+    {SimpleSqlTypes::SQLDataType::TIME, sizeof(SimpleSqlTypes::_Time)}
+};
+
 // helper functions
 
 static bool get_odbc_data_types(const SimpleSqlTypes::SQLDataType& data_type, SQLSMALLINT& odbc_c_type, SQLSMALLINT& odbc_sql_type) {
 
     switch (data_type) {
-    case SimpleSqlTypes::SQLDataType::STRING_UTF8:
-        odbc_c_type = SQL_C_CHAR;
-        odbc_sql_type = SQL_VARCHAR;
-        break;
-    case SimpleSqlTypes::SQLDataType::STRING_UTF16:
+    case SimpleSqlTypes::SQLDataType::STRING:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WVARCHAR;
         break;
-    case SimpleSqlTypes::SQLDataType::LONG_STRING_UTF8:
-        odbc_c_type = SQL_C_CHAR;
-        odbc_sql_type = SQL_LONGVARCHAR;
-        break;
-    case SimpleSqlTypes::SQLDataType::LONG_STRING_UTF16:
+    case SimpleSqlTypes::SQLDataType::LONG_STRING:
         odbc_c_type = SQL_C_WCHAR;
         odbc_sql_type = SQL_WLONGVARCHAR;
         break;
@@ -181,19 +188,11 @@ static bool get_odbc_data_types(const SimpleSqlTypes::SQLDataType& data_type, SQ
 
 static bool get_binding_family(const SimpleSqlTypes::SQLDataType& data_type, BindingFamily& family) {
 
-    // for narrow strings
-    if (data_type == SimpleSqlTypes::SQLDataType::STRING_UTF8 ||
-        data_type == SimpleSqlTypes::SQLDataType::LONG_STRING_UTF8) {
+    // for strings
+    if (data_type == SimpleSqlTypes::SQLDataType::STRING ||
+        data_type == SimpleSqlTypes::SQLDataType::LONG_STRING) {
 
-        family = BindingFamily::STRING_UTF8;
-        return true;
-    }
-
-    // for wide strings
-    if (data_type == SimpleSqlTypes::SQLDataType::STRING_UTF16 ||
-        data_type == SimpleSqlTypes::SQLDataType::LONG_STRING_UTF16) {
-
-        family = BindingFamily::STRING_UTF16;
+        family = BindingFamily::STRING;
         return true;
     }
 
@@ -212,7 +211,7 @@ static bool get_binding_family(const SimpleSqlTypes::SQLDataType& data_type, Bin
         data_type == SimpleSqlTypes::SQLDataType::INT_32 ||
         data_type == SimpleSqlTypes::SQLDataType::INT_64) {
 
-        family = BindingFamily::BOOL_INT;
+        family = BindingFamily::INTEGER;
         return true;
     }
 
@@ -229,7 +228,7 @@ static bool get_binding_family(const SimpleSqlTypes::SQLDataType& data_type, Bin
         data_type == SimpleSqlTypes::SQLDataType::DATE ||
         data_type == SimpleSqlTypes::SQLDataType::TIME) {
 
-        family = BindingFamily::DATETIME;
+        family = BindingFamily::TEMPORAL;
         return true;
     }
 
@@ -256,14 +255,8 @@ static bool get_io_type(const SimpleSqlTypes::BindingType& binding_type, SQLSMAL
 
 static bool OBDC_SQL_to_ODBC_C(const SQLSMALLINT& odbc_sql_type, SQLSMALLINT &odbc_c_type) {
     switch (odbc_sql_type) {
-    case SQL_VARCHAR:
-        odbc_c_type = SQL_C_CHAR;
-        break;
     case SQL_WVARCHAR:
         odbc_c_type = SQL_C_WCHAR;
-        break;
-    case SQL_LONGVARCHAR:
-        odbc_c_type = SQL_C_CHAR;
         break;
     case SQL_WLONGVARCHAR:
         odbc_c_type = SQL_C_WCHAR;
@@ -364,6 +357,107 @@ static bool infer_parameter_metadata(void* handle, const SQLUSMALLINT& parameter
     case SQL_NEED_DATA:         return false;
     default:                    return false;
     }
+}
+
+static SQLRETURN bindparam(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& odbc_binding_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, const SimpleSqlTypes::SQL_Binding& binding, std::vector<SimpleSqlTypes::SQL_Binding>& parameters) {
+    BindingFamily family;
+    if (!get_binding_family(binding.data_type, family))
+        return SQL_ERROR;
+
+    SimpleSqlTypes::SQL_Binding new_binding;
+    new_binding.name = binding.name;
+    new_binding.data = binding.data;
+    new_binding.type = binding.type;
+    new_binding.data_type = binding.data_type;
+    new_binding.set_null = binding.set_null;
+
+    SQLULEN column_size;
+    SQLSMALLINT decimal_digits;
+    SQLPOINTER p_val;
+    SQLLEN buffer_length;
+
+    switch (family) {
+    case BindingFamily::STRING:
+        {
+            std::wstring str_val = SimpleSqlStrings::utf8_to_odbc(std::get<std::string>(binding.data));
+            if (!infer_parameter_metadata(handle, index, column_size, decimal_digits))
+                column_size = static_cast<SQLULEN>(str_val.size() * sizeof(wchar_t)) + 1;
+
+            decimal_digits = 0;
+            buffer_length = column_size * sizeof(wchar_t);
+            new_binding.data = str_val;
+            p_val = std::get<std::wstring>(new_binding.data).data();
+        }
+    case BindingFamily::NUMERIC:
+        column_size = data_sizes[new_binding.data_type];
+        decimal_digits = 0;
+        buffer_length = data_sizes[new_binding.data_type];
+        p_val = &new_binding.data;
+    case BindingFamily::INTEGER:
+        column_size = data_sizes[new_binding.data_type];
+        decimal_digits = 0;
+        buffer_length = data_sizes[new_binding.data_type];
+        p_val = &new_binding.data;
+    case BindingFamily::OBDCGUID:
+        column_size = 16;
+        decimal_digits = 0;
+        buffer_length = 16;
+        p_val = &new_binding.data;
+    case BindingFamily::GUID:
+        {
+            SimpleSqlTypes::GUID& val = std::get<SimpleSqlTypes::GUID>(new_binding.data);
+            column_size = 16;
+            decimal_digits = 0;
+            buffer_length = 16;
+            p_val = val.data();
+        }
+    case BindingFamily::TEMPORAL:
+        column_size = 0;
+        decimal_digits = 0;
+        buffer_length = 0;
+        if (new_binding.data_type == SimpleSqlTypes::SQLDataType::DATETIME) {
+            p_val = &std::get<SimpleSqlTypes::Datetime>(new_binding.data).temporal();
+        } else if (new_binding.data_type == SimpleSqlTypes::SQLDataType::DATE) {
+            p_val = &std::get<SimpleSqlTypes::Date>(new_binding.data).temporal();
+        } else if (new_binding.data_type == SimpleSqlTypes::SQLDataType::TIME) {
+            p_val = &std::get<SimpleSqlTypes::Time>(new_binding.data).temporal();
+        } else {
+            return SQL_ERROR;
+        }
+    case BindingFamily::BLOB:
+        {
+            std::vector<std::uint8_t>& arr_val = std::get<std::vector<std::uint8_t>>(new_binding.data);
+            if (!infer_parameter_metadata(handle, index, column_size, decimal_digits))
+                column_size = static_cast<SQLULEN>(arr_val.size());
+
+            decimal_digits = 0;
+            buffer_length = arr_val.size();
+            p_val = arr_val.data();
+        }
+    }
+
+    switch (odbc_binding_type) {
+    case SQL_PARAM_INPUT_OUTPUT:
+        if (family == BindingFamily::STRING) {
+            new_binding.indicator = new_binding.set_null ? SQL_NULL_DATA : SQL_NTS;
+        } else {
+            new_binding.indicator = new_binding.set_null ? SQL_NULL_DATA : 0;
+        }
+        parameters.push_back(new_binding);
+    case SQL_PARAM_INPUT:
+        if (family == BindingFamily::STRING) {
+            new_binding.indicator = new_binding.set_null ? SQL_NULL_DATA : SQL_NTS;
+        } else {
+            new_binding.indicator = new_binding.set_null ? SQL_NULL_DATA : 0;
+        }
+    case SQL_PARAM_OUTPUT:
+        new_binding.indicator = 0;
+        parameters.push_back(new_binding);
+    default:
+        return SQL_ERROR;
+    }
+
+    return SQLBindParameter(handle, index, odbc_binding_type, odbc_c_type, odbc_sql_type, column_size, decimal_digits, p_val, buffer_length, &new_binding.indicator);
 }
 
 template<string_like T, typename SQL_CHARACTER_TYPE>
@@ -688,7 +782,7 @@ static SQLRETURN bind_guid_parameter(void* handle, const SQLUSMALLINT& index, co
     return return_code;
 }
 
-template<SimpleSqlTypes::temporal_types T>
+template<SimpleSqlTypes::simql_temporal T>
 static SQLRETURN bind_datetime_parameter(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& io_type, const SQLSMALLINT& odbc_c_type, const SQLSMALLINT& odbc_sql_type, SimpleSqlTypes::SQLBinding& binding, std::vector<SimpleSqlTypes::SQLBoundOutput>& parameter_buffer) {
 
     SQLLEN indicator;
@@ -942,7 +1036,7 @@ static SQLRETURN bind_guid_column(void* handle, const SQLUSMALLINT& index, const
     );
 }
 
-template<SimpleSqlTypes::temporal_types T>
+template<SimpleSqlTypes::simql_temporal T>
 static SQLRETURN bind_datetime_column(void* handle, const SQLUSMALLINT& index, const SQLSMALLINT& odbc_c_type, SimpleSqlTypes::ColumnMetadata& meta, std::vector<SimpleSqlTypes::SQLBoundOutput>& column_buffer) {
 
     // add to the column buffer

@@ -14,7 +14,7 @@
 namespace SimpleSql {
     class SimDiagnosticSet {
     public:
-    
+
         /* structs */
         struct Diagnostic {
             std::int16_t record_number;

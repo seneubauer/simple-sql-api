@@ -14,37 +14,29 @@ namespace SimpleSql {
     class SimResultSet {
     public:
 
-        /* data structures */
-        struct SQLValue {
-            SimpleSqlTypes::SQLVariant data;
-            SimpleSqlTypes::SQLDataType data_type;
-            bool is_null;
-        };
-
-        struct SQLColumn {
-            std::string name;
-            std::uint8_t ordinal;
-        };
-
         /* constructor/destructor */
         SimResultSet() {}
         ~SimResultSet() {}
 
         /* functions */
         const std::uint8_t& add_column(const std::string& name, const std::uint8_t& ordinal);
-        const std::uint8_t& add_row(std::vector<SQLValue>&& row);
-        const std::uint8_t& set_data(std::vector<SQLValue>&& data);
-        SQLValue* value(const std::uint64_t& row, const std::uint8_t& column);
-        std::vector<SQLValue> row(const std::uint64_t& row);
-        std::vector<SQLValue> colummn(const std::uint8_t& column);
+        const std::uint8_t& add_row(std::vector<SimpleSqlTypes::SQL_Value>&& r);
+        const std::uint8_t& set_data(std::vector<SimpleSqlTypes::SQL_Value>&& data);
+        const std::vector<SimpleSqlTypes::SQL_Column>& columns();
+        SimpleSqlTypes::SQL_Value* value(const std::uint64_t& r, const std::string& c);
+        SimpleSqlTypes::SQL_Value* value(const std::uint64_t& r, const std::uint8_t& c);
+        std::vector<SimpleSqlTypes::SQL_Value> row(const std::uint64_t& r);
+        std::vector<SimpleSqlTypes::SQL_Value> column(const std::string& c);
+        std::vector<SimpleSqlTypes::SQL_Value> column(const std::uint8_t& c);
+        std::string_view return_code_def(const std::uint8_t& return_code);
 
     private:
 
         /* members */
         std::uint64_t m_row_count;
         std::uint8_t m_column_count;
-        std::vector<SQLValue> m_data;
-        std::vector<SQLColumn> m_columns;
+        std::vector<SimpleSqlTypes::SQL_Value> m_data;
+        std::vector<SimpleSqlTypes::SQL_Column> m_columns;
         std::unordered_map<std::string, std::uint8_t> m_column_map;
 
         /* return codes */

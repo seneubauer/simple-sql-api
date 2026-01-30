@@ -23,11 +23,6 @@ namespace SimpleSqlTypes {
 
     /* ENUMS */
 
-    enum class StringEncodingType : std::uint8_t {
-        UTF8                = 0,
-        UTF16               = 1
-    };
-
     enum class ConnectionPoolingType : std::uint8_t {
         OFF                 = 0,
         ONE_PER_DRIVER      = 1,
@@ -68,56 +63,26 @@ namespace SimpleSqlTypes {
 
     enum class SQLDataType : std::uint8_t {
         UNKNOWN             = 0,
-        STRING_UTF8         = 1,
-        STRING_UTF16        = 2,
-        LONG_STRING_UTF8    = 3,
-        LONG_STRING_UTF16   = 4,
-        FLOAT               = 5,
-        DOUBLE              = 6,
-        BOOLEAN             = 7,
-        INT_8               = 8,
-        INT_16              = 9,
-        INT_32              = 10,
-        INT_64              = 11,
-        ODBC_GUID           = 12,
-        GUID                = 13,
-        DATETIME            = 14,
-        DATE                = 15,
-        TIME                = 16,
-        BLOB                = 17,
-        LONG_BLOB           = 18
+        STRING              = 1,
+        LONG_STRING         = 2,
+        FLOAT               = 3,
+        DOUBLE              = 4,
+        BOOLEAN             = 5,
+        INT_8               = 6,
+        INT_16              = 7,
+        INT_32              = 8,
+        INT_64              = 9,
+        ODBC_GUID           = 10,
+        GUID                = 11,
+        DATETIME            = 12,
+        DATE                = 13,
+        TIME                = 14,
+        BLOB                = 15,
+        LONG_BLOB           = 16
     };
     constexpr std::uint8_t operator^(SQLDataType l, SQLDataType r) {
         return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
     }
-
-    enum class BindingFamily : std::uint8_t {
-        STRING_UTF8     = 0,
-        STRING_UTF16    = 1,
-        NUMERIC         = 2,
-        BOOL_INT        = 3,
-        GUID            = 4,
-        DATETIME        = 5,
-        BLOB            = 6
-    };
-
-    /* CONCEPTS */
-
-    template<typename T>
-    concept simql_string = requires(T& t) {
-        std::is_same_v<T, std::u8string> ||
-        std::is_same_v<T, std::u16string>;
-    };
-
-    template<typename T>
-    concept simql_numeric = requires(T& t) {
-        std::is_same_v<T, float> ||
-        std::is_same_v<T, double> ||
-        std::is_same_v<T, std::int8_t> ||
-        std::is_same_v<T, std::int16_t> ||
-        std::is_same_v<T, std::int32_t> ||
-        std::is_same_v<T, std::int64_t>;
-    };
 
     /* STRUCTS */
 
@@ -188,13 +153,13 @@ namespace SimpleSqlTypes {
     };
 
     template<typename T>
-    concept temporal_types = requires(T& t) {
+    concept simql_temporal = requires(T& t) {
         std::is_same_v<T, _Datetime> ||
         std::is_same_v<T, _Date> ||
         std::is_same_v<T, _Time>;
     };
 
-    template<temporal_types T>
+    template<simql_temporal T>
     struct BaseTemporal {
     private:
         T m_temporal;
@@ -242,6 +207,28 @@ namespace SimpleSqlTypes {
         Date,
         Time,
         std::vector<std::uint8_t>>;
+
+    struct SQL_Binding {
+        std::string name;
+        SQLVariant data;
+        BindingType type;
+        SQLDataType data_type;
+        bool set_null;
+        std::int64_t indicator;
+        SQLVariant& ref_data() { return data; }
+        std::int64_t& ref_indicator() { return indicator; }
+    };
+
+    struct SQL_Value {
+        SQLVariant data;
+        SQLDataType data_type;
+        bool is_null;
+    };
+
+    struct SQL_Column {
+        std::string name;
+        std::uint8_t ordinal;
+    };
 
     struct SQLBinding {
     private:
