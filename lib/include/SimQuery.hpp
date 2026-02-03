@@ -13,8 +13,53 @@
 #include <memory>
 
 namespace SimpleSql {
+    class SimValueSet;
+    class SimResultSet;
+    class SimDiagnosticSet;
     class SimQuery {
+    public:
+
+        /* constructor/destructor */
+        SimQuery(SimQuery&&) {}
+        SimQuery() : h_stmt(nullptr), p_values(std::make_unique<SimValueSet>()), p_results(std::make_unique<SimResultSet>()), p_diagnostics(std::make_unique<SimDiagnosticSet>()), m_binding_index(1), m_is_finished(false) {}
+        SimQuery(SimpleSqlTypes::STMT_HANDLE* handle) : h_stmt(handle), p_values(std::make_unique<SimValueSet>()), p_results(std::make_unique<SimResultSet>()), p_diagnostics(std::make_unique<SimDiagnosticSet>()), m_binding_index(1), m_is_finished(false) {}
+        ~SimQuery() { }
+        SimQuery& operator=(SimQuery&&) noexcept { return *this; }
+
+        /* functions */
+        void set_handle(SimpleSqlTypes::STMT_HANDLE* handle);
+        void set_batch_size(const std::uint64_t& batch_size);
+        std::uint8_t set_sql(const std::string& sql);
+        std::uint8_t prepare();
+        std::uint8_t bind_parameter(const SimpleSqlTypes::SQL_Binding& binding);
+        void add_parameter(const SimpleSqlTypes::SQL_Binding& binding);
+        void bind_parameters();
+        bool execute(const bool& autofinish = true);
+        void finish();
+        bool is_valid() const;
+        bool is_select() const;
+        SimResultSet* results();
+        SimDiagnosticSet* diagnostics();
+        std::string_view return_code_def(const std::uint8_t& return_code);
+
     private:
+
+        /* internal functions */
+        std::uint8_t define_columns();
+
+        /* members */
+        SimpleSqlTypes::STMT_HANDLE* h_stmt;
+        std::unique_ptr<SimValueSet> p_values;
+        std::unique_ptr<SimResultSet> p_results;
+        std::unique_ptr<SimDiagnosticSet> p_diagnostics;
+        std::vector<SimpleSqlTypes::SQL_Binding> m_bound_parameters;
+        std::vector<SimpleSqlTypes::SQL_Binding> m_bound_columns;
+        std::uint32_t m_binding_index;
+        std::uint64_t m_batch_size;
+        bool m_is_valid;
+        bool m_is_select;
+        bool m_is_finished;
+        std::string m_sql;
 
         // return codes
         static constexpr std::uint8_t _RC_SUCCESS                   = 0;
@@ -28,16 +73,10 @@ namespace SimpleSql {
         static constexpr std::uint8_t _RC_UNKNOWN_IO_TYPE           = 8;
         static constexpr std::uint8_t _RC_UNKNOWN_BINDING_FAMILY    = 9;
         static constexpr std::uint8_t _RC_UNKNOWN_SQL_C_TYPE        = 10;
-        static constexpr std::uint8_t _RC_NUMERIC_BIND              = 11;
-        static constexpr std::uint8_t _RC_BOOL_INT_BIND             = 12;
-        static constexpr std::uint8_t _RC_GUID_BIND                 = 13;
-        static constexpr std::uint8_t _RC_DATETIME_BIND             = 14;
-        static constexpr std::uint8_t _RC_BINDING_NOT_SET           = 15;
-        static constexpr std::uint8_t _RC_BINDING                   = 16;
-        static constexpr std::uint8_t _RC_ROW_SIZE                  = 17;
-        static constexpr std::uint8_t _RC_SQL_C                     = 18;
-        static constexpr std::uint8_t _RC_BIND_COLUMN               = 19;
-        const std::unordered_map<std::uint8_t, std::string_view> m_rc_def {
+        static constexpr std::uint8_t _RC_BINDING                   = 11;
+        static constexpr std::uint8_t _RC_ROW_SIZE                  = 12;
+        static constexpr std::uint8_t _RC_BIND_COLUMN               = 13;
+        const std::unordered_map<std::uint8_t, std::string_view> m_return_codes {
             {_RC_SUCCESS,                   std::string_view("process was successful")},
             {_RC_UNDEFINED_COLUMNS,         std::string_view("could not retrieve the column metadata from the database")},
             {_RC_CALC_COLUMNS,              std::string_view("could not calculate the number of columns found in the result set")},
@@ -49,113 +88,10 @@ namespace SimpleSql {
             {_RC_UNKNOWN_IO_TYPE,           std::string_view("could not determine the ODBC Input/Output type")},
             {_RC_UNKNOWN_BINDING_FAMILY,    std::string_view("could not determine the proper binding family")},
             {_RC_UNKNOWN_SQL_C_TYPE,        std::string_view("could not determine the ODBC C/SQL data type")},
-            {_RC_NUMERIC_BIND,              std::string_view("cannot bind an unknown floating point type")},
-            {_RC_BOOL_INT_BIND,             std::string_view("cannot bind an unknown boolean or integer type")},
-            {_RC_GUID_BIND,                 std::string_view("cannot bind an unknown GUID type")},
-            {_RC_DATETIME_BIND,             std::string_view("cannot bind an unknown date/time type")},
-            {_RC_BINDING_NOT_SET,           std::string_view("the binding family is undefined")},
             {_RC_BINDING,                   std::string_view("could not bind the provided parameter")},
             {_RC_ROW_SIZE,                  std::string_view("could not set the row size attribute")},
-            {_RC_SQL_C,                     std::string_view("could not find the corresponding C data type to the SQL data type")},
             {_RC_BIND_COLUMN,               std::string_view("could not bind the current column")}
         };
-
-        // handles
-        SimpleSqlTypes::STMT_HANDLE* h_stmt;
-
-        // data storage
-        SimpleSqlTypes::SQLMatrix m_matrix;
-        std::unordered_map<std::string, SimpleSqlTypes::SQLCell> m_key_data;
-        std::vector<SimpleSqlTypes::DiagnosticRecord> m_diagnostics;
-        std::vector<SimpleSqlTypes::SQLBoundOutput> m_parameter_buffer;
-        std::vector<SimpleSqlTypes::SQLBoundOutput> m_column_buffer;
-
-        // utility storage
-        std::vector<SimpleSqlTypes::SQLBinding> m_parameters;
-        std::vector<SimpleSqlTypes::ColumnMetadata> m_columns;
-        std::unordered_map<std::string, size_t> m_column_map;
-        mutable std::vector<SimpleSqlTypes::SQLCell> m_column;
-        mutable std::vector<SimpleSqlTypes::SQLCell> m_row;
-
-        // index trackers
-        std::int32_t m_diagnostic_record_number;
-        std::uint32_t m_binding_index;
-
-        // idk just basic stuff
-        std::uint64_t m_batch_size;
-        bool m_is_valid;
-        bool m_is_select;
-        std::string m_sql;
-
-        // invalid returns
-        SimpleSqlTypes::SQLCell m_invalid_cell;
-        size_t m_invalid_count;
-        std::vector<SimpleSqlTypes::SQLCell> m_invalid_matrix;
-
-        // get internal buffers
-        std::uint8_t define_columns();
-        void update_diagnostics();
-
-    public:
-        SimQuery(SimQuery&&) {}
-        SimQuery() : h_stmt(nullptr), m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
-        SimQuery(SimpleSqlTypes::STMT_HANDLE* handle) : h_stmt(handle), m_matrix(SimpleSqlTypes::SQLMatrix()), m_diagnostic_record_number(1), m_binding_index(1), m_invalid_cell(SimpleSqlTypes::SQLCell()), m_invalid_count(0), m_invalid_matrix(std::vector<SimpleSqlTypes::SQLCell>{}) {}
-        ~SimQuery() { destroy(); }
-        SimQuery& operator=(SimQuery&&) noexcept {
-            return *this;
-        }
-
-        // control ownership of statement handle
-        void set_handle(SimpleSqlTypes::STMT_HANDLE* handle);
-        // bool has_handle() const { return h_stmt != nullptr; }
-        // bool claim_handle(SimpleSqlTypes::STMT_HANDLE&& stmt_handle);
-        // SimpleSqlTypes::STMT_HANDLE&& return_handle();
-
-        // setting up the sql statement for execution
-        void set_batch_size(const std::uint64_t& batch_size);
-        std::uint8_t set_sql(const std::string& sql);
-        std::uint8_t prepare();
-        std::uint8_t bind_parameter(SimpleSqlTypes::SQLBinding& binding);
-        void add_parameter(const SimpleSqlTypes::SQLBinding& binding);
-        void bind_parameters();
-
-        // execution
-        bool execute(const bool& autofinish = true);
-        void finish();
-
-        // property getters
-        bool is_valid() const { return m_is_valid; }
-        bool is_select() const { return m_is_select; }
-
-        // data getters
-        SimpleSqlTypes::SQLCell* get_value(const std::string& key) {
-            auto it = m_key_data.find(key);
-            if (it != m_key_data.end())
-                return &it->second;
-
-            return nullptr;
-        }
-
-        SimpleSqlTypes::SQLMatrix* get_result_set() {
-            if (!m_matrix.is_valid())
-                return nullptr;
-
-            return &m_matrix;
-        }
-
-        // diagnostics
-        std::string_view return_code_definition(const std::uint8_t& return_code) {
-            auto it = m_rc_def.find(return_code);
-            if (it != m_rc_def.end())
-                return it->second;
-            return std::string_view("fallback return code for undefined unsigned 8bit integers");
-        }
-        std::vector<SimpleSqlTypes::DiagnosticRecord>& get_diagnostics() {
-            return m_diagnostics;
-        }
-
-        // bruh just end me
-        void destroy();
     };
 }
 

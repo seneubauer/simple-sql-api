@@ -7,65 +7,6 @@
 #include <string>
 #include <cstdint>
 
-std::string SimpleSql::SimConnectionBuilder::assemble() const {
-    std::string output;
-    switch (m_database_type) {
-    case SimpleSqlTypes::DatabaseType::SQL_SERVER:
-
-        if (!m_driver.empty())
-            output += std::format("Driver={{{}}};", m_driver);
-        
-        if (!m_server.empty()) {
-            if (m_port > 0) {
-                output += std::format("Server={{{},{}}};", m_server, std::to_string(m_port));
-            } else {
-                output += std::format("Server={{{}}};", m_server);
-            }
-        }
-
-        if (!m_database.empty())
-            output += std::format("Database={{{}}};", m_database);
-
-        if (!m_username.empty())
-            output += std::format("UID={{{}}};", m_username);
-
-        if (!m_password.empty())
-            output += std::format("PWD={{{}}};", m_password);
-
-        output += std::format("MARS_Connection={};", m_mars ? "yes" : "no");
-        output += std::format("ApplicationIntent={};", m_readonly ? "ReadOnly" : "ReadWrite");
-        output += std::format("Trusted_Connection={};", m_trusted ? "yes" : "no");
-        output += std::format("Encrypt={};", m_encrypt ? "yes" : "no");
-
-        break;
-    case SimpleSqlTypes::DatabaseType::POSTGRESQL:
-
-        if (!m_driver.empty())
-            output += std::format("Driver={{{}}};", m_driver);
-
-        if (!m_server.empty())
-            output += std::format("Server={{{}}};", m_server);
-
-        if (!m_database.empty())
-            output += std::format("Database={{{}}};", m_database);
-
-        if (!m_username.empty())
-            output += std::format("Uid={{{}}};", m_username);
-
-        if (!m_password.empty())
-            output += std::format("Pwd={{{}}};", m_password);
-
-        if (m_port > 0)
-            output += std::format("Port={};", std::to_string(m_port));
-
-        if (m_sslmode)
-            output += std::string("sslmode=require;");
-
-        break;
-    }
-    return output;
-}
-
 std::string SimpleSql::SimConnectionBuilder::get() {
     std::string connection_string = assemble();
     destroy();
@@ -139,4 +80,63 @@ void SimpleSql::SimConnectionBuilder::destroy() {
     m_readonly = false;
     m_trusted = false;
     m_encrypt = false;
+}
+
+std::string SimpleSql::SimConnectionBuilder::assemble() const {
+    std::string output;
+    switch (m_database_type) {
+    case SimpleSqlTypes::DatabaseType::SQL_SERVER:
+
+        if (!m_driver.empty())
+            output += std::format("Driver={{{}}};", m_driver);
+        
+        if (!m_server.empty()) {
+            if (m_port > 0) {
+                output += std::format("Server={{{},{}}};", m_server, std::to_string(m_port));
+            } else {
+                output += std::format("Server={{{}}};", m_server);
+            }
+        }
+
+        if (!m_database.empty())
+            output += std::format("Database={{{}}};", m_database);
+
+        if (!m_username.empty())
+            output += std::format("UID={{{}}};", m_username);
+
+        if (!m_password.empty())
+            output += std::format("PWD={{{}}};", m_password);
+
+        output += std::format("MARS_Connection={};", m_mars ? "yes" : "no");
+        output += std::format("ApplicationIntent={};", m_readonly ? "ReadOnly" : "ReadWrite");
+        output += std::format("Trusted_Connection={};", m_trusted ? "yes" : "no");
+        output += std::format("Encrypt={};", m_encrypt ? "yes" : "no");
+
+        break;
+    case SimpleSqlTypes::DatabaseType::POSTGRESQL:
+
+        if (!m_driver.empty())
+            output += std::format("Driver={{{}}};", m_driver);
+
+        if (!m_server.empty())
+            output += std::format("Server={{{}}};", m_server);
+
+        if (!m_database.empty())
+            output += std::format("Database={{{}}};", m_database);
+
+        if (!m_username.empty())
+            output += std::format("Uid={{{}}};", m_username);
+
+        if (!m_password.empty())
+            output += std::format("Pwd={{{}}};", m_password);
+
+        if (m_port > 0)
+            output += std::format("Port={};", std::to_string(m_port));
+
+        if (m_sslmode)
+            output += std::string("sslmode=require;");
+
+        break;
+    }
+    return output;
 }

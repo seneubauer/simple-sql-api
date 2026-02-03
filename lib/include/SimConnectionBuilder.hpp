@@ -10,29 +10,13 @@
 
 namespace SimpleSql {
     class SimConnectionBuilder {
-    private:
-
-        // members
-        SimpleSqlTypes::DatabaseType m_database_type;
-        std::string m_driver{};
-        std::string m_server{};
-        std::uint16_t m_port{0};
-        std::string m_database{};
-        std::string m_username{};
-        std::string m_password{};
-        bool m_sslmode{false};
-        bool m_mars{false};
-        bool m_readonly{false};
-        bool m_trusted{false};
-        bool m_encrypt{false};
-
-        // funcs
-        std::string assemble() const;
-
     public:
+
+        /* constructor/destructor */
         SimConnectionBuilder(const SimpleSqlTypes::DatabaseType& database_type) : m_database_type(database_type) {}
         ~SimConnectionBuilder() { destroy(); }
 
+        /* functions */
         std::string get();
         void set_driver(const std::string& driver);
         void set_server(const std::string& server);
@@ -46,6 +30,25 @@ namespace SimpleSql {
         void set_trusted(const bool& trusted);
         void set_encrypt(const bool& encrypt);
         void destroy();
+
+    private:
+
+        /* internal functions */
+        std::string assemble() const;
+
+        /* members */
+        SimpleSqlTypes::DatabaseType m_database_type;
+        std::string m_driver{};
+        std::string m_server{};
+        std::uint16_t m_port{0};
+        std::string m_database{};
+        std::string m_username{};
+        std::string m_password{};
+        bool m_sslmode{false};
+        bool m_mars{false};
+        bool m_readonly{false};
+        bool m_trusted{false};
+        bool m_encrypt{false};
     };
 }
 

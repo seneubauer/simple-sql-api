@@ -1,6 +1,7 @@
 // SimQL stuff
 #include <SimQuery.hpp>
 #include <SimDatabase.hpp>
+#include <SimDiagnosticSet.hpp>
 #include <SimQL_Types.hpp>
 #include <SimConnectionBuilder.hpp>
 
@@ -55,7 +56,7 @@ int main() {
     std::cout << conn_str << std::endl;
     std::uint8_t rc = db.connect(conn_str);
     if (rc > 0)
-        std::cout << db.return_code_definition(rc) << std::endl;
+        std::cout << db.return_code_def(rc) << std::endl;
 
     std::cout << "creating query object" << std::endl;
     SimpleSql::SimQuery query(db.statement_handle());
@@ -68,28 +69,29 @@ int main() {
     rc = query.prepare();
     if (rc > 0) {
         std::cout << "could not prepare..." << std::endl;
-        std::cout << query.return_code_definition(rc) << std::endl;
+        std::cout << query.return_code_def(rc) << std::endl;
 
-        // print diagnostics
-        for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
-            std::cout << diag.sql_state() << " " << diag.message() << std::endl;
+        if (query.diagnostics()) {
+            for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
+                std::cout << diag.sql_state << " " << diag.message << std::endl;
+            }
         }
     }
 
     std::cout << "executing" << std::endl;
     if (query.execute()) {
 
-        auto result_set = query.get_result_set();
-        if (result_set) {
-            std::cout << "r: " << std::to_string(result_set->rows()) << std::endl;
-            std::cout << "c: " << std::to_string(result_set->columns()) << std::endl;
-            std::cout << "i: " << std::to_string(result_set->size()) << std::endl;
-        }
+        // auto result_set = query.get_result_set();
+        // if (result_set) {
+        //     std::cout << "r: " << std::to_string(result_set->rows()) << std::endl;
+        //     std::cout << "c: " << std::to_string(result_set->columns()) << std::endl;
+        //     std::cout << "i: " << std::to_string(result_set->size()) << std::endl;
+        // }
 
         // print diagnostics
-        for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
-            std::cout << diag.sql_state() << " " << diag.message() << std::endl;
-        }
+        // for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
+        //     std::cout << diag.sql_state() << " " << diag.message() << std::endl;
+        // }
     }
     std::cout << "finished" << std::endl;
 

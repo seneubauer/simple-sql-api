@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <string_view>
 
 namespace SimpleSql {
     class SimResultSet {
@@ -19,7 +20,7 @@ namespace SimpleSql {
         ~SimResultSet() {}
 
         /* functions */
-        const std::uint8_t& add_column(const std::string& name, const std::uint8_t& ordinal);
+        const std::uint8_t& add_column(const SimpleSqlTypes::SQL_Column& column);
         const std::uint8_t& add_row(std::vector<SimpleSqlTypes::SQL_Value>&& r);
         const std::uint8_t& set_data(std::vector<SimpleSqlTypes::SQL_Value>&& data);
         const std::vector<SimpleSqlTypes::SQL_Column>& columns();

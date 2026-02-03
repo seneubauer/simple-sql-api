@@ -2,6 +2,7 @@
 #include <SimQL_Constants.hpp>
 #include <SimQL_Types.hpp>
 #include <SimDatabase.hpp>
+#include <SimDiagnosticSet.hpp>
 
 // STL stuff
 #include <memory>
@@ -14,7 +15,6 @@
 
 // for compiling on Windows (ew)
 #ifdef _WIN32
-
 #define WIN32_LEAN_AND_MEAN
 #define NOGDICAPMASKS               // CC_*, LC_*, PC_*, CP_*, TC_*, RC_
 #define NOVIRTUALKEYCODES           // VK_*
@@ -56,28 +56,12 @@
 #define NODEFERWINDOWPOS            // DeferWindowPos routines
 #define NOMCX                       // Modem Configuration Extensions
 #include <windows.h>
-
 #endif
 
 // ODBC stuff
 #include <sqltypes.h>
 #include <sqlext.h>
 #include <sql.h>
-
-bool SimpleSql::SimDatabase::remove_stmt_handle() {
-
-    // remove handle from the vector
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_stmt_vector.erase(m_stmt_vector.begin() + m_stmt_index);
-    if (m_stmt_index >= m_stmt_vector.size())
-        m_stmt_index = 0;
-
-    // run the statement pool listener
-    std::uint8_t remaining_stmt_count = m_stmt_vector.size();
-    (*mp_stmt_pool_listener)(std::move(remaining_stmt_count));
-
-    return m_stmt_vector.size() > 0 ? true : false;
-}
 
 bool SimpleSql::SimDatabase::set_connection_pooling(const SimpleSqlTypes::ConnectionPoolingType& value) {
 
@@ -96,8 +80,16 @@ bool SimpleSql::SimDatabase::set_connection_pooling(const SimpleSqlTypes::Connec
         return false;
     }
 
-    SQLRETURN sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::set_access_mode(const SimpleSqlTypes::AccessModeType& value) {
@@ -114,8 +106,16 @@ bool SimpleSql::SimDatabase::set_access_mode(const SimpleSqlTypes::AccessModeTyp
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::set_driver_async(const SimpleSqlTypes::AsyncModeType& value) {
@@ -132,8 +132,16 @@ bool SimpleSql::SimDatabase::set_driver_async(const SimpleSqlTypes::AsyncModeTyp
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::set_autocommit(const SimpleSqlTypes::AutocommitType& value) {
@@ -150,27 +158,58 @@ bool SimpleSql::SimDatabase::set_autocommit(const SimpleSqlTypes::AutocommitType
         return false;
     }
 
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::set_login_timeout(const std::uint32_t& value) {
     SQLUINTEGER odbc_value = static_cast<SQLUINTEGER>(value);
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::set_connection_timeout(const std::uint32_t& value) {
     SQLUINTEGER odbc_value = static_cast<SQLUINTEGER>(value);
-    SQLRETURN sr = SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLSetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, reinterpret_cast<SQLPOINTER>(odbc_value), 0)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::get_connection_pooling(SimpleSqlTypes::ConnectionPoolingType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetEnvAttr(h_env.get(), SQL_ATTR_CONNECTION_POOLING, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     switch (odbc_value) {
     case SQL_CP_OFF:
@@ -190,9 +229,16 @@ bool SimpleSql::SimDatabase::get_connection_pooling(SimpleSqlTypes::ConnectionPo
 
 bool SimpleSql::SimDatabase::get_access_mode(SimpleSqlTypes::AccessModeType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ACCESS_MODE, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     switch (odbc_value) {
     case SQL_MODE_READ_ONLY:
@@ -209,9 +255,16 @@ bool SimpleSql::SimDatabase::get_access_mode(SimpleSqlTypes::AccessModeType& val
 
 bool SimpleSql::SimDatabase::get_driver_async(SimpleSqlTypes::AsyncModeType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_ASYNC_ENABLE, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     switch (odbc_value) {
     case SQL_ASYNC_ENABLE_ON:
@@ -228,9 +281,16 @@ bool SimpleSql::SimDatabase::get_driver_async(SimpleSqlTypes::AsyncModeType& val
 
 bool SimpleSql::SimDatabase::get_autocommit(SimpleSqlTypes::AutocommitType& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_AUTOCOMMIT, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     switch (odbc_value) {
     case SQL_AUTOCOMMIT_ON:
@@ -247,9 +307,16 @@ bool SimpleSql::SimDatabase::get_autocommit(SimpleSqlTypes::AutocommitType& valu
 
 bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_LOGIN_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     value = static_cast<std::uint32_t>(odbc_value);
     return true;
@@ -257,9 +324,16 @@ bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
 
 bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
     SQLUINTEGER odbc_value;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_TIMEOUT, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     value = static_cast<std::uint32_t>(odbc_value);
     return true;
@@ -267,9 +341,16 @@ bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
 
 bool SimpleSql::SimDatabase::get_connection_state(bool& connected) {
     SQLUINTEGER odbc_value = SQL_CD_TRUE;
-    SQLRETURN sr = SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_DEAD, &odbc_value, sizeof(odbc_value), nullptr);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
+    switch (SQLGetConnectAttr(h_dbc.get(), SQL_ATTR_CONNECTION_DEAD, &odbc_value, sizeof(odbc_value), nullptr)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
         return false;
+    }
 
     connected = odbc_value == SQL_CD_FALSE;
     return true;
@@ -280,55 +361,97 @@ bool SimpleSql::SimDatabase::open_transaction() {
 }
 
 bool SimpleSql::SimDatabase::rollback_transaction() {
-    SQLRETURN sr = SQLEndTran(SQL_HANDLE_DBC, h_dbc.get(), SQL_ROLLBACK);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLEndTran(SQL_HANDLE_DBC, h_dbc.get(), SQL_ROLLBACK)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
 bool SimpleSql::SimDatabase::commit_transaction() {
-    SQLRETURN sr = SQLEndTran(SQL_HANDLE_DBC, h_dbc.get(), SQL_COMMIT);
-    return sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO;
+    switch (SQLEndTran(SQL_HANDLE_DBC, h_dbc.get(), SQL_COMMIT)) {
+    case SQL_SUCCESS:
+        return true;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return true;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        return false;
+    }
 }
 
-std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
+const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
     std::uint8_t rc;
-    SQLRETURN sr;
     SQLCHAR* conn_str_in = const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(conn_str.c_str()));
     unsigned char conn_str_out[1024];
 
     SQLHANDLE env;
-    sr = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = ENV_HANDLE_ALLOC;
+    switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        break;
+    default:
+        rc = _RC_ENV_HANDLE_ALLOC;
         goto end_of_function;
     }
     h_env = SimpleSqlTypes::ENV_HANDLE(env);
 
-    sr = SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = ODBC_VERSION3;
+    switch (SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_env);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_env);
+        rc = _RC_ODBC_VERSION3;
         goto free_env_handle;
     }
 
     SQLHANDLE dbc;
-    sr = SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = DBC_HANDLE_ALLOC;
+    switch (SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_env);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_env);
+        rc = _RC_DBC_HANDLE_ALLOC;
         goto free_dbc_handle;
     }
     h_dbc = SimpleSqlTypes::DBC_HANDLE(dbc);
 
     SQLSMALLINT conn_str_out_len;
-    sr = SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT);
-    if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-        rc = CONNECTION;
+    switch (SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        break;
+    default:
+        p_diagnostics->update_diagnostics(&h_dbc);
+        rc = _RC_CONNECTION;
         goto free_dbc_handle;
     }
 
     for (std::uint8_t i = 0; i < m_stmt_count; ++i) {
         SQLHANDLE h;
-        sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
-
-        if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
+        switch (SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h)) {
+        case SQL_SUCCESS:
+            break;
+        case SQL_SUCCESS_WITH_INFO:
+            p_diagnostics->update_diagnostics(&h_dbc);
+            break;
+        default:
+            p_diagnostics->update_diagnostics(&h_dbc);
             m_skipped++;
             continue;
         }
@@ -389,79 +512,37 @@ SimpleSqlTypes::STMT_HANDLE* SimpleSql::SimDatabase::statement_handle() {
 
     return &m_stmt_vector[current_index];
 }
-// bool SimpleSql::SimDatabase::extract_stmt_handle(SimpleSqlTypes::STMT_HANDLE& handle) {
-//     std::lock_guard<std::mutex> lock(m_mutex);
 
-//     if (m_stmt_vector[m_stmt_index] == SQL_NULL_HSTMT || m_stmt_vector[m_stmt_index] == nullptr) {
+SimpleSql::SimDiagnosticSet* SimpleSql::SimDatabase::diagnostics() {
+    if (p_diagnostics)
+        return p_diagnostics.get();
 
-//         // the handle is null, so make a new one in its place
-//         SQLHANDLE h;
-//         SQLRETURN sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
-//         if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
-//             if (!remove_stmt_handle())
-//                 return false;
-
-//         // assign the new handle to the vector
-//         m_stmt_vector[m_stmt_index] = SimpleSqlTypes::STMT_HANDLE(h);
-//     }
-//     handle = std::move(m_stmt_vector[m_stmt_index]);
-
-//     // advance to the next index so the next assignment starts on the next handle
-//     m_stmt_index++;
-//     if (m_stmt_index >= m_stmt_vector.size())
-//         m_stmt_index = 0;
-
-//     return true;
-// }
-
-// void SimpleSql::SimDatabase::reclaim_stmt_handle(SimpleSqlTypes::STMT_HANDLE&& handle) {
-//     std::lock_guard<std::mutex> lock(m_mutex);
-//     m_stmt_vector[m_stmt_index] = std::move(handle);
-
-//     auto make_stmt_handle = [&](SQLHANDLE &h) -> bool {
-//         SQLRETURN sr;
-//         sr = SQLAllocHandle(SQL_HANDLE_STMT, h_dbc.get(), &h);
-//         if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO)
-//             return false;
-
-//         return true;
-//     };
-
-//     SQLRETURN sr;
-//     sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_CLOSE);
-//     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-//         SQLHANDLE h;
-//         if (!make_stmt_handle(h)) {
-//             remove_stmt_handle();
-//             return;
-//         }
-//         m_stmt_vector[m_stmt_index].reset(h);
-//         return;
-//     }
-
-//     sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_RESET_PARAMS);
-//     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-//         SQLHANDLE h;
-//         if (!make_stmt_handle(h)) {
-//             remove_stmt_handle();
-//             return;
-//         }
-//         m_stmt_vector[m_stmt_index].reset(h);
-//         return;
-//     }
-
-//     sr = SQLFreeStmt(m_stmt_vector[m_stmt_index].get(), SQL_UNBIND);
-//     if (sr != SQL_SUCCESS && sr != SQL_SUCCESS_WITH_INFO) {
-//         SQLHANDLE h;
-//         if (!make_stmt_handle(h)) {
-//             remove_stmt_handle();
-//             return;
-//         }
-//         m_stmt_vector[m_stmt_index].reset(h);
-//         return;
-//     }
-// }
+    return nullptr;
+}
 
 void SimpleSql::SimDatabase::listen(std::shared_ptr<std::function<void(std::uint8_t&&)>> p_listener) {
     mp_stmt_pool_listener = std::move(p_listener);
+}
+
+std::string_view SimpleSql::SimDatabase::return_code_def(const std::uint8_t& return_code) {
+    auto it = m_return_codes.find(return_code);
+    if (it == m_return_codes.end())
+        return std::string_view("invalid return code");
+
+    return it->second;
+}
+
+bool SimpleSql::SimDatabase::remove_stmt_handle() {
+
+    // remove handle from the vector
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_stmt_vector.erase(m_stmt_vector.begin() + m_stmt_index);
+    if (m_stmt_index >= m_stmt_vector.size())
+        m_stmt_index = 0;
+
+    // run the statement pool listener
+    std::uint8_t remaining_stmt_count = m_stmt_vector.size();
+    (*mp_stmt_pool_listener)(std::move(remaining_stmt_count));
+
+    return m_stmt_vector.size() > 0 ? true : false;
 }

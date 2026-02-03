@@ -18,14 +18,6 @@ void SimpleSql::SimRunner::run(SimpleSql::SimQuery&& query) {
     if (query.is_valid())
         query.execute();
 
-    // assign statement handle to the query
-    // SimpleSqlTypes::STMT_HANDLE handle;
-    // if (mp_db->extract_stmt_handle(handle)) {
-    //     query.claim_handle(std::move(handle));
-    //     // run the query
-    //     mp_db->reclaim_stmt_handle(query.return_handle());
-    // }
-
     if (mp_query_listener)
         (*mp_query_listener)(std::move(query));
 }
@@ -76,11 +68,6 @@ void SimpleSql::SimRunner::run_parallel(std::uint8_t& thread_count, std::vector<
 
     auto execute = [&](size_t&& index, SimpleSql::SimQuery&& query, std::promise<std::pair<size_t, SimpleSql::SimQuery>>&& prom) -> void {
 
-        // assign statement handle, goto end_of_lambda on failure
-        // SimpleSqlTypes::STMT_HANDLE handle;
-        // if (!mp_db->extract_stmt_handle(handle))
-        //     goto end_of_lambda;
-
         query.set_handle(mp_db->statement_handle());
         if (!query.is_valid())
             goto end_of_lambda;
@@ -90,9 +77,6 @@ void SimpleSql::SimRunner::run_parallel(std::uint8_t& thread_count, std::vector<
             std::lock_guard<std::mutex> lock(m_mutex);
             // run the query
         }
-
-        // return statement handle
-        // mp_db->reclaim_stmt_handle(query.return_handle());
 
         end_of_lambda:
         auto output = std::make_pair<size_t&&, SimpleSql::SimQuery&&>(std::move(index), std::move(query));

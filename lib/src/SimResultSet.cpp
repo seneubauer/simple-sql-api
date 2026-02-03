@@ -9,17 +9,14 @@
 #include <string>
 #include <utility>
 
-const std::uint8_t& SimpleSql::SimResultSet::add_column(const std::string& name, const std::uint8_t& ordinal) {
+const std::uint8_t& SimpleSql::SimResultSet::add_column(const SimpleSqlTypes::SQL_Column& column) {
     
-    auto it = m_column_map.find(name);
+    auto it = m_column_map.find(column.name);
     if (it != m_column_map.end())
         return _RC_COLUMN_ALREADY_EXISTS;
 
-    m_column_map.emplace(name, ordinal);
-    m_columns.emplace_back(SimpleSqlTypes::SQL_Column {
-        name,
-        ordinal
-    });
+    m_column_map.emplace(column.name, column.ordinal);
+    m_columns.emplace_back(column);
 }
 
 const std::uint8_t& SimpleSql::SimResultSet::add_row(std::vector<SimpleSqlTypes::SQL_Value>&& row) {
