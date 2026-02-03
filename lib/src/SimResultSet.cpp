@@ -17,6 +17,7 @@ const std::uint8_t& SimpleSql::SimResultSet::add_column(const SimpleSqlTypes::SQ
 
     m_column_map.emplace(column.name, column.ordinal);
     m_columns.emplace_back(column);
+    return _RC_SUCCESS;
 }
 
 const std::uint8_t& SimpleSql::SimResultSet::add_row(std::vector<SimpleSqlTypes::SQL_Value>&& row) {
@@ -26,6 +27,7 @@ const std::uint8_t& SimpleSql::SimResultSet::add_row(std::vector<SimpleSqlTypes:
     m_row_count++;
     m_data.resize(m_data.size() + row.size());
     m_data.insert(m_data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+    return _RC_SUCCESS;
 }
 
 const std::uint8_t& SimpleSql::SimResultSet::set_data(std::vector<SimpleSqlTypes::SQL_Value>&& data) {
@@ -34,6 +36,7 @@ const std::uint8_t& SimpleSql::SimResultSet::set_data(std::vector<SimpleSqlTypes
 
     m_data = std::move(data);
     m_row_count = m_data.size() / m_columns.size();
+    return _RC_SUCCESS;
 }
 
 const std::vector<SimpleSqlTypes::SQL_Column>& SimpleSql::SimResultSet::columns() {

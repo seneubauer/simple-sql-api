@@ -60,7 +60,7 @@
 #include <sqlext.h>
 #include <sql.h>
 
-SimpleSql::SimDiagnosticSet::diagnostic_filter_view SimpleSql::SimDiagnosticSet::view_diagnostics(std::optional<std::string> sql_state = std::nullopt, std::optional<std::int32_t> native_error = std::nullopt) {
+SimpleSql::SimDiagnosticSet::diagnostic_filter_view SimpleSql::SimDiagnosticSet::view_diagnostics(std::optional<std::string> sql_state, std::optional<std::int32_t> native_error) {
     return SimpleSql::SimDiagnosticSet::diagnostic_filter_view {
         std::ranges::ref_view{m_diagnostics},
         SimpleSql::SimDiagnosticSet::FilterPredicate{
@@ -75,16 +75,19 @@ void SimpleSql::SimDiagnosticSet::flush() {
     m_diagnostic_index = 1;
 }
 
-void SimpleSql::SimDiagnosticSet::update_diagnostics(SimpleSqlTypes::DBC_HANDLE* handle) {
-    update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_DBC), handle->get());
-}
-
-void SimpleSql::SimDiagnosticSet::update_diagnostics(SimpleSqlTypes::ENV_HANDLE* handle) {
-    update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_ENV), handle->get());
-}
-
-void SimpleSql::SimDiagnosticSet::update_diagnostics(SimpleSqlTypes::STMT_HANDLE* handle) {
-    update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_STMT), handle->get());
+void SimpleSql::SimDiagnosticSet::update(void* handle, const HandleType& type) {
+    switch (type) {
+    case HandleType::DBC:
+        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_DBC), handle);
+        break;
+    case HandleType::ENV:
+        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_ENV), handle);
+        break;
+    case HandleType::STMT:
+        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_STMT), handle);
+        break;
+    }
+    
 }
 
 void SimpleSql::SimDiagnosticSet::update_diagnostics(const std::int16_t& type, void* handle) {

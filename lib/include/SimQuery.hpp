@@ -3,6 +3,9 @@
 
 // SimQL stuff
 #include <SimQL_Types.hpp>
+#include <SimResultSet.hpp>
+#include <SimValueSet.hpp>
+#include <SimDiagnosticSet.hpp>
 
 // STL stuff
 #include <unordered_map>
@@ -13,9 +16,6 @@
 #include <memory>
 
 namespace SimpleSql {
-    class SimValueSet;
-    class SimResultSet;
-    class SimDiagnosticSet;
     class SimQuery {
     public:
 

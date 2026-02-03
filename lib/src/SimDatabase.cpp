@@ -1,5 +1,6 @@
 // SimQL stuff
 #include <SimQL_Constants.hpp>
+#include <SimQL_Strings.hpp>
 #include <SimQL_Types.hpp>
 #include <SimDatabase.hpp>
 #include <SimDiagnosticSet.hpp>
@@ -84,10 +85,10 @@ bool SimpleSql::SimDatabase::set_connection_pooling(const SimpleSqlTypes::Connec
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -110,10 +111,10 @@ bool SimpleSql::SimDatabase::set_access_mode(const SimpleSqlTypes::AccessModeTyp
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -136,10 +137,10 @@ bool SimpleSql::SimDatabase::set_driver_async(const SimpleSqlTypes::AsyncModeTyp
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -162,10 +163,10 @@ bool SimpleSql::SimDatabase::set_autocommit(const SimpleSqlTypes::AutocommitType
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -176,10 +177,10 @@ bool SimpleSql::SimDatabase::set_login_timeout(const std::uint32_t& value) {
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -190,10 +191,10 @@ bool SimpleSql::SimDatabase::set_connection_timeout(const std::uint32_t& value) 
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -204,10 +205,10 @@ bool SimpleSql::SimDatabase::get_connection_pooling(SimpleSqlTypes::ConnectionPo
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -233,10 +234,10 @@ bool SimpleSql::SimDatabase::get_access_mode(SimpleSqlTypes::AccessModeType& val
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -259,10 +260,10 @@ bool SimpleSql::SimDatabase::get_driver_async(SimpleSqlTypes::AsyncModeType& val
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -285,10 +286,10 @@ bool SimpleSql::SimDatabase::get_autocommit(SimpleSqlTypes::AutocommitType& valu
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -311,10 +312,10 @@ bool SimpleSql::SimDatabase::get_login_timeout(std::uint32_t& value) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -328,10 +329,10 @@ bool SimpleSql::SimDatabase::get_connection_timeout(std::uint32_t& value) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -345,10 +346,10 @@ bool SimpleSql::SimDatabase::get_connection_state(bool& connected) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 
@@ -365,10 +366,10 @@ bool SimpleSql::SimDatabase::rollback_transaction() {
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
@@ -378,18 +379,18 @@ bool SimpleSql::SimDatabase::commit_transaction() {
     case SQL_SUCCESS:
         return true;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return true;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         return false;
     }
 }
 
-const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
+std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
     std::uint8_t rc;
-    SQLCHAR* conn_str_in = const_cast<SQLCHAR*>(reinterpret_cast<const SQLCHAR*>(conn_str.c_str()));
-    unsigned char conn_str_out[1024];
+    std::wstring conn_str_in = SimpleSqlStrings::utf8_to_odbc(conn_str);
+    std::vector<SQLWCHAR> conn_str_out(1024);
 
     SQLHANDLE env;
     switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env)) {
@@ -407,10 +408,10 @@ const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_env);
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_env);
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
         rc = _RC_ODBC_VERSION3;
         goto free_env_handle;
     }
@@ -420,24 +421,24 @@ const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_env);
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_env);
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
         rc = _RC_DBC_HANDLE_ALLOC;
         goto free_dbc_handle;
     }
     h_dbc = SimpleSqlTypes::DBC_HANDLE(dbc);
 
     SQLSMALLINT conn_str_out_len;
-    switch (SQLDriverConnect(h_dbc.get(), nullptr, conn_str_in, SQL_NTS, conn_str_out, sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT)) {
+    switch (SQLDriverConnectW(h_dbc.get(), nullptr, conn_str_in.data(), SQL_NTS, conn_str_out.data(), sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         break;
     default:
-        p_diagnostics->update_diagnostics(&h_dbc);
+        p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
         rc = _RC_CONNECTION;
         goto free_dbc_handle;
     }
@@ -448,10 +449,10 @@ const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
         case SQL_SUCCESS:
             break;
         case SQL_SUCCESS_WITH_INFO:
-            p_diagnostics->update_diagnostics(&h_dbc);
+            p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
             break;
         default:
-            p_diagnostics->update_diagnostics(&h_dbc);
+            p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
             m_skipped++;
             continue;
         }

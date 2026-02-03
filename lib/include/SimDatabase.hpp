@@ -4,6 +4,7 @@
 // SimQL stuff
 #include <SimQL_Constants.hpp>
 #include <SimQL_Types.hpp>
+#include <SimDiagnosticSet.hpp>
 
 // STL stuff
 #include <string>
@@ -14,7 +15,6 @@
 #include <vector>
 
 namespace SimpleSql {
-    class SimDiagnosticSet;
     class SimDatabase {
     public:
 
@@ -47,7 +47,7 @@ namespace SimpleSql {
         bool commit_transaction();
 
         // connection control
-        const std::uint8_t& connect(std::string& conn_str);
+        std::uint8_t connect(std::string& conn_str);
         void disconnect();
 
         // statement handle accessor

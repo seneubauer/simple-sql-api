@@ -16,6 +16,13 @@ namespace SimpleSql {
     class SimDiagnosticSet {
     public:
 
+        /* enums */
+        enum class HandleType {
+            DBC,
+            ENV,
+            STMT
+        };
+
         /* structs */
         struct Diagnostic {
             std::int16_t record_number;
@@ -47,9 +54,7 @@ namespace SimpleSql {
         // functions
         diagnostic_filter_view view_diagnostics(std::optional<std::string> sql_state = std::nullopt, std::optional<std::int32_t> native_error = std::nullopt);
         void flush();
-        void update_diagnostics(SimpleSqlTypes::DBC_HANDLE* handle);
-        void update_diagnostics(SimpleSqlTypes::ENV_HANDLE* handle);
-        void update_diagnostics(SimpleSqlTypes::STMT_HANDLE* handle);
+        void update(void* handle, const HandleType& type);
 
     private:
 
