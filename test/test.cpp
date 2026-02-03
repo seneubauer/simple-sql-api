@@ -62,7 +62,6 @@ int main() {
     SimpleSql::SimQuery query(db.statement_handle());
 
     std::cout << "settings sql" << std::endl;
-    query.set_batch_size(100);
     query.set_sql(std::string(Secrets::QUERY));
 
     std::cout << "preparing" << std::endl;
@@ -72,10 +71,17 @@ int main() {
         std::cout << query.return_code_def(rc) << std::endl;
 
         if (query.diagnostics()) {
-            for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
-                std::cout << diag.sql_state << " " << diag.message << std::endl;
+            std::cout << "diagnostics exist" << std::endl;
+            for (auto& element : query.diagnostics()->view_diagnostics()) {
+                std::cout << element.message << std::endl;
             }
         }
+
+        // if (query.diagnostics()) {
+        //     for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
+        //         std::cout << diag.sql_state << " " << diag.message << std::endl;
+        //     }
+        // }
     }
 
     std::cout << "executing" << std::endl;
@@ -89,8 +95,10 @@ int main() {
         // }
 
         // print diagnostics
-        // for (SimpleSqlTypes::DiagnosticRecord& diag : query.get_diagnostics()) {
-        //     std::cout << diag.sql_state() << " " << diag.message() << std::endl;
+        // if (query.diagnostics()) {
+        //     for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
+        //         std::cout << diag.sql_state << " " << diag.message << std::endl;
+        //     }
         // }
     }
     std::cout << "finished" << std::endl;

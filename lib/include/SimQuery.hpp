@@ -28,7 +28,6 @@ namespace SimpleSql {
 
         /* functions */
         void set_handle(SimpleSqlTypes::STMT_HANDLE* handle);
-        void set_batch_size(const std::uint64_t& batch_size);
         std::uint8_t set_sql(const std::string& sql);
         std::uint8_t prepare();
         std::uint8_t bind_parameter(const SimpleSqlTypes::SQL_Binding& binding);
@@ -55,7 +54,6 @@ namespace SimpleSql {
         std::vector<SimpleSqlTypes::SQL_Binding> m_bound_parameters;
         std::vector<SimpleSqlTypes::SQL_Binding> m_bound_columns;
         std::uint32_t m_binding_index;
-        std::uint64_t m_batch_size;
         bool m_is_valid;
         bool m_is_select;
         bool m_is_finished;
@@ -74,7 +72,7 @@ namespace SimpleSql {
         static constexpr std::uint8_t _RC_UNKNOWN_BINDING_FAMILY    = 9;
         static constexpr std::uint8_t _RC_UNKNOWN_SQL_C_TYPE        = 10;
         static constexpr std::uint8_t _RC_BINDING                   = 11;
-        static constexpr std::uint8_t _RC_ROW_SIZE                  = 12;
+        static constexpr std::uint8_t _RC_BIND_COLUMN_DTYPE         = 12;
         static constexpr std::uint8_t _RC_BIND_COLUMN               = 13;
         const std::unordered_map<std::uint8_t, std::string_view> m_return_codes {
             {_RC_SUCCESS,                   std::string_view("process was successful")},
@@ -89,8 +87,8 @@ namespace SimpleSql {
             {_RC_UNKNOWN_BINDING_FAMILY,    std::string_view("could not determine the proper binding family")},
             {_RC_UNKNOWN_SQL_C_TYPE,        std::string_view("could not determine the ODBC C/SQL data type")},
             {_RC_BINDING,                   std::string_view("could not bind the provided parameter")},
-            {_RC_ROW_SIZE,                  std::string_view("could not set the row size attribute")},
-            {_RC_BIND_COLUMN,               std::string_view("could not bind the current column")}
+            {_RC_BIND_COLUMN,               std::string_view("could not bind the current column")},
+            {_RC_BIND_COLUMN_DTYPE,         std::string_view("could not find a SQL/C data type match")}
         };
     };
 }
