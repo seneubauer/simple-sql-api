@@ -7,6 +7,7 @@ add_library(
     src/SimDiagnosticSet.cpp
     src/SimResultSet.cpp
     src/SimValueSet.cpp
+    src/SimQL_Strings.cpp
 )
 
 target_include_directories(
