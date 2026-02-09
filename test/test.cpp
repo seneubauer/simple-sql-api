@@ -49,12 +49,17 @@ int main() {
     // initialize & configure SimDatabase
     std::cout << "creating db object" << std::endl;
     SimpleSql::SimDatabase db(16);
+
+    std::uint8_t rc = db.initialize();
+    if (rc > 0)
+        std::cout << db.return_code_def(rc) << std::endl;
+
     db.set_access_mode(SimpleSqlTypes::AccessModeType::READ_ONLY);
     db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
     db.set_login_timeout(5);
 
     std::cout << conn_str << std::endl;
-    std::uint8_t rc = db.connect(conn_str);
+    rc = db.connect(conn_str);
     if (rc > 0)
         std::cout << db.return_code_def(rc) << std::endl;
 

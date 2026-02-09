@@ -64,6 +64,47 @@
 #include <sqlext.h>
 #include <sql.h>
 
+const std::uint8_t& SimpleSql::SimDatabase::initialize() {
+
+    SQLHANDLE env;
+    switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        break;
+    default:
+        return _RC_ENV_HANDLE_ALLOC;
+    }
+    h_env = SimpleSqlTypes::ENV_HANDLE(env);
+
+    switch (SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
+        break;
+    default:
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
+        SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
+        return _RC_ODBC_VERSION3;
+    }
+
+    SQLHANDLE dbc;
+    switch (SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc)) {
+    case SQL_SUCCESS:
+        break;
+    case SQL_SUCCESS_WITH_INFO:
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
+        break;
+    default:
+        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
+        SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
+        return _RC_DBC_HANDLE_ALLOC;
+    }
+    h_dbc = SimpleSqlTypes::DBC_HANDLE(dbc);
+    return _RC_SUCCESS;
+}
+
 bool SimpleSql::SimDatabase::set_connection_pooling(const SimpleSqlTypes::ConnectionPoolingType& value) {
 
     SQLUINTEGER odbc_value;
@@ -387,48 +428,9 @@ bool SimpleSql::SimDatabase::commit_transaction() {
     }
 }
 
-std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
-    std::uint8_t rc;
+const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
     std::wstring conn_str_in = SimpleSqlStrings::utf8_to_odbc(conn_str);
     std::vector<SQLWCHAR> conn_str_out(1024);
-
-    SQLHANDLE env;
-    switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env)) {
-    case SQL_SUCCESS:
-        break;
-    case SQL_SUCCESS_WITH_INFO:
-        break;
-    default:
-        rc = _RC_ENV_HANDLE_ALLOC;
-        goto end_of_function;
-    }
-    h_env = SimpleSqlTypes::ENV_HANDLE(env);
-
-    switch (SQLSetEnvAttr(h_env.get(), SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0)) {
-    case SQL_SUCCESS:
-        break;
-    case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
-        break;
-    default:
-        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
-        rc = _RC_ODBC_VERSION3;
-        goto free_env_handle;
-    }
-
-    SQLHANDLE dbc;
-    switch (SQLAllocHandle(SQL_HANDLE_DBC, h_env.get(), &dbc)) {
-    case SQL_SUCCESS:
-        break;
-    case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
-        break;
-    default:
-        p_diagnostics->update(h_env.get(), SimpleSql::SimDiagnosticSet::HandleType::ENV);
-        rc = _RC_DBC_HANDLE_ALLOC;
-        goto free_dbc_handle;
-    }
-    h_dbc = SimpleSqlTypes::DBC_HANDLE(dbc);
 
     SQLSMALLINT conn_str_out_len;
     switch (SQLDriverConnectW(h_dbc.get(), nullptr, conn_str_in.data(), SQL_NTS, conn_str_out.data(), sizeof(conn_str_out), &conn_str_out_len, SQL_DRIVER_NOPROMPT)) {
@@ -439,8 +441,7 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
         break;
     default:
         p_diagnostics->update(h_dbc.get(), SimpleSql::SimDiagnosticSet::HandleType::DBC);
-        rc = _RC_CONNECTION;
-        goto free_dbc_handle;
+        return _RC_CONNECTION;
     }
 
     for (std::uint8_t i = 0; i < m_stmt_count; ++i) {
@@ -458,17 +459,7 @@ std::uint8_t SimpleSql::SimDatabase::connect(std::string& conn_str) {
         }
         m_stmt_vector.push_back(SimpleSqlTypes::STMT_HANDLE(h));
     }
-
-    end_of_function:
-    return SUCCESS;
-
-    free_dbc_handle:
-    SQLFreeHandle(SQL_HANDLE_DBC, h_dbc.get());
-
-    free_env_handle:
-    SQLFreeHandle(SQL_HANDLE_ENV, h_env.get());
-
-    return rc;
+    return _RC_SUCCESS;
 }
 
 void SimpleSql::SimDatabase::disconnect() {

@@ -23,7 +23,7 @@ namespace SimpleSql {
         SimQuery(SimQuery&&) {}
         SimQuery() : h_stmt(nullptr), p_values(std::make_unique<SimValueSet>()), p_results(std::make_unique<SimResultSet>()), p_diagnostics(std::make_unique<SimDiagnosticSet>()), m_binding_index(1), m_is_finished(false) {}
         SimQuery(SimpleSqlTypes::STMT_HANDLE* handle) : h_stmt(handle), p_values(std::make_unique<SimValueSet>()), p_results(std::make_unique<SimResultSet>()), p_diagnostics(std::make_unique<SimDiagnosticSet>()), m_binding_index(1), m_is_finished(false) {}
-        ~SimQuery() { }
+        ~SimQuery() { finish(); }
         SimQuery& operator=(SimQuery&&) noexcept { return *this; }
 
         /* functions */
@@ -33,7 +33,7 @@ namespace SimpleSql {
         std::uint8_t bind_parameter(const SimpleSqlTypes::SQL_Binding& binding);
         void add_parameter(const SimpleSqlTypes::SQL_Binding& binding);
         void bind_parameters();
-        bool execute(const bool& autofinish = true);
+        bool execute();
         void finish();
         bool is_valid() const;
         bool is_select() const;

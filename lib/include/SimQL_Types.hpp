@@ -65,20 +65,16 @@ namespace SimpleSqlTypes {
         UNKNOWN             = 0,
         STRING              = 1,
         LONG_STRING         = 2,
-        FLOAT               = 3,
-        DOUBLE              = 4,
-        BOOLEAN             = 5,
-        INT_8               = 6,
-        INT_16              = 7,
-        INT_32              = 8,
-        INT_64              = 9,
-        ODBC_GUID           = 10,
-        GUID                = 11,
-        DATETIME            = 12,
-        DATE                = 13,
-        TIME                = 14,
-        BLOB                = 15,
-        LONG_BLOB           = 16
+        DOUBLE              = 3,
+        BOOLEAN             = 4,
+        INT                 = 5,
+        ODBC_GUID           = 6,
+        GUID                = 7,
+        DATETIME            = 8,
+        DATE                = 9,
+        TIME                = 10,
+        BLOB                = 11,
+        LONG_BLOB           = 12
     };
     constexpr std::uint8_t operator^(SQLDataType l, SQLDataType r) {
         return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
@@ -117,25 +113,21 @@ namespace SimpleSqlTypes {
 
     template<simql_temporal T>
     struct BaseTemporal {
-    private:
-        T m_temporal;
-        bool m_is_utc;
-    public:
-        BaseTemporal(T&& t, const bool& is_utc) : m_temporal(std::move(t)), m_is_utc(is_utc) {}
-        T& temporal() { return m_temporal; }
-        bool is_utc() const { return m_is_utc; }
+        BaseTemporal(T&& t, const bool& is_utc) : temporal(std::move(t)), is_utc(is_utc) {}
+        T temporal;
+        bool is_utc;
     };
 
     struct Datetime : BaseTemporal<_Datetime> {
-        std::string to_string() { return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", temporal().year, temporal().month, temporal().day, temporal().hour, temporal().minute, temporal().second, temporal().fraction / 1000000); }
+        std::string to_string() { return std::format("{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}", temporal.year, temporal.month, temporal.day, temporal.hour, temporal.minute, temporal.second, temporal.fraction / 1000000); }
     };
 
     struct Date : BaseTemporal<_Date> {
-        std::string to_string() { return std::format("{:04}-{:02}-{:02}", temporal().year, temporal().month, temporal().day); }
+        std::string to_string() { return std::format("{:04}-{:02}-{:02}", temporal.year, temporal.month, temporal.day); }
     };
 
     struct Time : BaseTemporal<_Time> {
-        std::string to_string() { return std::format("{:02}:{:02}:{:02}", temporal().hour, temporal().minute, temporal().second); }
+        std::string to_string() { return std::format("{:02}:{:02}:{:02}", temporal.hour, temporal.minute, temporal.second); }
     };
 
     struct ODBC_GUID {
@@ -148,15 +140,10 @@ namespace SimpleSqlTypes {
     using GUID = std::array<std::uint8_t, 16>;
 
     using SQLVariant = std::variant<
-        std::string,
         std::wstring,
-        float,
         double,
         bool,
-        std::int8_t,
-        std::int16_t,
-        std::int32_t,
-        std::int64_t,
+        int,
         ODBC_GUID,
         GUID,
         Datetime,
@@ -171,8 +158,6 @@ namespace SimpleSqlTypes {
         SQLDataType data_type;
         bool set_null;
         std::int64_t indicator;
-        SQLVariant& ref_data() { return data; }
-        std::int64_t& ref_indicator() { return indicator; }
     };
 
     struct SQL_Value {
