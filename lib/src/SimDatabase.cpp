@@ -464,8 +464,6 @@ const std::uint8_t& SimpleSql::SimDatabase::connect(std::string& conn_str) {
 
 void SimpleSql::SimDatabase::disconnect() {
 
-    std::cout << "disconnecting..." << std::endl;
-
     bool is_connected = false;
     get_connection_state(is_connected);
     if (!is_connected)
@@ -485,7 +483,7 @@ SimpleSqlTypes::STMT_HANDLE* SimpleSql::SimDatabase::statement_handle() {
 
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (m_stmt_vector[m_stmt_index] == SQL_NULL_HANDLE || m_stmt_vector[m_stmt_index] == nullptr) {
+    if (m_stmt_vector[m_stmt_index].get() == SQL_NULL_HANDLE || m_stmt_vector[m_stmt_index].get() == nullptr) {
 
         // handle is null, so make a new one in its place
         SQLHANDLE h;

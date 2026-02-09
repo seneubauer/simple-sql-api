@@ -29,6 +29,8 @@ namespace SimpleSql {
         std::vector<SimpleSqlTypes::SQL_Value> row(const std::uint64_t& r);
         std::vector<SimpleSqlTypes::SQL_Value> column(const std::string& c);
         std::vector<SimpleSqlTypes::SQL_Value> column(const std::uint8_t& c);
+        const std::uint64_t& row_count();
+        const std::uint8_t& column_count();
         std::string_view return_code_def(const std::uint8_t& return_code);
 
     private:

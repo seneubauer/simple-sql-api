@@ -13,6 +13,7 @@
 #include <mutex>
 #include <cstdint>
 #include <vector>
+#include <deque>
 
 namespace SimpleSql {
     class SimDatabase {
@@ -74,7 +75,7 @@ namespace SimpleSql {
         std::uint8_t m_stmt_index;
         std::uint8_t m_stmt_count;
         std::uint8_t m_skipped;
-        std::vector<SimpleSqlTypes::STMT_HANDLE> m_stmt_vector;
+        std::deque<SimpleSqlTypes::STMT_HANDLE> m_stmt_vector;
         std::shared_ptr<std::function<void(std::uint8_t&&)>> mp_stmt_pool_listener;
         std::mutex m_mutex;
         std::unique_ptr<SimDiagnosticSet> p_diagnostics;

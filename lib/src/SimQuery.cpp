@@ -600,14 +600,14 @@ std::uint8_t SimpleSql::SimQuery::set_sql(const std::string& sql) {
 
 std::uint8_t SimpleSql::SimQuery::prepare() {
     std::wstring sql = SimpleSqlStrings::utf8_to_odbc(m_sql);
-    switch (SQLPrepareW((*h_stmt).get(), sql.data(), SQL_NTS)) {
+    switch (SQLPrepareW(h_stmt->get(), sql.data(), SQL_NTS)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return _RC_PREPARE;
     }
 
@@ -617,14 +617,14 @@ std::uint8_t SimpleSql::SimQuery::prepare() {
 std::uint8_t SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQL_Binding& binding) {
 
     SQLSMALLINT count;
-    switch (SQLNumParams((*h_stmt).get(), &count)) {
+    switch (SQLNumParams(h_stmt->get(), &count)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return _RC_PARAMETER_CALC;
     }
 
@@ -645,14 +645,14 @@ std::uint8_t SimpleSql::SimQuery::bind_parameter(const SimpleSqlTypes::SQL_Bindi
     if (!get_odbc_data_types(binding.data_type, c_data_type, sql_data_type))
         return _RC_UNKNOWN_SQL_C_TYPE;
 
-    switch (bindparam((*h_stmt).get(), index, io_type, c_data_type, sql_data_type, binding, m_bound_parameters)) {
+    switch (bindparam(h_stmt->get(), index, io_type, c_data_type, sql_data_type, binding, m_bound_parameters)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return _RC_BINDING;
     }
 
@@ -673,14 +673,14 @@ void SimpleSql::SimQuery::bind_parameters() {
 bool SimpleSql::SimQuery::execute() {
 
     // run SQLExecute
-    switch (SQLExecute((*h_stmt).get())) {
+    switch (SQLExecute(h_stmt->get())) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return false;
     }
 
@@ -688,17 +688,17 @@ bool SimpleSql::SimQuery::execute() {
     std::vector<SimpleSqlTypes::SQL_Value> values;
     while (true) {
         bool exit_condition = false;
-        switch (SQLFetch((*h_stmt).get())) {
+        switch (SQLFetch(h_stmt->get())) {
         case SQL_SUCCESS:
             break;
         case SQL_SUCCESS_WITH_INFO:
-            p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+            p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
             break;
         case SQL_NO_DATA:
             exit_condition = true;
             break;
         default:
-            p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+            p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
             return false;
         }
         if (exit_condition)
@@ -733,18 +733,18 @@ bool SimpleSql::SimQuery::execute() {
         return output;
     };
 
-    switch (SQLMoreResults((*h_stmt).get())) {
+    switch (SQLMoreResults(h_stmt->get())) {
     case SQL_SUCCESS:
         get_param();
         break;
     case SQL_SUCCESS_WITH_INFO:
         get_param();
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     case SQL_NO_DATA:
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return false;
     }
 
@@ -754,38 +754,38 @@ bool SimpleSql::SimQuery::execute() {
 void SimpleSql::SimQuery::finish() {
 
     // free statement: close
-    switch (SQLCloseCursor((*h_stmt).get())) {
+    switch (SQLCloseCursor(h_stmt->get())) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     }
 
     // free statement: reset params
-    switch (SQLFreeStmt((*h_stmt).get(), SQL_RESET_PARAMS)) {
+    switch (SQLFreeStmt(h_stmt->get(), SQL_RESET_PARAMS)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     }
 
     // free statement: unbind
-    switch (SQLFreeStmt((*h_stmt).get(), SQL_UNBIND)) {
+    switch (SQLFreeStmt(h_stmt->get(), SQL_UNBIND)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     }
     m_is_finished = true;
@@ -833,14 +833,14 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
             SQLULEN data_size;
             SQLSMALLINT precision;
             SQLSMALLINT null_id;
-            switch(SQLDescribeColW((*h_stmt).get(), i + 1, column_name_buffer.data(), SimpleSqlConstants::Limits::max_sql_column_name_size, &column_name_length, &odbc_sql_type, &data_size, &precision, &null_id)) {
+            switch(SQLDescribeColW(h_stmt->get(), i + 1, column_name_buffer.data(), SimpleSqlConstants::Limits::max_sql_column_name_size, &column_name_length, &odbc_sql_type, &data_size, &precision, &null_id)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+                p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
                 break;
             default:
-                p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+                p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
                 return _RC_UNDEFINED_COLUMNS;
             }
 
@@ -864,14 +864,14 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
             if (!get_binding_family(col.data_type, family))
                 return _RC_UNKNOWN_BINDING_FAMILY;
 
-            switch (bindcol((*h_stmt).get(), i + 1, odbc_c_type, col, m_bound_columns)) {
+            switch (bindcol(h_stmt->get(), i + 1, odbc_c_type, col, m_bound_columns)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+                p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
                 break;
             default:
-                p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+                p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
                 return _RC_BIND_COLUMN;
             }
         }
@@ -879,14 +879,14 @@ std::uint8_t SimpleSql::SimQuery::define_columns() {
     };
 
     SQLSMALLINT column_count = 0;
-    switch (SQLNumResultCols((*h_stmt).get(), &column_count)) {
+    switch (SQLNumResultCols(h_stmt->get(), &column_count)) {
     case SQL_SUCCESS:
         break;
     case SQL_SUCCESS_WITH_INFO:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         break;
     default:
-        p_diagnostics->update((*h_stmt).get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
+        p_diagnostics->update(h_stmt->get(), SimpleSql::SimDiagnosticSet::HandleType::STMT);
         return _RC_CALC_COLUMNS;
     }
 

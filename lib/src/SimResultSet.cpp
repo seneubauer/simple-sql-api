@@ -92,6 +92,14 @@ std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::column(const std
     return v;
 }
 
+const std::uint64_t& SimpleSql::SimResultSet::row_count() {
+    return m_row_count;
+}
+
+const std::uint8_t& SimpleSql::SimResultSet::column_count() {
+    return m_column_count;
+}
+
 std::string_view SimpleSql::SimResultSet::return_code_def(const std::uint8_t& return_code) {
     auto it = m_return_codes.find(return_code);
     if (it == m_return_codes.end())

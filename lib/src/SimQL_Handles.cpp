@@ -1,14 +1,7 @@
 // SimQL stuff
-#include <SimDiagnosticSet.hpp>
-#include <SimQL_Strings.hpp>
-#include <SimQL_Types.hpp>
+#include <SimQL_Handles.hpp>
 
 // STL stuff
-#include <cstdint>
-#include <ranges>
-#include <vector>
-#include <array>
-#include <string>
 
 // for compiling on Windows (ew)
 #ifdef _WIN32
@@ -60,62 +53,3 @@
 #include <sqlext.h>
 #include <sql.h>
 
-SimpleSql::SimDiagnosticSet::diagnostic_filter_view SimpleSql::SimDiagnosticSet::view_diagnostics(std::optional<std::string> sql_state, std::optional<std::int32_t> native_error) {
-    return SimpleSql::SimDiagnosticSet::diagnostic_filter_view {
-        std::ranges::ref_view{m_diagnostics},
-        SimpleSql::SimDiagnosticSet::FilterPredicate{
-            std::move(sql_state),
-            std::move(native_error)
-        }
-    };
-}
-
-void SimpleSql::SimDiagnosticSet::flush() {
-    m_diagnostics.clear();
-}
-
-void SimpleSql::SimDiagnosticSet::update(void* handle, const HandleType& type) {
-    switch (type) {
-    case HandleType::DBC:
-        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_DBC), handle);
-        break;
-    case HandleType::ENV:
-        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_ENV), handle);
-        break;
-    case HandleType::STMT:
-        update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_STMT), handle);
-        break;
-    }
-    
-}
-
-void SimpleSql::SimDiagnosticSet::update_diagnostics(const std::int16_t& type, void* handle) {
-
-    SQLSMALLINT handle_type = static_cast<SQLSMALLINT>(type);
-    SQLSMALLINT current_record_number = static_cast<SQLSMALLINT>(m_diagnostic_index);
-    std::array<SQLWCHAR, 6> sql_state_buffer;
-    SQLINTEGER native_error;
-    std::array<SQLWCHAR, SQL_MAX_MESSAGE_LENGTH> message_buffer;
-    SQLSMALLINT message_length;
-
-    bool exit_condition = false;
-    while (true) {
-        switch (SQLGetDiagRecW(handle_type, handle, current_record_number, sql_state_buffer.data(), &native_error, message_buffer.data(), message_buffer.size(), &message_length)) {
-        case SQL_SUCCESS: break;
-        case SQL_SUCCESS_WITH_INFO: break;
-        case SQL_NO_DATA: exit_condition = true; break;
-        default: return;
-        }
-        if (exit_condition)
-            break;
-
-        m_diagnostics.push_back(Diagnostic{
-            static_cast<std::int16_t>(current_record_number),
-            SimpleSqlStrings::odbc_to_utf8(std::wstring(sql_state_buffer.data(), sql_state_buffer.size())),
-            static_cast<std::int32_t>(native_error),
-            SimpleSqlStrings::odbc_to_utf8(std::wstring(message_buffer.data(), message_length))
-        });
-        current_record_number++;
-    }
-    m_diagnostic_index = static_cast<std::int16_t>(current_record_number);
-}

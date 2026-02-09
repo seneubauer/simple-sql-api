@@ -47,9 +47,7 @@ int main() {
     }
 
     // initialize & configure SimDatabase
-    std::cout << "creating db object" << std::endl;
     SimpleSql::SimDatabase db(16);
-
     std::uint8_t rc = db.initialize();
     if (rc > 0)
         std::cout << db.return_code_def(rc) << std::endl;
@@ -58,15 +56,11 @@ int main() {
     db.set_autocommit(SimpleSqlTypes::AutocommitType::DISABLED);
     db.set_login_timeout(5);
 
-    std::cout << conn_str << std::endl;
     rc = db.connect(conn_str);
     if (rc > 0)
         std::cout << db.return_code_def(rc) << std::endl;
 
-    std::cout << "creating query object" << std::endl;
     SimpleSql::SimQuery query(db.statement_handle());
-
-    std::cout << "settings sql" << std::endl;
     query.set_sql(std::string(Secrets::QUERY));
 
     std::cout << "preparing" << std::endl;
@@ -82,29 +76,28 @@ int main() {
             }
         }
 
-        // if (query.diagnostics()) {
-        //     for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
-        //         std::cout << diag.sql_state << " " << diag.message << std::endl;
-        //     }
-        // }
+        return 1;
     }
+    if (query.diagnostics())
+        query.diagnostics()->flush();
 
     std::cout << "executing" << std::endl;
     if (query.execute()) {
 
-        // auto result_set = query.get_result_set();
-        // if (result_set) {
-        //     std::cout << "r: " << std::to_string(result_set->rows()) << std::endl;
-        //     std::cout << "c: " << std::to_string(result_set->columns()) << std::endl;
-        //     std::cout << "i: " << std::to_string(result_set->size()) << std::endl;
-        // }
+        // show select results
+        auto result_set = query.results();
+        if (result_set) {
+            std::cout << "r: " << std::to_string(result_set->row_count()) << std::endl;
+            std::cout << "c: " << std::to_string(result_set->column_count()) << std::endl;
+        }
 
-        // print diagnostics
-        // if (query.diagnostics()) {
-        //     for (SimpleSql::SimDiagnosticSet::Diagnostic& diag : query.diagnostics()->view_diagnostics()) { 
-        //         std::cout << diag.sql_state << " " << diag.message << std::endl;
-        //     }
-        // }
+        // show diagnostics if there are any
+        if (query.diagnostics()) {
+            std::cout << "diagnostics exist" << std::endl;
+            for (auto& element : query.diagnostics()->view_diagnostics()) {
+                std::cout << element.message << std::endl;
+            }
+        }
     }
     std::cout << "finished" << std::endl;
 
