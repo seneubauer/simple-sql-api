@@ -1,9 +1,12 @@
 // SimQL stuff
-#include <SimQL_Handles.hpp>
+#include <SimEnvironment.hpp>
+#include <SimQL_ReturnCodes.hpp>
 
 // STL stuff
+#include <cstdint>
+#include <memory>
 
-// for compiling on Windows (ew)
+// Windows stuff
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOGDICAPMASKS               // CC_*, LC_*, PC_*, CP_*, TC_*, RC_
@@ -53,25 +56,26 @@
 #include <sqlext.h>
 #include <sql.h>
 
-namespace SimpleSqlHandles {
+namespace SimpleSql {
 
-    // define Environment handle
     struct Environment::handle {
-        SQLHENV h_env = SQL_NULL_HENV;
-        bool info = false;
-        std::uint8_t return_code = Environment::_RC_SUCCESS;
+        SQLHENV h_env;
+        SimQL_ReturnCodes::Code return_code;
 
-        explicit handle(const Environment::env_options& options) {
+        explicit handle(const Environment::Options& options) {
+
+            h_env = SQL_NULL_HENV;
+            return_code = SimQL_ReturnCodes::Code::SUCCESS;
 
             // allocate the handle
             switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &h_env)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                info = true;
+                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                 break;
             default:
-                return_code = Environment::_RC_ALLOC_HANDLE;
+                return_code = SimQL_ReturnCodes::Code::ERROR_ALLOC_HANDLE;
                 return;
             }
 
@@ -80,10 +84,10 @@ namespace SimpleSqlHandles {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                info = true;
+                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                 break;
             default:
-                return_code = Environment::_RC_ODBC_VERSION3;
+                return_code = SimQL_ReturnCodes::Code::ERROR_SET_ODBC_VERSION3;
                 return;
             }
 
@@ -94,10 +98,10 @@ namespace SimpleSqlHandles {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    info = true;
+                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                     break;
                 default:
-                    return_code = Environment::_RC_POOLING_TYPE;
+                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
                     return;
                 }
                 break;
@@ -106,10 +110,10 @@ namespace SimpleSqlHandles {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    info = true;
+                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                     break;
                 default:
-                    return_code = Environment::_RC_POOLING_TYPE;
+                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
                     return;
                 }
                 break;
@@ -118,10 +122,10 @@ namespace SimpleSqlHandles {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    info = true;
+                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                     break;
                 default:
-                    return_code = Environment::_RC_POOLING_TYPE;
+                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
                     return;
                 }
                 break;
@@ -134,10 +138,10 @@ namespace SimpleSqlHandles {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    info = true;
+                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                     break;
                 default:
-                    return_code = Environment::_RC_POOLING_MATCH_TYPE;
+                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOL_MATCH_TYPE;
                     break;
                 }
                 break;
@@ -146,10 +150,10 @@ namespace SimpleSqlHandles {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    info = true;
+                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
                     break;
                 default:
-                    return_code = Environment::_RC_POOLING_MATCH_TYPE;
+                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOL_MATCH_TYPE;
                     break;
                 }
                 break;
@@ -162,20 +166,19 @@ namespace SimpleSqlHandles {
     };
 
     // Environment definition
-    Environment::Environment(const Environment::env_options& options) : sp_handle(std::make_unique<handle>(options)) {}
+    Environment::Environment(const Environment::Options& options) : sp_handle(std::make_unique<handle>(options)) {}
     Environment::~Environment() = default;
     Environment::Environment(Environment&&) noexcept = default;
     Environment& Environment::operator=(Environment&&) noexcept = default;
 
-    const bool& Environment::pending_info() {
-        return sp_handle.get()->info;
+    const SimQL_ReturnCodes::Code& Environment::return_code() {
+        if (sp_handle)
+            return sp_handle.get()->return_code;
+
+        return SimQL_ReturnCodes::IS_NULLPTR;
     }
 
-    const std::uint8_t& Environment::return_code() {
-        return sp_handle.get()->return_code;
+    void* get_env_handle(Environment& env) noexcept {
+        return env.sp_handle ? reinterpret_cast<void*>(env.sp_handle.get()->h_env) : nullptr;
     }
-
-    // define Connection handle
-
-    // Connection definition
 }
