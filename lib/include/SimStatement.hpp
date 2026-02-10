@@ -8,6 +8,7 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
+#include <deque>
 
 namespace SimpleSql {
     class Statement {
@@ -42,6 +43,9 @@ namespace SimpleSql {
 
         /* functions */
         void prepare(std::string_view sql);
+
+        bool bind_string();
+
         void execute();
         void execute_direct(std::string_view sql);
         const SimQL_ReturnCodes::Code& return_code();

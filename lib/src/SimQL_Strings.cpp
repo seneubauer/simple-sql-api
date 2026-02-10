@@ -4,6 +4,7 @@
 // STL stuff
 #include <string>
 #include <string_view>
+#include <vector>
 
 // windows stuff
 #ifdef _WIN32
@@ -48,6 +49,11 @@
 #define NODEFERWINDOWPOS            // DeferWindowPos routines
 #define NOMCX                       // Modem Configuration Extensions
 #include <windows.h>
+
+// ODBC stuff
+#include <sqltypes.h>
+#include <sqlext.h>
+#include <sql.h>
 
 std::wstring utf8_to_utf16(std::string_view utf8) {
     if (utf8.empty())
@@ -158,4 +164,22 @@ std::string SimpleSqlStrings::odbc_to_utf8(std::basic_string<wchar_t> s) {
         std::u32string u32(s.begin(), s.end());
         return utf32_to_utf8(u32);
     #endif
+}
+
+namespace SimpleSqlStrings {
+
+    struct Converter::impl {
+
+        explicit impl() {}
+        ~impl() {}
+
+        std::basic_string<SQLWCHAR> to_odbc(std::basic_string_view<char8_t> utf8_str) {
+            sizeof(SQLWCHAR);
+            
+        }
+
+        std::basic_string<char8_t> from_odbc(std::basic_string_view<SQLWCHAR> odbc_str) {
+
+        }
+    };
 }
