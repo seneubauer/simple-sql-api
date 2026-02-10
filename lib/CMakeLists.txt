@@ -8,6 +8,9 @@ add_library(
     src/SimResultSet.cpp
     src/SimValueSet.cpp
     src/SimQL_Strings.cpp
+    src/SimEnvironment.cpp
+    src/SimConnection.cpp
+    src/SimStatement.cpp
 )
 
 target_include_directories(
