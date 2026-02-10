@@ -29,7 +29,7 @@ namespace SimpleSql {
         };
 
         /* constructor/destructor */
-        explicit Statement(Connection& dbc, const Options& options = {});
+        explicit Statement(Connection& dbc, const Options& options);
         ~Statement();
 
         /* set move assignment */

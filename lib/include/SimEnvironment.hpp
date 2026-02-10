@@ -31,7 +31,7 @@ namespace SimpleSql {
         };
 
         /* constructor/destructor */
-        explicit Environment(const Options& options = {});
+        explicit Environment(const Options& options);
         ~Environment();
 
         /* set to move assignment */

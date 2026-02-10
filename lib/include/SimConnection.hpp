@@ -26,7 +26,7 @@ namespace SimpleSql {
         };
 
         /* constructor/destructor */
-        explicit Connection(Environment& env, const Options& options = {});
+        explicit Connection(Environment& env, const Options& options);
         ~Connection();
 
         /* set to move assignment */

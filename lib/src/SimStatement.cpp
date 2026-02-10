@@ -154,7 +154,8 @@ namespace SimpleSql {
     Statement& Statement::operator=(Statement&&) noexcept = default;
 
     void Statement::prepare(std::string_view sql) {
-
+        std::string my_sql(sql);
+        my_sql.clear();
     }
 
     void Statement::execute() {
@@ -162,7 +163,8 @@ namespace SimpleSql {
     }
 
     void Statement::execute_direct(std::string_view sql) {
-
+        std::string my_sql(sql);
+        my_sql.clear();
     }
 
     const SimQL_ReturnCodes::Code& Statement::return_code() {

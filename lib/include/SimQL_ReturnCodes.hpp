@@ -1,5 +1,5 @@
-#ifndef SimReturnCodes_header_H
-#define SimReturnCodes_header_h
+#ifndef SimQL_ReturnCodes_header_h
+#define SimQL_ReturnCodes_header_h
 
 #include <cstdint>
 #include <string_view>
