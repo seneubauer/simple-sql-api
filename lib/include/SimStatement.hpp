@@ -10,7 +10,6 @@
 #include <cstdint>
 #include <memory>
 #include <deque>
-#include <map>
 
 namespace SimpleSql {
     class Statement {
@@ -46,33 +45,23 @@ namespace SimpleSql {
         /* functions */
         void prepare(std::string_view sql);
 
-        SimQL_ReturnCodes::Code bind_string(std::string name, std::u8string value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_floating_point(std::string name, double value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_boolean(std::string name, bool value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_integer(std::string name, int value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_guid(std::string name, SimpleSqlTypes::ODBC_GUID value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_datetime(std::string name, SimpleSqlTypes::_Datetime value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_date(std::string name, SimpleSqlTypes::_Date value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_time(std::string name, SimpleSqlTypes::_Time value, SimpleSqlTypes::BindingType binding_type);
-        SimQL_ReturnCodes::Code bind_blob(std::string name, std::vector<std::uint8_t> value, SimpleSqlTypes::BindingType binding_type);
+        SimQL_ReturnCodes::Code bind_string(std::string name, std::u8string value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_floating_point(std::string name, double value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_boolean(std::string name, bool value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_integer(std::string name, int value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_guid(std::string name, SimpleSqlTypes::ODBC_GUID value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_datetime(std::string name, SimpleSqlTypes::_Datetime value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_date(std::string name, SimpleSqlTypes::_Date value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_time(std::string name, SimpleSqlTypes::_Time value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        SimQL_ReturnCodes::Code bind_blob(std::string name, std::vector<std::uint8_t> value, SimpleSqlTypes::BindingType binding_type, bool set_null);
 
         void execute();
         void execute_direct(std::string_view sql);
         const SimQL_ReturnCodes::Code& return_code();
 
     private:
-
-        struct BoundParameter {
-            std::string name;
-            SimpleSqlTypes::SQL_Variant value;
-            SimpleSqlTypes::SQL_DataType data_type;
-            SimpleSqlTypes::BindingType binding_type;
-            std::int64_t indicator;
-        };
-
         struct handle;
         std::unique_ptr<handle> sp_handle;
-        std::map<std::string, BoundParameter> m_parameters;
     };
 }
 

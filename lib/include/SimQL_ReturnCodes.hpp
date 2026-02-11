@@ -37,7 +37,8 @@ namespace SimQL_ReturnCodes {
         ERROR_SET_QUERY_TIMEOUT,
         ERROR_SET_MAX_ROWS,
         ERROR_SET_PARAM_BINDING,
-        ERROR_SET_PARAM_DUPLICATE
+        ERROR_SET_PARAM_DUPLICATE,
+        ERROR_SET_PARAM_INVALID_DTYPE
 
     };
     static constexpr Code IS_NULLPTR = Code::NULLPTR;
@@ -66,7 +67,8 @@ namespace {
         {SimQL_ReturnCodes::Code::ERROR_SET_QUERY_TIMEOUT,          std::string_view("could not set the query timeout")},
         {SimQL_ReturnCodes::Code::ERROR_SET_MAX_ROWS,               std::string_view("could not set the max rows")},
         {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_BINDING,          std::string_view("could not set the parameter binding")},
-        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE,        std::string_view("cannot bind duplicate parameters")}
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE,        std::string_view("cannot bind duplicate parameters")},
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_INVALID_DTYPE,    std::string_view("cannot bind a parameter to the returned data type")}
     };
 }
 

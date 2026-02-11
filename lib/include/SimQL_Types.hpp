@@ -146,7 +146,7 @@ namespace SimpleSqlTypes {
         std::uint32_t Data1;
         std::uint16_t Data2;
         std::uint16_t Data3;
-        std::uint8_t Data4[8];
+        unsigned char Data4[8];
     };
 
     using GUID = std::array<std::uint8_t, 16>;
