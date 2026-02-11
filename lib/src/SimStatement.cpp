@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <map>
+#include <variant>
 
 // Windows stuff
 #ifdef _WIN32
@@ -66,12 +68,24 @@ namespace SimpleSql {
     struct Statement::handle {
         SQLHSTMT h_stmt;
         SimQL_ReturnCodes::Code return_code;
+        SQLUSMALLINT pbind_index;
+
+        using BoundValue = std::variant<
+            SQLCHAR*,
+            SQLWCHAR*
+        >;
+        struct BoundParameter {
+            BoundValue value;
+            SQLLEN indicator;
+        };
+        std::map<std::string, BoundParameter> bound_parameters;
 
         explicit handle(Connection& dbc, const Statement::Options& options) {
 
-            h_stmt = SQL_NULL_HSTMT;
             SQLHDBC h_dbc = static_cast<SQLHDBC>(get_dbc_handle(dbc));
+            h_stmt = SQL_NULL_HSTMT;
             return_code = SimQL_ReturnCodes::Code::SUCCESS;
+            pbind_index = 1;
 
             // allocate the handle
             switch (SQLAllocHandle(SQL_HANDLE_STMT, h_dbc, &h_stmt)) {
@@ -140,10 +154,76 @@ namespace SimpleSql {
         }
 
         ~handle() {
+            reset();
             if (h_stmt)
                 SQLFreeHandle(SQL_HANDLE_STMT, h_stmt);
         }
 
+        void reset() {
+            SQLCloseCursor(h_stmt);
+            SQLFreeStmt(h_stmt, SQL_RESET_PARAMS);
+            SQLFreeStmt(h_stmt, SQL_UNBIND);
+        }
+
+        SQLSMALLINT param_type(const SimpleSqlTypes::BindingType& binding_type) {
+            switch (binding_type) {
+            case SimpleSqlTypes::BindingType::INPUT_OUTPUT:
+                return SQL_PARAM_INPUT_OUTPUT;
+            case SimpleSqlTypes::BindingType::INPUT:
+                return SQL_PARAM_INPUT;
+            case SimpleSqlTypes::BindingType::OUTPUT:
+                return SQL_PARAM_OUTPUT;
+            }
+        }
+
+        SimQL_ReturnCodes::Code bind_string(const std::string& name, const std::u8string& value, const SimpleSqlTypes::BindingType& binding_type, const bool& set_null) {
+            
+            SQLSMALLINT sql_type;
+            SQLULEN definition;
+            SQLSMALLINT scale;
+            SQLSMALLINT nullable;
+            SQLLEN buffer_length;
+
+            if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, pbind_index, &sql_type, &definition, &scale, &nullable))) {
+                sql_type = SQL_WVARCHAR;
+                definition = static_cast<SQLULEN>(value.size() + 1);
+            }
+
+            SQLPOINTER p_val;
+            SQLSMALLINT c_type;
+            if (sql_type == SQL_VARCHAR) {
+                c_type = SQL_C_CHAR;
+                buffer_length = definition * sizeof(SQLCHAR);
+                bound_parameters.emplace(name, BoundParameter { BoundValue(SimpleSqlStrings::to_odbc_n(value).data()), 0 });
+                p_val = reinterpret_cast<SQLPOINTER>(std::get<SQLCHAR*>(bound_parameters.at(name).value));
+            } else {
+                c_type = SQL_C_WCHAR;
+                buffer_length = definition * sizeof(SQLWCHAR);
+                bound_parameters.emplace(name, BoundParameter { BoundValue(SimpleSqlStrings::to_odbc_w(value).data()), 0 });
+                p_val = reinterpret_cast<SQLPOINTER>(std::get<SQLWCHAR*>(bound_parameters.at(name).value));
+            }
+
+            switch (binding_type) {
+            case SimpleSqlTypes::BindingType::INPUT_OUTPUT:
+                bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
+                break;
+            case SimpleSqlTypes::BindingType::INPUT:
+                bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
+                break;
+            case SimpleSqlTypes::BindingType::OUTPUT:
+                bound_parameters.at(name).indicator = 0;
+                break;
+            }
+
+            switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
+            case SQL_SUCCESS:
+                return SimQL_ReturnCodes::Code::SUCCESS;
+            case SQL_SUCCESS_WITH_INFO:
+                return SimQL_ReturnCodes::Code::SUCCESS_INFO;
+            default:
+                return SimQL_ReturnCodes::Code::ERROR_SET_PARAM_BINDING;
+            }
+        }
 
     };
 
@@ -156,6 +236,54 @@ namespace SimpleSql {
     void Statement::prepare(std::string_view sql) {
         std::string my_sql(sql);
         my_sql.clear();
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_string(std::string name, std::u8string value, SimpleSqlTypes::BindingType binding_type) {
+        auto it = m_parameters.find(name);
+        if (it != m_parameters.end())
+            return SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE;
+
+        m_parameters.emplace(name, BoundParameter {
+            name,
+            SimpleSqlTypes::SQL_Variant(value),
+            SimpleSqlTypes::SQL_DataType::STRING,
+            binding_type,
+            0
+        });
+
+        return sp_handle.get()->bind_string(std::get<std::u8string>(m_parameters.at(name).value), m_parameters.at(name).indicator, binding_type);
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_floating_point(std::string name, double value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_boolean(std::string name, bool value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_integer(std::string name, int value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_guid(std::string name, SimpleSqlTypes::ODBC_GUID value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_datetime(std::string name, SimpleSqlTypes::_Datetime value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_date(std::string name, SimpleSqlTypes::_Date value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_time(std::string name, SimpleSqlTypes::_Time value, SimpleSqlTypes::BindingType binding_type) {
+
+    }
+
+    SimQL_ReturnCodes::Code Statement::bind_blob(std::string name, std::vector<std::uint8_t> value, SimpleSqlTypes::BindingType binding_type) {
+
     }
 
     void Statement::execute() {

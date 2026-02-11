@@ -35,7 +35,9 @@ namespace SimQL_ReturnCodes {
         /* STATEMENT HANDLE */
         ERROR_SET_CURSOR_TYPE,
         ERROR_SET_QUERY_TIMEOUT,
-        ERROR_SET_MAX_ROWS
+        ERROR_SET_MAX_ROWS,
+        ERROR_SET_PARAM_BINDING,
+        ERROR_SET_PARAM_DUPLICATE
 
     };
     static constexpr Code IS_NULLPTR = Code::NULLPTR;
@@ -62,7 +64,9 @@ namespace {
         {SimQL_ReturnCodes::Code::ERROR_UNKNOWN_CONNECTION_STATE,   std::string_view("could not determine if the connection is open")},
         {SimQL_ReturnCodes::Code::ERROR_SET_CURSOR_TYPE,            std::string_view("could not set the cursor type")},
         {SimQL_ReturnCodes::Code::ERROR_SET_QUERY_TIMEOUT,          std::string_view("could not set the query timeout")},
-        {SimQL_ReturnCodes::Code::ERROR_SET_MAX_ROWS,               std::string_view("could not set the max rows")}
+        {SimQL_ReturnCodes::Code::ERROR_SET_MAX_ROWS,               std::string_view("could not set the max rows")},
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_BINDING,          std::string_view("could not set the parameter binding")},
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE,        std::string_view("cannot bind duplicate parameters")}
     };
 }
 

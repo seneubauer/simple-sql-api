@@ -55,6 +55,17 @@
 #include <sqlext.h>
 #include <sql.h>
 
+// check OS
+#if defined(_WIN32) || defined(_WIN64)
+    #define WINDOWS
+#elif defined(__APPLE__) && defined(__MACH__)
+    #define MACOS
+#elif defined(__linux__)
+    #define LINUX
+#else
+    #define UNSUPPORTED_OS
+#endif
+
 std::wstring utf8_to_utf16(std::string_view utf8) {
     if (utf8.empty())
         return {};
@@ -148,38 +159,86 @@ std::string utf32_to_utf8(std::u32string_view utf32) {
 
 #endif
 
-std::basic_string<wchar_t> SimpleSqlStrings::utf8_to_odbc(std::string_view s) {
-    #ifdef _WIN32
-        return utf8_to_utf16(s);
-    #else
-        auto u32 = utf8_to_utf32(s);
-        return {u32.begin(), u32.end()};
-    #endif
-}
-
-std::string SimpleSqlStrings::odbc_to_utf8(std::basic_string<wchar_t> s) {
-    #ifdef _WIN32
-        return utf16_to_utf8(s);
-    #else
-        std::u32string u32(s.begin(), s.end());
-        return utf32_to_utf8(u32);
-    #endif
-}
-
 namespace SimpleSqlStrings {
 
-    struct Converter::impl {
+    std::basic_string<wchar_t> utf8_to_odbc(std::string_view s) {
+        #ifdef _WIN32
+            return utf8_to_utf16(s);
+        #else
+            auto u32 = utf8_to_utf32(s);
+            return {u32.begin(), u32.end()};
+        #endif
+    }
 
-        explicit impl() {}
-        ~impl() {}
+    std::string odbc_to_utf8(std::basic_string<wchar_t> s) {
+        #ifdef _WIN32
+            return utf16_to_utf8(s);
+        #else
+            std::u32string u32(s.begin(), s.end());
+            return utf32_to_utf8(u32);
+        #endif
+    }
 
-        std::basic_string<SQLWCHAR> to_odbc(std::basic_string_view<char8_t> utf8_str) {
-            sizeof(SQLWCHAR);
-            
-        }
+    /*
 
-        std::basic_string<char8_t> from_odbc(std::basic_string_view<SQLWCHAR> odbc_str) {
+    SQLWCHAR equivalent...
+    Windows     wchar_t             2 bytes
+    Linux       unsigned short      2 bytes
+    macOS       wchar_t             4 bytes
 
-        }
-    };
+    SQLCHAR equivalent...
+    Windows     char
+    Linux       unsigned char
+    macOS       unsigned char
+
+    */
+
+    std::basic_string<SQLWCHAR> to_odbc_w(std::basic_string_view<char8_t> utf8) {
+        if (utf8.empty())
+            return {};
+
+        #ifdef WINDOWS
+            std::string s(reinterpret_cast<const char*>(utf8.data()), utf8.size());
+            int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), nullptr, 0);
+            if (length <= 0)
+                return {};
+
+            LPWSTR output_str;
+            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length) <= 0)
+                return {};
+
+            return std::basic_string<SQLWCHAR>(reinterpret_cast<SQLWCHAR*>(output_str));
+        #elifdef LINUX
+        #elifdef MACOS
+        #endif
+    }
+
+    std::basic_string<char8_t> from_odbc_w(std::basic_string_view<SQLWCHAR> odbc) {
+        if (odbc.empty())
+            return {};
+        
+        #ifdef WINDOWS
+            std::wstring s(odbc);
+            int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), nullptr, 0, nullptr, nullptr);
+            if (length <= 0)
+                return {};
+
+            LPSTR output_str;
+            if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length, nullptr, nullptr) <= 0)
+                return {};
+
+            return std::basic_string<char8_t>(reinterpret_cast<char8_t*>(output_str));
+        #elifdef LINUX
+        #elifdef MACOS
+        #endif
+
+    }
+
+    std::basic_string<SQLCHAR> to_odbc_n(std::basic_string_view<char8_t> utf8) {
+        return std::basic_string<SQLCHAR>(reinterpret_cast<const SQLCHAR*>(utf8.data(), utf8.size()));
+    }
+
+    std::basic_string<char8_t> from_odbc_n(std::basic_string_view<SQLCHAR> odbc) {
+        return std::basic_string<char8_t>(reinterpret_cast<const char8_t*>(odbc.data(), odbc.size()));
+    }
 }

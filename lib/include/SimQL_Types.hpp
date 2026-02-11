@@ -80,6 +80,18 @@ namespace SimpleSqlTypes {
         return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
     }
 
+    enum class SQL_DataType : std::uint8_t {
+        STRING,
+        FLOATING_POINT,
+        BOOLEAN,
+        INTEGER,
+        GUID,
+        DATETIME,
+        DATE,
+        TIME,
+        BLOB
+    };
+
     /* STRUCTS */
 
     struct _Datetime {
@@ -150,6 +162,18 @@ namespace SimpleSqlTypes {
         Date,
         Time,
         std::vector<std::uint8_t>>;
+
+    using SQL_Variant = std::variant<
+        std::u8string,
+        double,
+        bool,
+        int,
+        ODBC_GUID,
+        _Datetime,
+        _Date,
+        _Time,
+        std::vector<std::uint8_t>
+    >;
 
     struct SQL_Binding {
         std::string name;
