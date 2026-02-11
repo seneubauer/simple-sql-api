@@ -38,7 +38,13 @@ namespace SimQL_ReturnCodes {
         ERROR_SET_MAX_ROWS,
         ERROR_SET_PARAM_BINDING,
         ERROR_SET_PARAM_DUPLICATE,
-        ERROR_SET_PARAM_INVALID_DTYPE
+        ERROR_SET_PARAM_INVALID_DTYPE,
+        ERROR_STMT_PREPARE,
+        ERROR_STMT_EXECUTE,
+        ERROR_STMT_COLUMN_CALC,
+        INFO_STMT_NO_COLUMNS,
+        ERROR_COL_BINDING,
+        ERROR_COL_INVALID_DTYPE
 
     };
     static constexpr Code IS_NULLPTR = Code::NULLPTR;
@@ -67,8 +73,14 @@ namespace {
         {SimQL_ReturnCodes::Code::ERROR_SET_QUERY_TIMEOUT,          std::string_view("could not set the query timeout")},
         {SimQL_ReturnCodes::Code::ERROR_SET_MAX_ROWS,               std::string_view("could not set the max rows")},
         {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_BINDING,          std::string_view("could not set the parameter binding")},
-        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE,        std::string_view("cannot bind duplicate parameters")},
-        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_INVALID_DTYPE,    std::string_view("cannot bind a parameter to the returned data type")}
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_DUPLICATE,        std::string_view("duplicate parameters not permitted")},
+        {SimQL_ReturnCodes::Code::ERROR_SET_PARAM_INVALID_DTYPE,    std::string_view("could not bind the parameter to the returned data type")},
+        {SimQL_ReturnCodes::Code::ERROR_STMT_PREPARE,               std::string_view("could not prepare the sql statement")},
+        {SimQL_ReturnCodes::Code::ERROR_STMT_EXECUTE,               std::string_view("could not execute the sql statement")},
+        {SimQL_ReturnCodes::Code::ERROR_STMT_COLUMN_CALC,           std::string_view("could not calculate the result set's column count")},
+        {SimQL_ReturnCodes::Code::INFO_STMT_NO_COLUMNS,             std::string_view("there are no columns in the result set")},
+        {SimQL_ReturnCodes::Code::ERROR_COL_BINDING,                std::string_view("could not bind the current column")},
+        {SimQL_ReturnCodes::Code::ERROR_COL_INVALID_DTYPE,          std::string_view("coudl not bind the column to the returned data type")}
     };
 }
 

@@ -9,7 +9,7 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
-#include <deque>
+#include <unordered_map>
 
 namespace SimpleSql {
     class Statement {
@@ -23,11 +23,16 @@ namespace SimpleSql {
             CX_KEYSET_DRIVEN
         };
 
-        /* handle options */
+        /* structs */
         struct Options {
             CursorType cursor_type = CursorType::CX_FORWARD_ONLY;
             std::uint32_t query_timeout = 0;
             std::uint64_t max_rows = 0;
+        };
+
+        struct ValuePair {
+            std::string name;
+            SimpleSqlTypes::SQL_Value value;
         };
 
         /* constructor/destructor */
@@ -42,9 +47,18 @@ namespace SimpleSql {
         Statement(const Statement&) = delete;
         Statement& operator=(const Statement&) = delete;
 
-        /* functions */
-        void prepare(std::string_view sql);
+        /* execution */
+        SimQL_ReturnCodes::Code prepare(std::u8string_view sql);
+        SimQL_ReturnCodes::Code execute();
+        SimQL_ReturnCodes::Code execute_direct(std::u8string_view sql);
 
+        /* data retrieval */
+        SimQL_ReturnCodes::Code get_result_set(std::vector<SimpleSqlTypes::SQL_Value>& results, std::vector<SimpleSqlTypes::SQL_Column_>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns);
+        SimQL_ReturnCodes::Code get_value_set(std::vector<ValuePair>& value_pairs);
+        bool next_result_set();
+        bool next_value_set();
+
+        /* parameter binding */
         SimQL_ReturnCodes::Code bind_string(std::string name, std::u8string value, SimpleSqlTypes::BindingType binding_type, bool set_null);
         SimQL_ReturnCodes::Code bind_floating_point(std::string name, double value, SimpleSqlTypes::BindingType binding_type, bool set_null);
         SimQL_ReturnCodes::Code bind_boolean(std::string name, bool value, SimpleSqlTypes::BindingType binding_type, bool set_null);
@@ -55,8 +69,7 @@ namespace SimpleSql {
         SimQL_ReturnCodes::Code bind_time(std::string name, SimpleSqlTypes::_Time value, SimpleSqlTypes::BindingType binding_type, bool set_null);
         SimQL_ReturnCodes::Code bind_blob(std::string name, std::vector<std::uint8_t> value, SimpleSqlTypes::BindingType binding_type, bool set_null);
 
-        void execute();
-        void execute_direct(std::string_view sql);
+        /* process transparency */
         const SimQL_ReturnCodes::Code& return_code();
 
     private:

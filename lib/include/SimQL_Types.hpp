@@ -190,6 +190,14 @@ namespace SimpleSqlTypes {
         bool is_null;
     };
 
+    struct SQL_Column_ {
+        std::u8string name;
+        SQL_DataType data_type;
+        std::uint64_t size;
+        std::int16_t precision;
+        NullRuleType null_type;
+    };
+
     struct SQL_Column {
         std::string name;
         std::uint8_t ordinal;
