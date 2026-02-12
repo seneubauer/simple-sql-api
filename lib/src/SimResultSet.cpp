@@ -9,7 +9,7 @@
 #include <string>
 #include <utility>
 
-const std::uint8_t& SimpleSql::SimResultSet::add_column(const SimpleSqlTypes::SQL_Column& column) {
+const std::uint8_t& simql::result_set::add_column(const simql_types::SQL_Column& column) {
     
     auto it = m_column_map.find(column.name);
     if (it != m_column_map.end())
@@ -20,7 +20,7 @@ const std::uint8_t& SimpleSql::SimResultSet::add_column(const SimpleSqlTypes::SQ
     return _RC_SUCCESS;
 }
 
-const std::uint8_t& SimpleSql::SimResultSet::add_row(std::vector<SimpleSqlTypes::SQL_Value>&& row) {
+const std::uint8_t& simql::result_set::add_row(std::vector<simql_types::SQL_Value>&& row) {
     if (row.size() != m_columns.size())
         return _RC_INCORRECT_DATA_SIZE;
 
@@ -30,7 +30,7 @@ const std::uint8_t& SimpleSql::SimResultSet::add_row(std::vector<SimpleSqlTypes:
     return _RC_SUCCESS;
 }
 
-const std::uint8_t& SimpleSql::SimResultSet::set_data(std::vector<SimpleSqlTypes::SQL_Value>&& data) {
+const std::uint8_t& simql::result_set::set_data(std::vector<simql_types::SQL_Value>&& data) {
     if (data.size() % m_columns.size() != 0)
         return _RC_INCORRECT_DATA_SIZE;
 
@@ -39,11 +39,11 @@ const std::uint8_t& SimpleSql::SimResultSet::set_data(std::vector<SimpleSqlTypes
     return _RC_SUCCESS;
 }
 
-const std::vector<SimpleSqlTypes::SQL_Column>& SimpleSql::SimResultSet::columns() {
+const std::vector<simql_types::SQL_Column>& simql::result_set::columns() {
     return m_columns;
 }
 
-SimpleSqlTypes::SQL_Value* SimpleSql::SimResultSet::value(const std::uint64_t& r, const std::string& c) {
+simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const std::string& c) {
     auto it = m_column_map.find(c);
     if (it == m_column_map.end())
         return nullptr;
@@ -51,7 +51,7 @@ SimpleSqlTypes::SQL_Value* SimpleSql::SimResultSet::value(const std::uint64_t& r
     return value(r, it->second);
 }
 
-SimpleSqlTypes::SQL_Value* SimpleSql::SimResultSet::value(const std::uint64_t& r, const std::uint8_t& c) {
+simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const std::uint8_t& c) {
     if (r >= m_row_count || c >= m_column_count)
         return nullptr;
 
@@ -62,8 +62,8 @@ SimpleSqlTypes::SQL_Value* SimpleSql::SimResultSet::value(const std::uint64_t& r
     return &m_data[index];
 }
 
-std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::row(const std::uint64_t& r) {
-    std::vector<SimpleSqlTypes::SQL_Value> v;
+std::vector<simql_types::SQL_Value> simql::result_set::row(const std::uint64_t& r) {
+    std::vector<simql_types::SQL_Value> v;
     if (r >= m_row_count)
         return v;
 
@@ -72,8 +72,8 @@ std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::row(const std::u
     return v;
 }
 
-std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::column(const std::string& c) {
-    std::vector<SimpleSqlTypes::SQL_Value> v;
+std::vector<simql_types::SQL_Value> simql::result_set::column(const std::string& c) {
+    std::vector<simql_types::SQL_Value> v;
     auto it = m_column_map.find(c);
     if (it == m_column_map.end())
         return v;
@@ -81,8 +81,8 @@ std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::column(const std
     return column(it->second);
 }
 
-std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::column(const std::uint8_t& c) {
-    std::vector<SimpleSqlTypes::SQL_Value> v;
+std::vector<simql_types::SQL_Value> simql::result_set::column(const std::uint8_t& c) {
+    std::vector<simql_types::SQL_Value> v;
     if (c >= m_column_count)
         return v;
 
@@ -92,15 +92,15 @@ std::vector<SimpleSqlTypes::SQL_Value> SimpleSql::SimResultSet::column(const std
     return v;
 }
 
-const std::uint64_t& SimpleSql::SimResultSet::row_count() {
+const std::uint64_t& simql::result_set::row_count() {
     return m_row_count;
 }
 
-const std::uint8_t& SimpleSql::SimResultSet::column_count() {
+const std::uint8_t& simql::result_set::column_count() {
     return m_column_count;
 }
 
-std::string_view SimpleSql::SimResultSet::return_code_def(const std::uint8_t& return_code) {
+std::string_view simql::result_set::return_code_def(const std::uint8_t& return_code) {
     auto it = m_return_codes.find(return_code);
     if (it == m_return_codes.end())
         return std::string_view("invalid return code");

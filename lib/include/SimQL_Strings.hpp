@@ -1,5 +1,5 @@
-#ifndef SimQL_Strings_header_h
-#define SimQL_Strings_header_h
+#ifndef simql_strings_header_h
+#define simql_strings_header_h
 
 // STL stuff
 #include <string>
@@ -57,9 +57,9 @@
 #include <sqlext.h>
 #include <sql.h>
 
-namespace SimpleSqlStrings {
-    std::basic_string<wchar_t> utf8_to_odbc(std::string_view s);
-    std::string odbc_to_utf8(std::basic_string<wchar_t> s);
+namespace simql_strings {
+    // std::basic_string<wchar_t> utf8_to_odbc(std::string_view s);
+    // std::string odbc_to_utf8(std::basic_string<wchar_t> s);
     std::basic_string<SQLWCHAR> to_odbc_w(std::basic_string_view<char8_t> utf8);
     std::basic_string<char8_t> from_odbc_w(std::basic_string_view<SQLWCHAR> odbc);
     std::basic_string<SQLCHAR> to_odbc_n(std::basic_string_view<char8_t> utf8);

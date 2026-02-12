@@ -1,5 +1,5 @@
-#ifndef SimConnection_header_h
-#define SimConnection_header_h
+#ifndef database_connection_header_h
+#define database_connection_header_h
 
 // SimQL stuff
 #include <SimEnvironment.hpp>
@@ -9,8 +9,8 @@
 #include <cstdint>
 #include <memory>
 
-namespace SimpleSql {
-    class Connection {
+namespace simql {
+    class database_connection {
     public:
 
         /* handle options */
@@ -26,27 +26,27 @@ namespace SimpleSql {
         };
 
         /* constructor/destructor */
-        explicit Connection(Environment& env, const Options& options);
-        ~Connection();
+        explicit database_connection(environment& env, Options& options);
+        ~database_connection();
 
         /* set to move assignment */
-        Connection(Connection&&) noexcept;
-        Connection& operator=(Connection&&) noexcept;
+        database_connection(database_connection&&) noexcept;
+        database_connection& operator=(database_connection&&) noexcept;
 
         /* disable copy assignment */
-        Connection(const Connection&) = delete;
-        Connection& operator=(const Connection&) = delete;
+        database_connection(const database_connection&) = delete;
+        database_connection& operator=(const database_connection&) = delete;
 
         /* functions */
         void connect(std::string_view connection_string);
         bool is_connected();
         void disconnect();
-        const SimQL_ReturnCodes::Code& return_code();
+        const simql_returncodes::code& return_code();
 
     private:
         struct handle;
         std::unique_ptr<handle> sp_handle;
-        friend void* get_dbc_handle(Connection& dbc) noexcept;
+        friend void* get_dbc_handle(database_connection& dbc) noexcept;
     };
 }
 

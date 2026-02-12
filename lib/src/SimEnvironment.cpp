@@ -56,26 +56,26 @@
 #include <sqlext.h>
 #include <sql.h>
 
-namespace SimpleSql {
+namespace simql {
 
-    struct Environment::handle {
+    struct environment::handle {
         SQLHENV h_env;
-        SimQL_ReturnCodes::Code return_code;
+        simql_returncodes::code return_code;
 
-        explicit handle(const Environment::Options& options) {
+        explicit handle(const environment::alloc_options& options) {
 
             h_env = SQL_NULL_HENV;
-            return_code = SimQL_ReturnCodes::Code::SUCCESS;
+            return_code = simql_returncodes::code::success;
 
             // allocate the handle
             switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &h_env)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_ALLOC_HANDLE;
+                return_code = simql_returncodes::code::error_alloc_handle;
                 return;
             }
 
@@ -84,48 +84,48 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_ODBC_VERSION3;
+                return_code = simql_returncodes::code::error_set_odbc_version3;
                 return;
             }
 
             // set attribute (connection pooling type)
             switch (options.pool_type) {
-            case Environment::PoolingType::OFF:
+            case environment::pooling_type::off:
                 switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_OFF), 0)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
+                    return_code = simql_returncodes::code::error_set_pooling_type;
                     return;
                 }
                 break;
-            case Environment::PoolingType::ONE_PER_DRIVER:
+            case environment::pooling_type::one_per_driver:
                 switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_DRIVER), 0)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
+                    return_code = simql_returncodes::code::error_set_pooling_type;
                     return;
                 }
                 break;
-            case Environment::PoolingType::ONE_PER_ENV:
+            case environment::pooling_type::one_per_env:
                 switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_HENV), 0)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOLING_TYPE;
+                    return_code = simql_returncodes::code::error_set_pooling_type;
                     return;
                 }
                 break;
@@ -133,27 +133,27 @@ namespace SimpleSql {
 
             // set attribute (connection pool match type)
             switch (options.match_type) {
-            case Environment::PoolMatchType::STRICT_MATCH:
+            case environment::pooling_match_type::strict_match:
                 switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, reinterpret_cast<SQLPOINTER>(SQL_CP_STRICT_MATCH), 0)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOL_MATCH_TYPE;
+                    return_code = simql_returncodes::code::error_set_pool_match_type;
                     break;
                 }
                 break;
-            case Environment::PoolMatchType::RELAXED_MATCH:
+            case environment::pooling_match_type::relaxed_match:
                 switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, reinterpret_cast<SQLPOINTER>(SQL_CP_RELAXED_MATCH), 0)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_POOL_MATCH_TYPE;
+                    return_code = simql_returncodes::code::error_set_pool_match_type;
                     break;
                 }
                 break;
@@ -166,19 +166,19 @@ namespace SimpleSql {
     };
 
     // Environment definition
-    Environment::Environment(const Environment::Options& options) : sp_handle(std::make_unique<handle>(options)) {}
-    Environment::~Environment() = default;
-    Environment::Environment(Environment&&) noexcept = default;
-    Environment& Environment::operator=(Environment&&) noexcept = default;
+    environment::environment(const environment::alloc_options& options) : sp_handle(std::make_unique<handle>(options)) {}
+    environment::~environment() = default;
+    environment::environment(environment&&) noexcept = default;
+    environment& environment::operator=(environment&&) noexcept = default;
 
-    const SimQL_ReturnCodes::Code& Environment::return_code() {
+    const simql_returncodes::code& environment::return_code() {
         if (sp_handle)
             return sp_handle.get()->return_code;
 
-        return SimQL_ReturnCodes::IS_NULLPTR;
+        return simql_returncodes::is_nullptr;
     }
 
-    void* get_env_handle(Environment& env) noexcept {
+    void* get_env_handle(environment& env) noexcept {
         return env.sp_handle ? reinterpret_cast<void*>(env.sp_handle.get()->h_env) : nullptr;
     }
 }

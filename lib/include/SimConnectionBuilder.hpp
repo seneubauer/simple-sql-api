@@ -8,13 +8,19 @@
 #include <string>
 #include <cstdint>
 
-namespace SimpleSql {
-    class SimConnectionBuilder {
+namespace simql {
+    class connection_string_builder {
     public:
 
+        /* enums */
+        enum class database_type : std::uint8_t {
+            sql_server,
+            postgresql
+        };
+
         /* constructor/destructor */
-        SimConnectionBuilder(const SimpleSqlTypes::DatabaseType& database_type) : m_database_type(database_type) {}
-        ~SimConnectionBuilder() { destroy(); }
+        connection_string_builder(const database_type& db_type) : m_db_type(db_type) {}
+        ~connection_string_builder() { destroy(); }
 
         /* functions */
         std::string get();
@@ -37,7 +43,7 @@ namespace SimpleSql {
         std::string assemble() const;
 
         /* members */
-        SimpleSqlTypes::DatabaseType m_database_type;
+        database_type m_db_type;
         std::string m_driver{};
         std::string m_server{};
         std::uint16_t m_port{0};

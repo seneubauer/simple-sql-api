@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <string_view>
 
 // Windows stuff
 #ifdef _WIN32
@@ -59,29 +60,29 @@
 #include <sqlext.h>
 #include <sql.h>
 
-namespace SimpleSql {
+namespace simql {
 
-    extern void* get_env_handle(Environment& env) noexcept;
+    extern void* get_env_handle(environment& env) noexcept;
 
-    struct Connection::handle {
+    struct database_connection::handle {
         SQLHDBC h_dbc;
-        SimQL_ReturnCodes::Code return_code;
+        simql_returncodes::code return_code;
 
-        explicit handle(Environment& env, const Connection::Options& options) {
+        explicit handle(environment& env, database_connection::Options& options) {
 
             h_dbc = SQL_NULL_HDBC;
             SQLHENV h_env = static_cast<SQLHENV>(get_env_handle(env));
-            return_code = SimQL_ReturnCodes::Code::SUCCESS;
+            return_code = simql_returncodes::code::success;
 
             // allocate the handle
             switch (SQLAllocHandle(SQL_HANDLE_DBC, h_env, &h_dbc)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_ALLOC_HANDLE;
+                return_code = simql_returncodes::code::error_alloc_handle;
                 return;
             }
 
@@ -91,10 +92,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_ACCESS_MODE;
+                return_code = simql_returncodes::code::error_set_access_mode;
                 return;
             }
 
@@ -104,10 +105,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_CONNECTION_TIMEOUT;
+                return_code = simql_returncodes::code::error_set_connection_timeout;
                 return;
             }
 
@@ -117,10 +118,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_LOGIN_TIMEOUT;
+                return_code = simql_returncodes::code::error_set_login_timeout;
                 return;
             }
 
@@ -130,10 +131,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_PACKET_SIZE;
+                return_code = simql_returncodes::code::error_set_packet_size;
                 return;
             }
 
@@ -143,10 +144,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_ASYNC;
+                return_code = simql_returncodes::code::error_set_async;
                 return;
             }
 
@@ -156,10 +157,10 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_AUTOCOMMIT;
+                return_code = simql_returncodes::code::error_set_autocommit;
                 return;
             }
 
@@ -169,24 +170,24 @@ namespace SimpleSql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_SET_TRACING;
+                return_code = simql_returncodes::code::error_set_tracing;
                 return;
             }
 
             // set attribute (tracefile)
             if (options.enable_tracing) {
-                auto str =  SimpleSqlStrings::utf8_to_odbc(options.tracefile);
+                auto str = simql_strings::to_odbc_w(std::u8string_view(reinterpret_cast<char8_t*>(options.tracefile.data()), options.tracefile.size()));
                 switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACEFILE, str.data(), SQL_NTS)) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                    return_code = simql_returncodes::code::success_info;
                     break;
                 default:
-                    return_code = SimQL_ReturnCodes::Code::ERROR_SET_TRACEFILE;
+                    return_code = simql_returncodes::code::error_set_tracefile;
                     return;
                 }
             }
@@ -201,17 +202,17 @@ namespace SimpleSql {
         }
 
         void connect(std::string_view connection_string) {
-            std::wstring connection_string_in = SimpleSqlStrings::utf8_to_odbc(connection_string);
+            auto connection_string_in = simql_strings::to_odbc_w(std::u8string_view(reinterpret_cast<const char8_t*>(connection_string.data()), connection_string.size()));
             std::vector<SQLWCHAR> connection_string_out(1024);
             SQLSMALLINT connection_string_out_length;
             switch (SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_OPEN_CONNECTION;
+                return_code = simql_returncodes::code::error_open_connection;
                 return;
             }
         }
@@ -220,13 +221,13 @@ namespace SimpleSql {
             SQLUINTEGER output;
             switch (SQLGetConnectAttrW(h_dbc, SQL_ATTR_CONNECTION_DEAD, &output, 0, nullptr)) {
             case SQL_SUCCESS:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS;
+                return_code = simql_returncodes::code::success;
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = SimQL_ReturnCodes::Code::SUCCESS_INFO;
+                return_code = simql_returncodes::code::success_info;
                 break;
             default:
-                return_code = SimQL_ReturnCodes::Code::ERROR_UNKNOWN_CONNECTION_STATE;
+                return_code = simql_returncodes::code::error_unknown_connection_state;
                 return false;
             }
 
@@ -247,17 +248,17 @@ namespace SimpleSql {
     };
 
     // Connection definition
-    Connection::Connection(Environment& env, const Connection::Options& options) : sp_handle(std::make_unique<handle>(env, options)) {}
-    Connection::~Connection() = default;
-    Connection::Connection(Connection&&) noexcept = default;
-    Connection& Connection::operator=(Connection&&) noexcept = default;
+    database_connection::database_connection(environment& env, database_connection::Options& options) : sp_handle(std::make_unique<handle>(env, options)) {}
+    database_connection::~database_connection() = default;
+    database_connection::database_connection(database_connection&&) noexcept = default;
+    database_connection& database_connection::operator=(database_connection&&) noexcept = default;
 
-    void Connection::connect(std::string_view connection_string) {
+    void database_connection::connect(std::string_view connection_string) {
         if (sp_handle)
             sp_handle.get()->connect(connection_string);
     }
 
-    bool Connection::is_connected() {
+    bool database_connection::is_connected() {
         if (sp_handle) {
             return sp_handle.get()->is_connected();
         } else {
@@ -265,19 +266,19 @@ namespace SimpleSql {
         }
     }
 
-    void Connection::disconnect() {
+    void database_connection::disconnect() {
         if (sp_handle)
             sp_handle.get()->disconnect();
     }
 
-    const SimQL_ReturnCodes::Code& Connection::return_code() {
+    const simql_returncodes::code& database_connection::return_code() {
         if (sp_handle)
             return sp_handle.get()->return_code;
 
-        return SimQL_ReturnCodes::IS_NULLPTR;
+        return simql_returncodes::is_nullptr;
     }
 
-    void* get_dbc_handle(Connection& dbc) noexcept {
+    void* get_dbc_handle(database_connection& dbc) noexcept {
         return dbc.sp_handle ? reinterpret_cast<void*>(dbc.sp_handle.get()->h_dbc) : nullptr;
     }
 }

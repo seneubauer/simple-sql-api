@@ -1,5 +1,5 @@
-#ifndef SimResultSet_header_h
-#define SimResultSet_header_h
+#ifndef result_set_header_h
+#define result_set_header_h
 
 // SimQL stuff
 #include <SimQL_Types.hpp>
@@ -11,24 +11,24 @@
 #include <string>
 #include <string_view>
 
-namespace SimpleSql {
-    class SimResultSet {
+namespace simql {
+    class result_set {
     public:
 
         /* constructor/destructor */
-        SimResultSet() {}
-        ~SimResultSet() {}
+        result_set() {}
+        ~result_set() {}
 
         /* functions */
-        const std::uint8_t& add_column(const SimpleSqlTypes::SQL_Column& column);
-        const std::uint8_t& add_row(std::vector<SimpleSqlTypes::SQL_Value>&& r);
-        const std::uint8_t& set_data(std::vector<SimpleSqlTypes::SQL_Value>&& data);
-        const std::vector<SimpleSqlTypes::SQL_Column>& columns();
-        SimpleSqlTypes::SQL_Value* value(const std::uint64_t& r, const std::string& c);
-        SimpleSqlTypes::SQL_Value* value(const std::uint64_t& r, const std::uint8_t& c);
-        std::vector<SimpleSqlTypes::SQL_Value> row(const std::uint64_t& r);
-        std::vector<SimpleSqlTypes::SQL_Value> column(const std::string& c);
-        std::vector<SimpleSqlTypes::SQL_Value> column(const std::uint8_t& c);
+        const std::uint8_t& add_column(const simql_types::sql_column& column);
+        const std::uint8_t& add_row(std::vector<simql_types::sql_value>&& r);
+        const std::uint8_t& set_data(std::vector<simql_types::sql_value>&& data);
+        const std::vector<simql_types::sql_column>& columns();
+        simql_types::sql_value* value(const std::uint64_t& r, const std::string& c);
+        simql_types::sql_value* value(const std::uint64_t& r, const std::uint8_t& c);
+        std::vector<simql_types::sql_value> row(const std::uint64_t& r);
+        std::vector<simql_types::sql_value> column(const std::string& c);
+        std::vector<simql_types::sql_value> column(const std::uint8_t& c);
         const std::uint64_t& row_count();
         const std::uint8_t& column_count();
         std::string_view return_code_def(const std::uint8_t& return_code);
@@ -38,8 +38,8 @@ namespace SimpleSql {
         /* members */
         std::uint64_t m_row_count;
         std::uint8_t m_column_count;
-        std::vector<SimpleSqlTypes::SQL_Value> m_data;
-        std::vector<SimpleSqlTypes::SQL_Column> m_columns;
+        std::vector<simql_types::sql_value> m_data;
+        std::vector<simql_types::sql_column> m_columns;
         std::unordered_map<std::string, std::uint8_t> m_column_map;
 
         /* return codes */

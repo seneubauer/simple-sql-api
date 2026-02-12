@@ -1,5 +1,5 @@
-#ifndef SimStatement_header_h
-#define SimStatement_header_h
+#ifndef statement_header_h
+#define statement_header_h
 
 // SimQL stuff
 #include <SimConnection.hpp>
@@ -11,8 +11,8 @@
 #include <memory>
 #include <unordered_map>
 
-namespace SimpleSql {
-    class Statement {
+namespace simql {
+    class statement {
     public:
 
         /* enums */
@@ -24,7 +24,7 @@ namespace SimpleSql {
         };
 
         /* structs */
-        struct Options {
+        struct alloc_options {
             CursorType cursor_type = CursorType::CX_FORWARD_ONLY;
             std::uint32_t query_timeout = 0;
             std::uint64_t max_rows = 0;
@@ -32,47 +32,50 @@ namespace SimpleSql {
 
         struct ValuePair {
             std::string name;
-            SimpleSqlTypes::SQL_Value value;
+            simql_types::sql_value value;
         };
 
         /* constructor/destructor */
-        explicit Statement(Connection& dbc, const Options& options);
-        ~Statement();
+        explicit statement(database_connection& dbc, const alloc_options& options);
+        ~statement();
 
         /* set move assignment */
-        Statement(Statement&&) noexcept;
-        Statement& operator=(Statement&&) noexcept;
+        statement(statement&&) noexcept;
+        statement& operator=(statement&&) noexcept;
 
         /* set copy assignment */
-        Statement(const Statement&) = delete;
-        Statement& operator=(const Statement&) = delete;
+        statement(const statement&) = delete;
+        statement& operator=(const statement&) = delete;
 
-        /* execution */
-        SimQL_ReturnCodes::Code prepare(std::u8string_view sql);
-        SimQL_ReturnCodes::Code execute();
-        SimQL_ReturnCodes::Code execute_direct(std::u8string_view sql);
+        /* generic */
+        simql_returncodes::code prepare(std::u8string_view sql);
+        simql_returncodes::code execute();
+        simql_returncodes::code execute_direct(std::u8string_view sql);
 
         /* data retrieval */
-        SimQL_ReturnCodes::Code get_result_set(std::vector<SimpleSqlTypes::SQL_Value>& results, std::vector<SimpleSqlTypes::SQL_Column_>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns);
-        SimQL_ReturnCodes::Code get_value_set(std::vector<ValuePair>& value_pairs);
+        simql_returncodes::code get_result_set(std::vector<simql_types::sql_value>& results, std::vector<simql_types::sql_column>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns, std::uint64_t& skipped_rows);
+        simql_returncodes::code get_value_set(std::vector<ValuePair>& value_pairs);
         bool next_result_set();
         bool next_value_set();
 
         /* parameter binding */
-        SimQL_ReturnCodes::Code bind_string(std::string name, std::u8string value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_floating_point(std::string name, double value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_boolean(std::string name, bool value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_integer(std::string name, int value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_guid(std::string name, SimpleSqlTypes::ODBC_GUID value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_datetime(std::string name, SimpleSqlTypes::_Datetime value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_date(std::string name, SimpleSqlTypes::_Date value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_time(std::string name, SimpleSqlTypes::_Time value, SimpleSqlTypes::BindingType binding_type, bool set_null);
-        SimQL_ReturnCodes::Code bind_blob(std::string name, std::vector<std::uint8_t> value, SimpleSqlTypes::BindingType binding_type, bool set_null);
+        simql_returncodes::code bind_string(std::string name, std::u8string value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_guid(std::string name, simql_types::guid_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_datetime(std::string name, simql_types::datetime_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null);
 
         /* process transparency */
-        const SimQL_ReturnCodes::Code& return_code();
+        const simql_returncodes::code& return_code();
 
     private:
+        friend class statement_pool;
+        statement(void* raw_stmt_handle, database_connection& conn, void* pool);
+        void* detach_handle() noexcept;
         struct handle;
         std::unique_ptr<handle> sp_handle;
     };

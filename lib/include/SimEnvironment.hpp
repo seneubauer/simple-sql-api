@@ -1,5 +1,5 @@
-#ifndef SimEnvironment_header_h
-#define SimEnvironment_header_h
+#ifndef environment_header_h
+#define environment_header_h
 
 // SimQL stuff
 #include <SimQL_ReturnCodes.hpp>
@@ -8,47 +8,47 @@
 #include <cstdint>
 #include <memory>
 
-namespace SimpleSql {
-    class Environment {
+namespace simql {
+    class environment {
     public:
 
         /* enums */
-        enum class PoolingType : std::uint8_t {
-            OFF,
-            ONE_PER_DRIVER,
-            ONE_PER_ENV
+        enum class pooling_type : std::uint8_t {
+            off,
+            one_per_driver,
+            one_per_env
         };
 
-        enum class PoolMatchType : std::uint8_t {
-            STRICT_MATCH,
-            RELAXED_MATCH
+        enum class pooling_match_type : std::uint8_t {
+            strict_match,
+            relaxed_match
         };
 
         /* handle options */
-        struct Options {
-            PoolingType pool_type = PoolingType::ONE_PER_DRIVER;
-            PoolMatchType match_type = PoolMatchType::STRICT_MATCH;
+        struct alloc_options {
+            pooling_type pool_type = pooling_type::one_per_driver;
+            pooling_match_type match_type = pooling_match_type::strict_match;
         };
 
         /* constructor/destructor */
-        explicit Environment(const Options& options);
-        ~Environment();
+        explicit environment(const alloc_options& options);
+        ~environment();
 
         /* set to move assignment */
-        Environment(Environment&&) noexcept;
-        Environment& operator=(Environment&&) noexcept;
+        environment(environment&&) noexcept;
+        environment& operator=(environment&&) noexcept;
 
         /* disable copy assignment */
-        Environment(const Environment&) = delete;
-        Environment& operator=(const Environment&) = delete;
+        environment(const environment&) = delete;
+        environment& operator=(const environment&) = delete;
 
         /* functions */
-        const SimQL_ReturnCodes::Code& return_code();
+        const simql_returncodes::code& return_code();
 
     private:
         struct handle;
         std::unique_ptr<handle> sp_handle;
-        friend void* get_env_handle(Environment& env) noexcept;
+        friend void* get_env_handle(environment& env) noexcept;
     };
 }
 
