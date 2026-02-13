@@ -11,7 +11,7 @@
 #include <condition_variable>
 #include <chrono>
 
-// for compiling on Windows (ew)
+// Windows stuff
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOGDICAPMASKS               // CC_*, LC_*, PC_*, CP_*, TC_*, RC_
