@@ -96,7 +96,7 @@ namespace simql_types {
     };
 
     using sql_variant = std::variant<
-        std::u8string,
+        std::string,
         double,
         bool,
         int,
@@ -114,7 +114,7 @@ namespace simql_types {
     };
 
     struct sql_column {
-        std::u8string name;
+        std::string name;
         sql_dtype data_type;
         std::uint64_t size;
         std::int16_t precision;

@@ -2,7 +2,7 @@
 #define SimConnectionBuilder_header_h
 
 // SimQL stuff
-#include <SimQL_Types.hpp>
+#include <simql_types.hpp>
 
 // STL stuff
 #include <string>

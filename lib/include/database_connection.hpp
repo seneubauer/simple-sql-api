@@ -2,8 +2,8 @@
 #define database_connection_header_h
 
 // SimQL stuff
-#include <SimEnvironment.hpp>
-#include <SimQL_ReturnCodes.hpp>
+#include <environment.hpp>
+#include <simql_returncodes.hpp>
 
 // STL stuff
 #include <cstdint>

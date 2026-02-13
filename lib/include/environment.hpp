@@ -2,7 +2,7 @@
 #define environment_header_h
 
 // SimQL stuff
-#include <SimQL_ReturnCodes.hpp>
+#include <simql_returncodes.hpp>
 
 // STL stuff
 #include <cstdint>

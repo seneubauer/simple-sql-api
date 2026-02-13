@@ -2,10 +2,10 @@
 #define statement_pool_header_h
 
 // SimQL stuff
-#include <SimConnection.hpp>
-#include <SimStatement.hpp>
-#include <SimQL_ReturnCodes.hpp>
-#include <SimQL_Constants.hpp>
+#include <database_connection.hpp>
+#include <statement.hpp>
+#include <simql_returncodes.hpp>
+#include <simql_constants.hpp>
 
 // STL stuff
 #include <cstdint>

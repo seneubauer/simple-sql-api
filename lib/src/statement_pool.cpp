@@ -1,7 +1,7 @@
 // SimQL stuff
-#include <SimStatementPool.hpp>
-#include <SimConnection.hpp>
-#include <SimStatement.hpp>
+#include <statement_pool.hpp>
+#include <database_connection.hpp>
+#include <statement.hpp>
 
 // STL stuff
 #include <cstdint>

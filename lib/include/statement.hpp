@@ -2,9 +2,9 @@
 #define statement_header_h
 
 // SimQL stuff
-#include <SimConnection.hpp>
-#include <SimQL_ReturnCodes.hpp>
-#include <SimQL_Types.hpp>
+#include <database_connection.hpp>
+#include <simql_returncodes.hpp>
+#include <simql_types.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -48,9 +48,9 @@ namespace simql {
         statement& operator=(const statement&) = delete;
 
         /* generic */
-        simql_returncodes::code prepare(std::u8string_view sql);
+        simql_returncodes::code prepare(std::string_view sql);
         simql_returncodes::code execute();
-        simql_returncodes::code execute_direct(std::u8string_view sql);
+        simql_returncodes::code execute_direct(std::string_view sql);
 
         /* data retrieval */
         simql_returncodes::code get_result_set(std::vector<simql_types::sql_value>& results, std::vector<simql_types::sql_column>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns, std::uint64_t& skipped_rows);
@@ -59,7 +59,7 @@ namespace simql {
         bool next_value_set();
 
         /* parameter binding */
-        simql_returncodes::code bind_string(std::string name, std::u8string value, simql_types::parameter_binding_type binding_type, bool set_null);
+        simql_returncodes::code bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null);
         simql_returncodes::code bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null);
         simql_returncodes::code bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null);
         simql_returncodes::code bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null);

@@ -1,7 +1,7 @@
 // SimQL stuff
-#include <SimDiagnosticSet.hpp>
-#include <SimQL_Strings.hpp>
-#include <SimQL_Types.hpp>
+#include <diagnostic_set.hpp>
+#include <simql_strings.hpp>
+#include <simql_types.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -113,10 +113,9 @@ namespace simql {
 
             m_diagnostics.push_back(diagnostic{
                 static_cast<std::int16_t>(current_record_number),
-                simql_strings::from_odbc_w(std::basic_string_view<SQLWCHAR>(sql_state_buffer.data(), sql_state_buffer.size()))
-                // simql_strings::odbc_to_utf8(std::wstring(sql_state_buffer.data(), sql_state_buffer.size())),
+                simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(sql_state_buffer.data(), sql_state_buffer.size())),
                 static_cast<std::int32_t>(native_error),
-                simql_strings::odbc_to_utf8(std::wstring(message_buffer.data(), message_length))
+                simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(message_buffer.data(), message_length))
             });
             current_record_number++;
         }

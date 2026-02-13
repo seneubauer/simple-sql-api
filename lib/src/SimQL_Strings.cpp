@@ -1,5 +1,5 @@
 // SimQL stuff
-#include <SimQL_Strings.hpp>
+#include <simql_strings.hpp>
 
 // STL stuff
 #include <string>
@@ -194,18 +194,17 @@ namespace simql_strings {
 
     */
 
-    std::basic_string<SQLWCHAR> to_odbc_w(std::basic_string_view<char8_t> utf8) {
+    std::basic_string<SQLWCHAR> to_odbc_w(std::basic_string_view<char> utf8) {
         if (utf8.empty())
             return {};
 
         #ifdef WINDOWS
-            std::string s(reinterpret_cast<const char*>(utf8.data()), utf8.size());
-            int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), nullptr, 0);
+            int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
             if (length <= 0)
                 return {};
 
             LPWSTR output_str;
-            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length) <= 0)
+            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), output_str, length) <= 0)
                 return {};
 
             return std::basic_string<SQLWCHAR>(reinterpret_cast<SQLWCHAR*>(output_str));
@@ -214,10 +213,14 @@ namespace simql_strings {
         #endif
     }
 
-    std::basic_string<char8_t> from_odbc_w(std::basic_string_view<SQLWCHAR> odbc) {
+    std::basic_string<SQLCHAR> to_odbc_n(std::basic_string_view<char> utf8) {
+        return std::basic_string<SQLCHAR>(reinterpret_cast<const SQLCHAR*>(utf8.data(), utf8.size()));
+    }
+
+    std::basic_string<char> from_odbc(std::basic_string_view<SQLWCHAR> odbc) {
         if (odbc.empty())
             return {};
-        
+
         #ifdef WINDOWS
             std::wstring s(odbc);
             int length = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), nullptr, 0, nullptr, nullptr);
@@ -228,18 +231,14 @@ namespace simql_strings {
             if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length, nullptr, nullptr) <= 0)
                 return {};
 
-            return std::basic_string<char8_t>(reinterpret_cast<char8_t*>(output_str));
+            return std::basic_string<char>(reinterpret_cast<char*>(output_str));
         #elifdef LINUX
         #elifdef MACOS
         #endif
 
     }
 
-    std::basic_string<SQLCHAR> to_odbc_n(std::basic_string_view<char8_t> utf8) {
-        return std::basic_string<SQLCHAR>(reinterpret_cast<const SQLCHAR*>(utf8.data(), utf8.size()));
-    }
-
-    std::basic_string<char8_t> from_odbc_n(std::basic_string_view<SQLCHAR> odbc) {
-        return std::basic_string<char8_t>(reinterpret_cast<const char8_t*>(odbc.data(), odbc.size()));
+    std::basic_string<char> from_odbc(std::basic_string_view<SQLCHAR> odbc) {
+        return std::basic_string<char>(reinterpret_cast<const char*>(odbc.data(), odbc.size()));
     }
 }

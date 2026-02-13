@@ -1,9 +1,9 @@
 // SimQL stuff
-#include <SimStatement.hpp>
-#include <SimConnection.hpp>
-#include <SimQL_ReturnCodes.hpp>
-#include <SimQL_Strings.hpp>
-#include <SimQL_Constants.hpp>
+#include <statement.hpp>
+#include <database_connection.hpp>
+#include <simql_returncodes.hpp>
+#include <simql_strings.hpp>
+#include <simql_constants.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -225,7 +225,7 @@ namespace simql {
             }
         }
 
-        simql_returncodes::code bindparam_string(const std::string& name, const std::u8string& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        simql_returncodes::code bindparam_string(const std::string& name, const std::string& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
                 return simql_returncodes::code::error_set_param_duplicate;
@@ -878,7 +878,7 @@ namespace simql {
         return reinterpret_cast<void*>(h);
     }
 
-    simql_returncodes::code statement::prepare(std::u8string_view sql) {
+    simql_returncodes::code statement::prepare(std::string_view sql) {
         if (!sp_handle)
             return simql_returncodes::code::null_response;
 
@@ -907,7 +907,7 @@ namespace simql {
         }
     }
 
-    simql_returncodes::code statement::execute_direct(std::u8string_view sql) {
+    simql_returncodes::code statement::execute_direct(std::string_view sql) {
         if (!sp_handle)
             return simql_returncodes::code::null_response;
 
@@ -1041,7 +1041,7 @@ namespace simql {
 
             // add to the column vector
             columns.emplace_back(simql_types::sql_column {
-                simql_strings::from_odbc_w(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
+                simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
                 data_type,
                 static_cast<std::uint64_t>(definition),
                 static_cast<std::int16_t>(scale),
@@ -1078,14 +1078,14 @@ namespace simql {
                     {
                         auto str = std::get<std::basic_string<SQLCHAR>>(data_binding[i].value);
                         str.resize(data_binding[i].indicator / sizeof(SQLCHAR));
-                        value = simql_strings::from_odbc_n(std::basic_string_view<SQLCHAR>(str.data(), str.size()));
+                        value = simql_strings::from_odbc(std::basic_string_view<SQLCHAR>(str.data(), str.size()));
                     }
                     break;
                 case SQL_C_WCHAR:
                     {
                         auto str = std::get<std::basic_string<SQLWCHAR>>(data_binding[i].value);
                         str.resize(data_binding[i].indicator / sizeof(SQLWCHAR));
-                        value = simql_strings::from_odbc_w(std::basic_string_view<SQLWCHAR>(str.data(), str.size()));
+                        value = simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(str.data(), str.size()));
                     }
                     break;
                 case SQL_C_DOUBLE:
@@ -1191,7 +1191,7 @@ namespace simql {
         return true;
     }
 
-    simql_returncodes::code statement::bind_string(std::string name, std::u8string value, simql_types::parameter_binding_type binding_type, bool set_null) {
+    simql_returncodes::code statement::bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null) {
         if (sp_handle)
             return sp_handle.get()->bindparam_string(name, value, binding_type, set_null);
 

@@ -1,8 +1,8 @@
 // SimQL stuff
-#include <SimConnection.hpp>
-#include <SimEnvironment.hpp>
-#include <SimQL_ReturnCodes.hpp>
-#include <SimQL_Strings.hpp>
+#include <database_connection.hpp>
+#include <environment.hpp>
+#include <simql_returncodes.hpp>
+#include <simql_strings.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -179,7 +179,7 @@ namespace simql {
 
             // set attribute (tracefile)
             if (options.enable_tracing) {
-                auto str = simql_strings::to_odbc_w(std::u8string_view(reinterpret_cast<char8_t*>(options.tracefile.data()), options.tracefile.size()));
+                auto str = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<char*>(options.tracefile.data()), options.tracefile.size()));
                 switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACEFILE, str.data(), SQL_NTS)) {
                 case SQL_SUCCESS:
                     break;
@@ -202,7 +202,7 @@ namespace simql {
         }
 
         void connect(std::string_view connection_string) {
-            auto connection_string_in = simql_strings::to_odbc_w(std::u8string_view(reinterpret_cast<const char8_t*>(connection_string.data()), connection_string.size()));
+            auto connection_string_in = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<const char*>(connection_string.data()), connection_string.size()));
             std::vector<SQLWCHAR> connection_string_out(1024);
             SQLSMALLINT connection_string_out_length;
             switch (SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT)) {

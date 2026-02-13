@@ -1,6 +1,6 @@
 // SimQL stuff
-#include <SimResultSet.hpp>
-#include <SimQL_Types.hpp>
+#include <result_set.hpp>
+#include <simql_types.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -9,18 +9,18 @@
 #include <string>
 #include <utility>
 
-const std::uint8_t& simql::result_set::add_column(const simql_types::SQL_Column& column) {
+const std::uint8_t& simql::result_set::add_column(const simql_types::sql_column& column) {
     
     auto it = m_column_map.find(column.name);
     if (it != m_column_map.end())
         return _RC_COLUMN_ALREADY_EXISTS;
 
-    m_column_map.emplace(column.name, column.ordinal);
+    m_column_map.emplace(column.name, m_columns.size());
     m_columns.emplace_back(column);
     return _RC_SUCCESS;
 }
 
-const std::uint8_t& simql::result_set::add_row(std::vector<simql_types::SQL_Value>&& row) {
+const std::uint8_t& simql::result_set::add_row(std::vector<simql_types::sql_value>&& row) {
     if (row.size() != m_columns.size())
         return _RC_INCORRECT_DATA_SIZE;
 
@@ -30,7 +30,7 @@ const std::uint8_t& simql::result_set::add_row(std::vector<simql_types::SQL_Valu
     return _RC_SUCCESS;
 }
 
-const std::uint8_t& simql::result_set::set_data(std::vector<simql_types::SQL_Value>&& data) {
+const std::uint8_t& simql::result_set::set_data(std::vector<simql_types::sql_value>&& data) {
     if (data.size() % m_columns.size() != 0)
         return _RC_INCORRECT_DATA_SIZE;
 
@@ -39,11 +39,11 @@ const std::uint8_t& simql::result_set::set_data(std::vector<simql_types::SQL_Val
     return _RC_SUCCESS;
 }
 
-const std::vector<simql_types::SQL_Column>& simql::result_set::columns() {
+const std::vector<simql_types::sql_column>& simql::result_set::columns() {
     return m_columns;
 }
 
-simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const std::string& c) {
+simql_types::sql_value* simql::result_set::value(const std::uint64_t& r, const std::string& c) {
     auto it = m_column_map.find(c);
     if (it == m_column_map.end())
         return nullptr;
@@ -51,7 +51,7 @@ simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const s
     return value(r, it->second);
 }
 
-simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const std::uint8_t& c) {
+simql_types::sql_value* simql::result_set::value(const std::uint64_t& r, const std::uint8_t& c) {
     if (r >= m_row_count || c >= m_column_count)
         return nullptr;
 
@@ -62,8 +62,8 @@ simql_types::SQL_Value* simql::result_set::value(const std::uint64_t& r, const s
     return &m_data[index];
 }
 
-std::vector<simql_types::SQL_Value> simql::result_set::row(const std::uint64_t& r) {
-    std::vector<simql_types::SQL_Value> v;
+std::vector<simql_types::sql_value> simql::result_set::row(const std::uint64_t& r) {
+    std::vector<simql_types::sql_value> v;
     if (r >= m_row_count)
         return v;
 
@@ -72,8 +72,8 @@ std::vector<simql_types::SQL_Value> simql::result_set::row(const std::uint64_t& 
     return v;
 }
 
-std::vector<simql_types::SQL_Value> simql::result_set::column(const std::string& c) {
-    std::vector<simql_types::SQL_Value> v;
+std::vector<simql_types::sql_value> simql::result_set::column(const std::string& c) {
+    std::vector<simql_types::sql_value> v;
     auto it = m_column_map.find(c);
     if (it == m_column_map.end())
         return v;
@@ -81,8 +81,8 @@ std::vector<simql_types::SQL_Value> simql::result_set::column(const std::string&
     return column(it->second);
 }
 
-std::vector<simql_types::SQL_Value> simql::result_set::column(const std::uint8_t& c) {
-    std::vector<simql_types::SQL_Value> v;
+std::vector<simql_types::sql_value> simql::result_set::column(const std::uint8_t& c) {
+    std::vector<simql_types::sql_value> v;
     if (c >= m_column_count)
         return v;
 
