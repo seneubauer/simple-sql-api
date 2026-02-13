@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include <string_view>
+#include <iostream>
 
 // Windows stuff
 #ifdef _WIN32
@@ -71,7 +72,7 @@ namespace simql {
         simql_returncodes::code return_code;
         diagnostic_set diag;
 
-        explicit handle(environment& env, database_connection::Options& options) {
+        explicit handle(environment& env, database_connection::alloc_options& options) {
 
             h_env = static_cast<SQLHENV>(get_env_handle(env));
             return_code = simql_returncodes::code::success;
@@ -207,7 +208,7 @@ namespace simql {
                     break;
                 default:
                     return_code = simql_returncodes::code::error_set_tracefile;
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                     return;
                 }
             }
@@ -223,9 +224,20 @@ namespace simql {
 
         bool connect(std::string_view connection_string) {
             auto connection_string_in = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<const char*>(connection_string.data()), connection_string.size()));
+            std::wcout << connection_string_in << std::endl;
             std::vector<SQLWCHAR> connection_string_out(1024);
             SQLSMALLINT connection_string_out_length;
-            return SQL_SUCCEEDED(SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT));
+            SQLRETURN sr = SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT);
+            switch (sr) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
+                return true;
+            default:
+                std::cout << std::to_string(sr) << std::endl;
+                return false;
+            }
         }
 
         bool is_connected() {
@@ -259,14 +271,19 @@ namespace simql {
     };
 
     // Connection definition
-    database_connection::database_connection(environment& env, database_connection::Options& options) : sp_handle(std::make_unique<handle>(env, options)) {}
+    database_connection::database_connection(environment& env, database_connection::alloc_options& options) : sp_handle(std::make_unique<handle>(env, options)) {}
     database_connection::~database_connection() = default;
     database_connection::database_connection(database_connection&&) noexcept = default;
     database_connection& database_connection::operator=(database_connection&&) noexcept = default;
 
-    bool database_connection::connect(std::string_view connection_string) {
-        if (sp_handle)
-            sp_handle.get()->connect(connection_string);
+    bool database_connection::connect(std::string connection_string) {
+        if (!sp_handle)
+            return false;
+        
+        if (!sp_handle.get())
+            return false;
+
+        return sp_handle.get()->connect(connection_string);
     }
 
     bool database_connection::is_connected() {

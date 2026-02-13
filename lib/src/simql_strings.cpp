@@ -203,11 +203,11 @@ namespace simql_strings {
             if (length <= 0)
                 return {};
 
-            LPWSTR output_str{};
-            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), output_str, length) <= 0)
+            std::basic_string<SQLWCHAR> output(length, L'\0');
+            if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), output.data(), length) <= 0)
                 return {};
 
-            return std::basic_string<SQLWCHAR>(reinterpret_cast<SQLWCHAR*>(output_str));
+            return output;
         // #elifdef LINUX
         // #elifdef MACOS
         #endif
@@ -227,11 +227,11 @@ namespace simql_strings {
             if (length <= 0)
                 return {};
 
-            LPSTR output_str{};
-            if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length, nullptr, nullptr) <= 0)
+            std::basic_string<char> output(length, '\0');
+            if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output.data(), length, nullptr, nullptr) <= 0)
                 return {};
 
-            return std::basic_string<char>(reinterpret_cast<char*>(output_str));
+            return output;
         // #elifdef LINUX
         // #elifdef MACOS
         #endif

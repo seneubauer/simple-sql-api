@@ -15,7 +15,7 @@ namespace simql {
     public:
 
         /* handle options */
-        struct Options {
+        struct alloc_options {
             bool read_only = false;
             std::uint32_t connection_timeout = 0;
             std::uint32_t login_timeout = 0;
@@ -27,7 +27,7 @@ namespace simql {
         };
 
         /* constructor/destructor */
-        explicit database_connection(environment& env, Options& options);
+        explicit database_connection(environment& env, alloc_options& options);
         ~database_connection();
 
         /* set to move assignment */
@@ -39,7 +39,7 @@ namespace simql {
         database_connection& operator=(const database_connection&) = delete;
 
         /* functions */
-        bool connect(std::string_view connection_string);
+        bool connect(std::string connection_string);
         bool is_connected();
         void disconnect();
         const simql_returncodes::code& return_code();
