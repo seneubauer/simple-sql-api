@@ -42,5 +42,5 @@
 
 build
 .vscode
-secrets.hpp
+test_secrets.hpp
 compile_commands.json
