@@ -1,6 +1,7 @@
 // SimQL stuff
 #include <environment.hpp>
 #include <simql_returncodes.hpp>
+#include <diagnostic_set.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -59,8 +60,9 @@
 namespace simql {
 
     struct environment::handle {
-        SQLHENV h_env;
+        SQLHENV h_env = SQL_NULL_HENV;
         simql_returncodes::code return_code;
+        diagnostic_set diag;
 
         explicit handle(const environment::alloc_options& options) {
 
@@ -73,6 +75,7 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
                 return_code = simql_returncodes::code::error_alloc_handle;
@@ -85,77 +88,58 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_odbc_version3;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 return;
             }
 
             // set attribute (connection pooling type)
+            SQLPOINTER p_pool_type;
             switch (options.pool_type) {
             case environment::pooling_type::off:
-                switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_OFF), 0)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_pooling_type;
-                    return;
-                }
+                p_pool_type = reinterpret_cast<SQLPOINTER>(SQL_CP_OFF);
                 break;
             case environment::pooling_type::one_per_driver:
-                switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_DRIVER), 0)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_pooling_type;
-                    return;
-                }
+                p_pool_type = reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_DRIVER);
                 break;
             case environment::pooling_type::one_per_env:
-                switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_HENV), 0)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_pooling_type;
-                    return;
-                }
+                p_pool_type = reinterpret_cast<SQLPOINTER>(SQL_CP_ONE_PER_HENV);
                 break;
+            }
+            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, p_pool_type, 0)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                return_code = simql_returncodes::code::success_info;
+                diag.update(h_env, diagnostic_set::handle_type::env);
+                break;
+            default:
+                return_code = simql_returncodes::code::error_set_pooling_type;
+                diag.update(h_env, diagnostic_set::handle_type::env);
+                return;
             }
 
             // set attribute (connection pool match type)
+            SQLPOINTER p_match_type;
             switch (options.match_type) {
             case environment::pooling_match_type::strict_match:
-                switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, reinterpret_cast<SQLPOINTER>(SQL_CP_STRICT_MATCH), 0)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_pool_match_type;
-                    break;
-                }
+                p_match_type = reinterpret_cast<SQLPOINTER>(SQL_CP_STRICT_MATCH);
                 break;
             case environment::pooling_match_type::relaxed_match:
-                switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, reinterpret_cast<SQLPOINTER>(SQL_CP_RELAXED_MATCH), 0)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_pool_match_type;
-                    break;
-                }
+                p_match_type = reinterpret_cast<SQLPOINTER>(SQL_CP_RELAXED_MATCH);
+                break;
+            }
+            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, p_match_type, 0)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                return_code = simql_returncodes::code::success_info;
+                break;
+            default:
+                return_code = simql_returncodes::code::error_set_pool_match_type;
                 break;
             }
         }
@@ -176,6 +160,13 @@ namespace simql {
             return sp_handle.get()->return_code;
 
         return simql_returncodes::is_nullptr;
+    }
+
+    diagnostic_set* environment::diagnostics() {
+        if (!sp_handle)
+            return nullptr;
+
+        return &sp_handle.get()->diag;
     }
 
     void* get_env_handle(environment& env) noexcept {

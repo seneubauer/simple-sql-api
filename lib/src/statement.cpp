@@ -156,17 +156,17 @@ namespace simql {
 
             // set attribute (cursor type)
             SQLPOINTER p_cursor_type;
-            switch (options.cursor_type) {
-            case CursorType::CX_FORWARD_ONLY:
+            switch (options.cursor) {
+            case cursor_type::forward_only:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
                 break;
-            case CursorType::CX_STATIC:
+            case cursor_type::static_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
                 break;
-            case CursorType::CX_DYNAMIC:
+            case cursor_type::dyanmic_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
                 break;
-            case CursorType::CX_KEYSET_DRIVEN:
+            case cursor_type::keyset_driven:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_KEYSET_DRIVEN);
                 break;
             }
@@ -1177,7 +1177,7 @@ namespace simql {
         return rc;
     }
 
-    simql_returncodes::code statement::get_value_set(std::vector<statement::ValuePair>& value_pairs) {
+    simql_returncodes::code statement::get_value_set(std::vector<statement::value_pair>& value_pairs) {
 
     }
 

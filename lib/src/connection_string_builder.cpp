@@ -15,6 +15,11 @@ namespace simql {
         return connection_string;
     }
 
+    void connection_string_builder::set_db_type(const connection_string_builder::database_type& db_type) {
+        if (m_db_type != db_type)
+            m_db_type = db_type;
+    }
+
     void connection_string_builder::set_driver(const std::string& driver) {
         if (m_driver != driver)
             m_driver = driver;

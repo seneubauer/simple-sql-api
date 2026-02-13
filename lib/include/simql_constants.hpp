@@ -11,6 +11,7 @@ namespace simql_constants {
         static constexpr std::string_view odbc_17_sql_server    = std::string_view("ODBC Driver 17 for SQL Server");
         static constexpr std::string_view psql_odbc_ansi        = std::string_view("PostgreSQL ANSI");
         static constexpr std::string_view psql_odbc_uni         = std::string_view("PostgreSQL UNICODE");
+        static constexpr std::string_view psql_odbc             = std::string_view("PostgreSQL");
     }
 
     namespace limits {

@@ -19,11 +19,13 @@ namespace simql {
         };
 
         /* constructor/destructor */
+        connection_string_builder() {}
         connection_string_builder(const database_type& db_type) : m_db_type(db_type) {}
         ~connection_string_builder() { destroy(); }
 
         /* functions */
         std::string get();
+        void set_db_type(const database_type& db_type);
         void set_driver(const std::string& driver);
         void set_server(const std::string& server);
         void set_port(const std::uint16_t& port);

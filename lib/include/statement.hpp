@@ -16,21 +16,21 @@ namespace simql {
     public:
 
         /* enums */
-        enum class CursorType : std::uint8_t {
-            CX_FORWARD_ONLY,
-            CX_STATIC,
-            CX_DYNAMIC,
-            CX_KEYSET_DRIVEN
+        enum class cursor_type : std::uint8_t {
+            forward_only,
+            static_cursor,
+            dyanmic_cursor,
+            keyset_driven
         };
 
         /* structs */
         struct alloc_options {
-            CursorType cursor_type = CursorType::CX_FORWARD_ONLY;
+            cursor_type cursor = cursor_type::forward_only;
             std::uint32_t query_timeout = 0;
             std::uint64_t max_rows = 0;
         };
 
-        struct ValuePair {
+        struct value_pair {
             std::string name;
             simql_types::sql_value value;
         };
@@ -54,7 +54,7 @@ namespace simql {
 
         /* data retrieval */
         simql_returncodes::code get_result_set(std::vector<simql_types::sql_value>& results, std::vector<simql_types::sql_column>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns, std::uint64_t& skipped_rows);
-        simql_returncodes::code get_value_set(std::vector<ValuePair>& value_pairs);
+        simql_returncodes::code get_value_set(std::vector<value_pair>& value_pairs);
         bool next_result_set();
         bool next_value_set();
 

@@ -1,103 +1,66 @@
 // SimQL stuff
-#include <SimDiagnosticSet.hpp>
-#include <SimQL_Types.hpp>
-#include <SimConnectionBuilder.hpp>
+#include <connection_string_builder.hpp>
+#include <simql_constants.hpp>
+#include <environment.hpp>
+#include <simql_returncodes.hpp>
 
 // STL stuff
 #include <string>
 #include <cstdint>
 #include <iostream>
-#include <utility>
 
 // secrets
-#include <secrets.hpp>
+#include <test_secrets.hpp>
 
 int main() {
 
-    // // build connection string
-    // std::string conn_str;
-    // switch (Secrets::SYSTEM) {
-    // case Secrets::OperatingSystems::Windows:
-    //     {
-    //         auto builder = simql::connection_string_builder(simql_types::DatabaseType::SQL_SERVER);
-    //         builder.set_driver(std::string(simql_constants::database_drivers::odbc_17_sql_server));
-    //         builder.set_server(std::string(Secrets::SERVER));
-    //         builder.set_port(Secrets::PORT);
-    //         builder.set_database(std::string(Secrets::DATABASE));
-    //         builder.set_trusted(true);
-    //         conn_str = builder.get();
-    //     }
-    //     break;
-    // case Secrets::OperatingSystems::Linux:
-    //     {
-    //         auto builder = simql::connection_string_builder(simql_types::DatabaseType::POSTGRESQL);
-    //         builder.set_driver(std::string(simql_constants::database_drivers::psql_odbc_ansi));
-    //         builder.set_server(std::string(Secrets::SERVER));
-    //         builder.set_database(std::string(Secrets::DATABASE));
-    //         builder.set_port(Secrets::PORT);
-    //         builder.set_username(std::string(Secrets::UID));
-    //         builder.set_password(std::string(Secrets::PWD));
-    //         conn_str = builder.get();
-    //     }
-    //     break;
-    // default:
-    //     return 0;
-    // }
+    simql::connection_string_builder builder;
+    switch (test_secrets::current_os) {
+    case test_secrets::operating_system::windows:
+        builder.set_driver(std::string(simql_constants::database_drivers::odbc_17_sql_server));
+        builder.set_trusted(true);
+        break;
+    case test_secrets::operating_system::linux:
+        builder.set_driver(std::string(simql_constants::database_drivers::psql_odbc));
+        builder.set_username(std::string(test_secrets::uid));
+        builder.set_password(std::string(test_secrets::pwd));
+        break;
+    default:
+        return 0;
+    }
+    builder.set_server(std::string(test_secrets::server));
+    builder.set_database(std::string(test_secrets::database));
+    builder.set_port(test_secrets::port);
 
-    // // initialize & configure SimDatabase
-    // simql::SimDatabase db(16);
-    // std::uint8_t rc = db.initialize();
-    // if (rc > 0)
-    //     std::cout << db.return_code_def(rc) << std::endl;
+    // select environment allocation options
+    simql::environment::alloc_options env_opts;
+    env_opts.match_type = simql::environment::pooling_match_type::strict_match;
+    env_opts.pool_type = simql::environment::pooling_type::one_per_driver;
 
-    // db.set_access_mode(simql_types::AccessModeType::READ_ONLY);
-    // db.set_autocommit(simql_types::AutocommitType::DISABLED);
-    // db.set_login_timeout(5);
+    // helper to print environment diagnostics
+    auto env_printer = [&](simql::environment& e) {
+        auto diag = e.diagnostics();
+        if (diag) {
+            for (auto& element : diag->view_diagnostics()) {
+                std::cout << element.message << std::endl;
+            }
+        }
+    };
 
-    // rc = db.connect(conn_str);
-    // if (rc > 0)
-    //     std::cout << db.return_code_def(rc) << std::endl;
-
-    // simql::SimQuery query(db.statement_handle());
-    // query.set_sql(std::string(Secrets::QUERY));
-
-    // std::cout << "preparing" << std::endl;
-    // rc = query.prepare();
-    // if (rc > 0) {
-    //     std::cout << "could not prepare..." << std::endl;
-    //     std::cout << query.return_code_def(rc) << std::endl;
-
-    //     if (query.diagnostics()) {
-    //         std::cout << "diagnostics exist" << std::endl;
-    //         for (auto& element : query.diagnostics()->view_diagnostics()) {
-    //             std::cout << element.message << std::endl;
-    //         }
-    //     }
-
-    //     return 1;
-    // }
-    // if (query.diagnostics())
-    //     query.diagnostics()->flush();
-
-    // std::cout << "executing" << std::endl;
-    // if (query.execute()) {
-
-    //     // show select results
-    //     auto result_set = query.results();
-    //     if (result_set) {
-    //         std::cout << "r: " << std::to_string(result_set->row_count()) << std::endl;
-    //         std::cout << "c: " << std::to_string(result_set->column_count()) << std::endl;
-    //     }
-
-    //     // show diagnostics if there are any
-    //     if (query.diagnostics()) {
-    //         std::cout << "diagnostics exist" << std::endl;
-    //         for (auto& element : query.diagnostics()->view_diagnostics()) {
-    //             std::cout << element.message << std::endl;
-    //         }
-    //     }
-    // }
-    // std::cout << "finished" << std::endl;
+    // allocate the environment handle
+    simql::environment env(env_opts);
+    switch (env.return_code()) {
+    case simql_returncodes::code::success:
+        break;
+    case simql_returncodes::code::success_info:
+        std::cout << "environment info..." << std::endl;
+        env_printer(env);
+        break;
+    default:
+        std::cout << "environment error..." << std::endl;
+        env_printer(env);
+        return 1;
+    }
 
     return 0;
 }

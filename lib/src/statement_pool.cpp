@@ -121,17 +121,17 @@ namespace simql {
 
             // set attribute (cursor type)
             SQLPOINTER p_cursor_type;
-            switch (stmt_opts.cursor_type) {
-            case statement::CursorType::CX_FORWARD_ONLY:
+            switch (stmt_opts.cursor) {
+            case statement::cursor_type::forward_only:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
                 break;
-            case statement::CursorType::CX_STATIC:
+            case statement::cursor_type::static:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
                 break;
-            case statement::CursorType::CX_DYNAMIC:
+            case statement::cursor_type::dyanmic_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
                 break;
-            case statement::CursorType::CX_KEYSET_DRIVEN:
+            case statement::cursor_type::keyset_driven:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_KEYSET_DRIVEN);
                 break;
             }

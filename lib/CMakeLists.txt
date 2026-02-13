@@ -1,16 +1,14 @@
 add_library(
     SimpleSql STATIC
-    src/SimDatabase.cpp
-    src/SimQuery.cpp
-    src/SimConnectionBuilder.cpp
-    src/SimRunner.cpp
-    src/SimDiagnosticSet.cpp
-    src/SimResultSet.cpp
-    src/SimValueSet.cpp
-    src/SimQL_Strings.cpp
-    src/SimEnvironment.cpp
-    src/SimConnection.cpp
-    src/SimStatement.cpp
+    src/connection_string_builder.cpp
+    src/database_connection.cpp
+    src/diagnostic_set.cpp
+    src/environment.cpp
+    src/result_set.cpp
+    src/simql_strings.cpp
+    src/statement_pool.cpp
+    src/statement.cpp
+    src/value_set.cpp
 )
 
 target_include_directories(

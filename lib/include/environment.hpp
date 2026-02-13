@@ -3,6 +3,7 @@
 
 // SimQL stuff
 #include <simql_returncodes.hpp>
+#include <diagnostic_set.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -44,6 +45,7 @@ namespace simql {
 
         /* functions */
         const simql_returncodes::code& return_code();
+        diagnostic_set* diagnostics();
 
     private:
         struct handle;
