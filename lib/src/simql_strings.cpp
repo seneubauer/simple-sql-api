@@ -203,18 +203,18 @@ namespace simql_strings {
             if (length <= 0)
                 return {};
 
-            LPWSTR output_str;
+            LPWSTR output_str{};
             if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8.data(), static_cast<int>(utf8.size()), output_str, length) <= 0)
                 return {};
 
             return std::basic_string<SQLWCHAR>(reinterpret_cast<SQLWCHAR*>(output_str));
-        #elifdef LINUX
-        #elifdef MACOS
+        // #elifdef LINUX
+        // #elifdef MACOS
         #endif
     }
 
     std::basic_string<SQLCHAR> to_odbc_n(std::basic_string_view<char> utf8) {
-        return std::basic_string<SQLCHAR>(reinterpret_cast<const SQLCHAR*>(utf8.data(), utf8.size()));
+        return std::basic_string<SQLCHAR>{utf8.begin(), utf8.end()};
     }
 
     std::basic_string<char> from_odbc(std::basic_string_view<SQLWCHAR> odbc) {
@@ -227,18 +227,18 @@ namespace simql_strings {
             if (length <= 0)
                 return {};
 
-            LPSTR output_str;
+            LPSTR output_str{};
             if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, s.data(), static_cast<int>(s.size()), output_str, length, nullptr, nullptr) <= 0)
                 return {};
 
             return std::basic_string<char>(reinterpret_cast<char*>(output_str));
-        #elifdef LINUX
-        #elifdef MACOS
+        // #elifdef LINUX
+        // #elifdef MACOS
         #endif
 
     }
 
     std::basic_string<char> from_odbc(std::basic_string_view<SQLCHAR> odbc) {
-        return std::basic_string<char>(reinterpret_cast<const char*>(odbc.data(), odbc.size()));
+        return std::basic_string<char>{odbc.begin(), odbc.end()};
     }
 }

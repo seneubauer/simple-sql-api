@@ -222,6 +222,8 @@ namespace simql {
                 return SQL_PARAM_INPUT;
             case simql_types::parameter_binding_type::OUTPUT:
                 return SQL_PARAM_OUTPUT;
+            default:
+                return SQL_PARAM_INPUT;
             }
         }
 
@@ -719,12 +721,12 @@ namespace simql {
             SQLLEN buffer_length;
             if (binding.c_type == SQL_C_CHAR) {
                 buffer_length = (column_size + 1) * sizeof(SQLCHAR);
-                auto& val = std::get<std::vector<SQLCHAR>>(binding.value);
+                auto& val = std::get<std::basic_string<SQLCHAR>>(binding.value);
                 val.resize(buffer_length);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else if (binding.c_type == SQL_C_WCHAR) {
                 buffer_length = (column_size + 1) * sizeof(SQLWCHAR);
-                auto& val = std::get<std::vector<SQLWCHAR>>(binding.value);
+                auto& val = std::get<std::basic_string<SQLWCHAR>>(binding.value);
                 val.resize(buffer_length);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else {
@@ -956,7 +958,6 @@ namespace simql {
 
             // map library data type and bind column
             simql_types::sql_dtype data_type;
-            SQLSMALLINT c_type;
             bool bind_state;
 
             // add empty binding to deque
@@ -1061,7 +1062,7 @@ namespace simql {
             if (exit_condition)
                 break;
 
-            for (int i = 0; i < columns.size(); ++i) {
+            for (size_t i = 0; i < columns.size(); ++i) {
 
                 if (data_binding[i].indicator == SQL_NULL_DATA) {
                     results.push_back(simql_types::sql_value {
@@ -1178,7 +1179,8 @@ namespace simql {
     }
 
     simql_returncodes::code statement::get_value_set(std::vector<statement::value_pair>& value_pairs) {
-
+        value_pairs.clear();
+        return simql_returncodes::code::success;
     }
 
     bool statement::next_result_set() {

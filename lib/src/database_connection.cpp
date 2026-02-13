@@ -3,6 +3,7 @@
 #include <environment.hpp>
 #include <simql_returncodes.hpp>
 #include <simql_strings.hpp>
+#include <diagnostic_set.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -65,13 +66,14 @@ namespace simql {
     extern void* get_env_handle(environment& env) noexcept;
 
     struct database_connection::handle {
-        SQLHDBC h_dbc;
+        SQLHDBC h_dbc = SQL_NULL_HDBC;
+        SQLHENV h_env = SQL_NULL_HENV;
         simql_returncodes::code return_code;
+        diagnostic_set diag;
 
         explicit handle(environment& env, database_connection::Options& options) {
 
-            h_dbc = SQL_NULL_HDBC;
-            SQLHENV h_env = static_cast<SQLHENV>(get_env_handle(env));
+            h_env = static_cast<SQLHENV>(get_env_handle(env));
             return_code = simql_returncodes::code::success;
 
             // allocate the handle
@@ -80,9 +82,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
                 return_code = simql_returncodes::code::error_alloc_handle;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 return;
             }
 
@@ -93,9 +97,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_access_mode;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -106,9 +112,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_connection_timeout;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -119,9 +127,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_login_timeout;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -132,9 +142,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_packet_size;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -145,9 +157,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_async;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -158,9 +172,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_autocommit;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -171,9 +187,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_tracing;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -185,9 +203,11 @@ namespace simql {
                     break;
                 case SQL_SUCCESS_WITH_INFO:
                     return_code = simql_returncodes::code::success_info;
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                     break;
                 default:
                     return_code = simql_returncodes::code::error_set_tracefile;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                     return;
                 }
             }
@@ -201,20 +221,11 @@ namespace simql {
                 SQLFreeHandle(SQL_HANDLE_DBC, h_dbc);
         }
 
-        void connect(std::string_view connection_string) {
+        bool connect(std::string_view connection_string) {
             auto connection_string_in = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<const char*>(connection_string.data()), connection_string.size()));
             std::vector<SQLWCHAR> connection_string_out(1024);
             SQLSMALLINT connection_string_out_length;
-            switch (SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
-                break;
-            default:
-                return_code = simql_returncodes::code::error_open_connection;
-                return;
-            }
+            return SQL_SUCCEEDED(SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT));
         }
 
         bool is_connected() {
@@ -253,7 +264,7 @@ namespace simql {
     database_connection::database_connection(database_connection&&) noexcept = default;
     database_connection& database_connection::operator=(database_connection&&) noexcept = default;
 
-    void database_connection::connect(std::string_view connection_string) {
+    bool database_connection::connect(std::string_view connection_string) {
         if (sp_handle)
             sp_handle.get()->connect(connection_string);
     }
@@ -276,6 +287,16 @@ namespace simql {
             return sp_handle.get()->return_code;
 
         return simql_returncodes::is_nullptr;
+    }
+
+    diagnostic_set* database_connection::diagnostics() {
+        if (!sp_handle)
+            return nullptr;
+
+        if (!sp_handle.get())
+            return nullptr;
+
+        return &sp_handle.get()->diag;
     }
 
     void* get_dbc_handle(database_connection& dbc) noexcept {

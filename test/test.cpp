@@ -62,5 +62,6 @@ int main() {
         return 1;
     }
 
+    std::cout << "end of test" << std::endl;
     return 0;
 }

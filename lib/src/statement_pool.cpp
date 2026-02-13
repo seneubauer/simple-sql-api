@@ -125,7 +125,7 @@ namespace simql {
             case statement::cursor_type::forward_only:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
                 break;
-            case statement::cursor_type::static:
+            case statement::cursor_type::static_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
                 break;
             case statement::cursor_type::dyanmic_cursor:

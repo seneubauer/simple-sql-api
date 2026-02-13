@@ -166,6 +166,9 @@ namespace simql {
         if (!sp_handle)
             return nullptr;
 
+        if (!sp_handle.get())
+            return nullptr;
+
         return &sp_handle.get()->diag;
     }
 

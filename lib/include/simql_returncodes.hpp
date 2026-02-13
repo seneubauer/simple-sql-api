@@ -29,7 +29,6 @@ namespace simql_returncodes {
         error_set_autocommit,
         error_set_tracing,
         error_set_tracefile,
-        error_open_connection,
         error_unknown_connection_state,
 
         /* STATEMENT HANDLE */
@@ -67,7 +66,6 @@ namespace {
         {simql_returncodes::code::error_set_autocommit,             std::string_view("could not set the autocommit state")},
         {simql_returncodes::code::error_set_tracing,                std::string_view("could not enable/disable tracing")},
         {simql_returncodes::code::error_set_tracefile,              std::string_view("could not set the tracefile path")},
-        {simql_returncodes::code::error_open_connection,            std::string_view("could not open a connection to the database")},
         {simql_returncodes::code::error_unknown_connection_state,   std::string_view("could not determine if the connection is open")},
         {simql_returncodes::code::error_set_cursor_type,            std::string_view("could not set the cursor type")},
         {simql_returncodes::code::error_set_query_timeout,          std::string_view("could not set the query timeout")},

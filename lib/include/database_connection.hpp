@@ -4,6 +4,7 @@
 // SimQL stuff
 #include <environment.hpp>
 #include <simql_returncodes.hpp>
+#include <diagnostic_set.hpp>
 
 // STL stuff
 #include <cstdint>
@@ -38,10 +39,11 @@ namespace simql {
         database_connection& operator=(const database_connection&) = delete;
 
         /* functions */
-        void connect(std::string_view connection_string);
+        bool connect(std::string_view connection_string);
         bool is_connected();
         void disconnect();
         const simql_returncodes::code& return_code();
+        diagnostic_set* diagnostics();
 
     private:
         struct handle;

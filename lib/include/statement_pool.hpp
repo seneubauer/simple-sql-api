@@ -34,9 +34,9 @@ namespace simql {
         void release(statement&& stmt);
 
     private:
-        database_connection& m_conn;
         struct pool;
         std::unique_ptr<pool> m_pool;
+        database_connection& m_conn;
     };
 }
 
