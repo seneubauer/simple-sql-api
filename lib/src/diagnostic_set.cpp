@@ -9,6 +9,7 @@
 #include <vector>
 #include <array>
 #include <string>
+#include <unordered_map>
 
 // Windows stuff
 #ifdef _WIN32
@@ -94,7 +95,7 @@ namespace simql {
     void diagnostic_set::update_diagnostics(const std::int16_t& type, void* handle) {
 
         SQLSMALLINT handle_type = static_cast<SQLSMALLINT>(type);
-        SQLSMALLINT current_record_number = static_cast<SQLSMALLINT>(m_diagnostic_index);
+        SQLSMALLINT current_record_number{1};
         std::array<SQLWCHAR, 6> sql_state_buffer;
         SQLINTEGER native_error;
         std::array<SQLWCHAR, SQL_MAX_MESSAGE_LENGTH> message_buffer;
@@ -108,8 +109,6 @@ namespace simql {
             case SQL_NO_DATA: exit_condition = true; break;
             default: return;
             }
-            if (exit_condition)
-                break;
 
             m_diagnostics.push_back(diagnostic{
                 static_cast<std::int16_t>(current_record_number),
@@ -117,9 +116,19 @@ namespace simql {
                 static_cast<std::int32_t>(native_error),
                 simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(message_buffer.data(), message_length))
             });
+            if (exit_condition)
+                break;
+
             current_record_number++;
         }
-        m_diagnostic_index = static_cast<std::int16_t>(current_record_number);
+    }
+
+    std::string_view diagnostic_set::state_description(const std::string& sql_state) {
+        auto it = m_states.find(sql_state);
+        if (it == m_states.end())
+            return m_states.at("UNSET");
+
+        return it->second;
     }
 
 }

@@ -47,13 +47,14 @@ namespace simql {
         using diagnostic_filter_view = std::ranges::filter_view<std::ranges::ref_view<std::vector<diagnostic>>, FilterPredicate>;
 
         // constructor/destructor
-        diagnostic_set() : m_diagnostic_index(1) {}
+        diagnostic_set() {}
         ~diagnostic_set() {}
 
         // functions
         diagnostic_filter_view view_diagnostics(std::optional<std::string> sql_state = std::nullopt, std::optional<std::int32_t> native_error = std::nullopt);
         void flush();
         void update(void* handle, const handle_type& type);
+        std::string_view state_description(const std::string& sql_state);
 
     private:
 
@@ -61,7 +62,6 @@ namespace simql {
         void update_diagnostics(const std::int16_t& type, void* handle);
 
         /* members */
-        std::int16_t m_diagnostic_index;
         std::vector<diagnostic> m_diagnostics;
 
         /* dictionaries */

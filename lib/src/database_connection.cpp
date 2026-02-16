@@ -181,6 +181,23 @@ namespace simql {
                 return;
             }
 
+            // set attribute (tracefile)
+            if (options.enable_tracing && !options.tracefile.empty()) {
+                auto str = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<char*>(options.tracefile.data()), options.tracefile.size()));
+                switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACEFILE, (SQLPOINTER)str.c_str(), SQL_NTS)) {
+                case SQL_SUCCESS:
+                    break;
+                case SQL_SUCCESS_WITH_INFO:
+                    return_code = simql_returncodes::code::success_info;
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
+                    break;
+                default:
+                    return_code = simql_returncodes::code::error_set_tracefile;
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
+                    return;
+                }
+            }
+
             // set attribute (tracing)
             SQLPOINTER p_tracing = options.enable_tracing ? reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_ON) : reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_OFF);
             switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACE, p_tracing, 0)) {
@@ -195,23 +212,6 @@ namespace simql {
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
-
-            // set attribute (tracefile)
-            if (options.enable_tracing) {
-                auto str = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<char*>(options.tracefile.data()), options.tracefile.size()));
-                switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACEFILE, str.data(), SQL_NTS)) {
-                case SQL_SUCCESS:
-                    break;
-                case SQL_SUCCESS_WITH_INFO:
-                    return_code = simql_returncodes::code::success_info;
-                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
-                    break;
-                default:
-                    return_code = simql_returncodes::code::error_set_tracefile;
-                    diag.update(h_dbc, diagnostic_set::handle_type::dbc);
-                    return;
-                }
-            }
         }
 
         ~handle() {
@@ -222,20 +222,21 @@ namespace simql {
                 SQLFreeHandle(SQL_HANDLE_DBC, h_dbc);
         }
 
-        bool connect(std::string_view connection_string) {
+        bool connect(std::string connection_string) {
             auto connection_string_in = simql_strings::to_odbc_w(std::string_view(reinterpret_cast<const char*>(connection_string.data()), connection_string.size()));
-            std::wcout << connection_string_in << std::endl;
-            std::vector<SQLWCHAR> connection_string_out(1024);
-            SQLSMALLINT connection_string_out_length;
-            SQLRETURN sr = SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), sizeof(connection_string_out), &connection_string_out_length, SQL_DRIVER_NOPROMPT);
-            switch (sr) {
+            std::basic_string<SQLWCHAR> connection_string_out;
+            connection_string_out.resize(1024);
+            SQLSMALLINT connection_string_out_length{0};
+            SQLSMALLINT buffer_length = connection_string_out.size();
+            switch (SQLDriverConnectW(h_dbc, nullptr, connection_string_in.data(), SQL_NTS, connection_string_out.data(), buffer_length, &connection_string_out_length, SQL_DRIVER_NOPROMPT)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
+                return_code = simql_returncodes::code::success_info;
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return true;
             default:
-                std::cout << std::to_string(sr) << std::endl;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return false;
             }
         }

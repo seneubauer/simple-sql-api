@@ -4,6 +4,7 @@
 #include "simql_returncodes.hpp"
 #include "simql_strings.hpp"
 #include "simql_constants.hpp"
+#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>
@@ -13,6 +14,7 @@
 #include <deque>
 #include <variant>
 #include <algorithm>
+#include <iostream>
 
 // Windows stuff
 #ifdef _WIN32
@@ -80,6 +82,7 @@ namespace simql {
         SQLUSMALLINT pbind_index;
         handle_ownership ownership = handle_ownership::owns;
         void* p_pool;
+        diagnostic_set diag;
 
         using BoundValue = std::variant<
             std::basic_string<SQLCHAR>,
@@ -119,9 +122,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
                 return_code = simql_returncodes::code::error_alloc_handle;
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 return;
             }
 
@@ -175,9 +180,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_cursor_type;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return;
             }
 
@@ -188,9 +195,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_query_timeout;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return;
             }
             
@@ -201,9 +210,11 @@ namespace simql {
                 break;
             case SQL_SUCCESS_WITH_INFO:
                 return_code = simql_returncodes::code::success_info;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
                 return_code = simql_returncodes::code::error_set_max_rows;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return;
             }
         }
@@ -281,8 +292,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -342,8 +355,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -394,8 +409,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -463,8 +480,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -522,8 +541,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -571,8 +592,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -616,8 +639,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -661,8 +686,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -710,8 +737,10 @@ namespace simql {
                 return simql_returncodes::code::success;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::success_info;
             default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 return simql_returncodes::code::error_set_param_binding;
             }
         }
@@ -732,7 +761,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_floating_point(const SQLSMALLINT& index, Binding& binding) {
@@ -749,7 +788,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_boolean(const SQLSMALLINT& index, Binding& binding) {
@@ -762,7 +811,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_integer(const SQLSMALLINT& index, Binding& binding) {
@@ -787,7 +846,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_guid(const SQLSMALLINT& index, Binding& binding) {
@@ -800,7 +869,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_datetime(const SQLSMALLINT& index, Binding& binding) {
@@ -813,7 +892,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_date(const SQLSMALLINT& index, Binding& binding) {
@@ -826,7 +915,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_time(const SQLSMALLINT& index, Binding& binding) {
@@ -839,7 +938,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
         bool bindcol_blob(const SQLSMALLINT& index, const SQLULEN& column_size, Binding& binding) {
@@ -853,7 +962,17 @@ namespace simql {
             } else {
                 return false;
             }
-            return SQL_SUCCEEDED(SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator));
+
+            switch (SQLBindCol(h_stmt, index, binding.c_type, p_val, buffer_length, &binding.indicator)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
         }
 
     };
@@ -889,8 +1008,10 @@ namespace simql {
         case SQL_SUCCESS:
             return simql_returncodes::code::success;
         case SQL_SUCCESS_WITH_INFO:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::success_info;
         default:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::error_stmt_prepare;
         }
     }
@@ -903,8 +1024,10 @@ namespace simql {
         case SQL_SUCCESS:
             return simql_returncodes::code::success;
         case SQL_SUCCESS_WITH_INFO:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::success_info;
         default:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::error_stmt_execute;
         }
     }
@@ -918,8 +1041,10 @@ namespace simql {
         case SQL_SUCCESS:
             return simql_returncodes::code::success;
         case SQL_SUCCESS_WITH_INFO:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::success_info;
         default:
+            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
             return simql_returncodes::code::error_stmt_execute;
         }
     }
@@ -1261,6 +1386,16 @@ namespace simql {
             return sp_handle.get()->return_code;
 
         return simql_returncodes::is_nullptr;
+    }
+
+    diagnostic_set* statement::diagnostics() {
+        if (!sp_handle)
+            return nullptr;
+
+        if (!sp_handle.get())
+            return nullptr;
+
+        return &sp_handle.get()->diag;
     }
 
 }

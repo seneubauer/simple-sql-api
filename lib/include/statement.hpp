@@ -5,6 +5,7 @@
 #include "database_connection.hpp"
 #include "simql_returncodes.hpp"
 #include "simql_types.hpp"
+#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>
@@ -71,6 +72,7 @@ namespace simql {
 
         /* process transparency */
         const simql_returncodes::code& return_code();
+        diagnostic_set* diagnostics();
 
     private:
         friend class statement_pool;
