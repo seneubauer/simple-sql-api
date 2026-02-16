@@ -1,9 +1,9 @@
 // SimQL stuff
-#include <statement.hpp>
-#include <database_connection.hpp>
-#include <simql_returncodes.hpp>
-#include <simql_strings.hpp>
-#include <simql_constants.hpp>
+#include "statement.hpp"
+#include "database_connection.hpp"
+#include "simql_returncodes.hpp"
+#include "simql_strings.hpp"
+#include "simql_constants.hpp"
 
 // STL stuff
 #include <cstdint>

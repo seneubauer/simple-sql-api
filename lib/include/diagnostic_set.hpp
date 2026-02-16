@@ -2,7 +2,7 @@
 #define diagnostic_set_header_h
 
 // SimQL stuff
-#include <simql_types.hpp>
+#include "simql_types.hpp"
 
 // STL stuff
 #include <string>

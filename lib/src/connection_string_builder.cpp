@@ -1,6 +1,6 @@
 // SimQL stuff
-#include <connection_string_builder.hpp>
-#include <simql_types.hpp>
+#include "connection_string_builder.hpp"
+#include "simql_types.hpp"
 
 // STL stuff
 #include <format>

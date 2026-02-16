@@ -2,9 +2,9 @@
 #define statement_header_h
 
 // SimQL stuff
-#include <database_connection.hpp>
-#include <simql_returncodes.hpp>
-#include <simql_types.hpp>
+#include "database_connection.hpp"
+#include "simql_returncodes.hpp"
+#include "simql_types.hpp"
 
 // STL stuff
 #include <cstdint>

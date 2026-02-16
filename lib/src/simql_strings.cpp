@@ -1,5 +1,5 @@
 // SimQL stuff
-#include <simql_strings.hpp>
+#include "simql_strings.hpp"
 
 // STL stuff
 #include <string>

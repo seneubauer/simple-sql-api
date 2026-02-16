@@ -1,8 +1,8 @@
-#ifndef SimConnectionBuilder_header_h
-#define SimConnectionBuilder_header_h
+#ifndef connection_string_builder_header_h
+#define connection_string_builder_header_h
 
 // SimQL stuff
-#include <simql_types.hpp>
+#include "simql_types.hpp"
 
 // STL stuff
 #include <string>

@@ -2,8 +2,8 @@
 #define environment_header_h
 
 // SimQL stuff
-#include <simql_returncodes.hpp>
-#include <diagnostic_set.hpp>
+#include "simql_returncodes.hpp"
+#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>

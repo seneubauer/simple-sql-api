@@ -1,9 +1,9 @@
 // SimQL stuff
-#include <database_connection.hpp>
-#include <environment.hpp>
-#include <simql_returncodes.hpp>
-#include <simql_strings.hpp>
-#include <diagnostic_set.hpp>
+#include "database_connection.hpp"
+#include "environment.hpp"
+#include "simql_returncodes.hpp"
+#include "simql_strings.hpp"
+#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>

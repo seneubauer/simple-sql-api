@@ -1,6 +1,6 @@
 // SimQL stuff
-#include <result_set.hpp>
-#include <simql_types.hpp>
+#include "result_set.hpp"
+#include "simql_types.hpp"
 
 // STL stuff
 #include <cstdint>

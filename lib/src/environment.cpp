@@ -1,7 +1,7 @@
 // SimQL stuff
-#include <environment.hpp>
-#include <simql_returncodes.hpp>
-#include <diagnostic_set.hpp>
+#include "environment.hpp"
+#include "simql_returncodes.hpp"
+#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>
