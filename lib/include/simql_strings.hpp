@@ -4,8 +4,6 @@
 // STL stuff
 #include <string>
 #include <string_view>
-#include <memory>
-#include <cstdint>
 
 // windows stuff
 #ifdef _WIN32
