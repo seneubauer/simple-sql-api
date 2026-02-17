@@ -130,7 +130,7 @@ int main() {
         std::cout << "no result set" << std::endl;
     } else {
         for (size_t r = 0; r < stmt.results()->row_count(); r++) {
-            std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
+            // std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
         }
     }
 

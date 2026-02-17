@@ -20,6 +20,7 @@ namespace simql_constants {
         static constexpr std::uint8_t max_parallel_query_count = 8;
         static constexpr std::uint8_t max_statement_handle_pool_size = 16;
         static constexpr std::uint8_t min_statement_handle_pool_size = 4;
+        static constexpr std::uint16_t max_error_fetches = 2048;
     }
 
 }

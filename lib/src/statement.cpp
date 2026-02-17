@@ -306,13 +306,15 @@ namespace simql {
                     static_cast<std::int16_t>(scale),
                     null_rule
                 });
+                std::cout << results.columns().back().name << std::endl;
             }
         }
 
         bool fetch(std::deque<Binding>& data_binding) {
             std::vector<simql_types::sql_value> results_vector;
-            while (true) {
-                bool exit_condition = false;
+            std::uint16_t error_count{0};
+            bool iterate = true;
+            while (iterate) {
                 switch (SQLFetch(h_stmt)) {
                 case SQL_SUCCESS:
                     break;
@@ -320,13 +322,16 @@ namespace simql {
                     diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                     break;
                 case SQL_NO_DATA:
-                    exit_condition = true;
-                    break;
+                    iterate = false;
+                    continue;
                 default:
+                    error_count++;
                     diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                    if (error_count >= simql_constants::limits::max_error_fetches)
+                        iterate = false;
+
                     continue;
                 }
-                std::cout << "iteration here" << std::endl;
 
                 for (size_t i = 0; i < results.columns().size(); ++i) {
 
@@ -438,8 +443,6 @@ namespace simql {
                         false
                     });
                 }
-                if (exit_condition)
-                    break;
             }
             return results.set_data(std::move(results_vector));
         }
