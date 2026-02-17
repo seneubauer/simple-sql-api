@@ -4,6 +4,7 @@
 // SimQL stuff
 #include "database_connection.hpp"
 #include "statement.hpp"
+#include "simql_returncodes.hpp"
 #include "simql_constants.hpp"
 
 // STL stuff
