@@ -1,15 +1,12 @@
 #ifndef environment_header_h
 #define environment_header_h
 
-// SimQL stuff
-#include "simql_returncodes.hpp"
-#include "diagnostic_set.hpp"
-
 // STL stuff
 #include <cstdint>
 #include <memory>
 
 namespace simql {
+    class diagnostic_set;
     class environment {
     public:
 
@@ -44,7 +41,7 @@ namespace simql {
         environment& operator=(const environment&) = delete;
 
         /* functions */
-        const simql_returncodes::code& return_code();
+        bool is_valid();
         diagnostic_set* diagnostics();
 
     private:

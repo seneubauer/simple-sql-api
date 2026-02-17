@@ -1,6 +1,5 @@
 // SimQL stuff
 #include "environment.hpp"
-#include "simql_returncodes.hpp"
 #include "diagnostic_set.hpp"
 
 // STL stuff
@@ -61,24 +60,20 @@ namespace simql {
 
     struct environment::handle {
         SQLHENV h_env = SQL_NULL_HENV;
-        simql_returncodes::code return_code;
         diagnostic_set diag;
+        bool is_valid{true};
 
         explicit handle(const environment::alloc_options& options) {
-
-            h_env = SQL_NULL_HENV;
-            return_code = simql_returncodes::code::success;
 
             // allocate the handle
             switch (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &h_env)) {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
-                return_code = simql_returncodes::code::error_alloc_handle;
+                is_valid = false;
                 return;
             }
 
@@ -87,12 +82,11 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_odbc_version3;
                 diag.update(h_env, diagnostic_set::handle_type::env);
+                is_valid = false;
                 return;
             }
 
@@ -113,12 +107,11 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_pooling_type;
                 diag.update(h_env, diagnostic_set::handle_type::env);
+                is_valid = false;
                 return;
             }
 
@@ -136,10 +129,11 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
+                diag.update(h_env, diagnostic_set::handle_type::env);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_pool_match_type;
+                diag.update(h_env, diagnostic_set::handle_type::env);
+                is_valid = false;
                 break;
             }
         }
@@ -149,30 +143,21 @@ namespace simql {
         }
     };
 
-    // Environment definition
+    // environment definition
     environment::environment(const environment::alloc_options& options) : sp_handle(std::make_unique<handle>(options)) {}
     environment::~environment() = default;
     environment::environment(environment&&) noexcept = default;
     environment& environment::operator=(environment&&) noexcept = default;
 
-    const simql_returncodes::code& environment::return_code() {
-        if (sp_handle)
-            return sp_handle.get()->return_code;
-
-        return simql_returncodes::is_nullptr;
+    bool environment::is_valid() {
+        return !sp_handle ? false : sp_handle->is_valid;
     }
 
     diagnostic_set* environment::diagnostics() {
-        if (!sp_handle)
-            return nullptr;
-
-        if (!sp_handle.get())
-            return nullptr;
-
-        return &sp_handle.get()->diag;
+        return !sp_handle ? nullptr : &sp_handle->diag;
     }
 
     void* get_env_handle(environment& env) noexcept {
-        return env.sp_handle ? reinterpret_cast<void*>(env.sp_handle.get()->h_env) : nullptr;
+        return env.sp_handle ? reinterpret_cast<void*>(env.sp_handle->h_env) : nullptr;
     }
 }

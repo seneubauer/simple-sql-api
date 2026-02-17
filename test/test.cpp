@@ -1,10 +1,11 @@
 // SimQL stuff
-#include <connection_string_builder.hpp>
-#include <simql_constants.hpp>
-#include <environment.hpp>
-#include <database_connection.hpp>
-#include <statement.hpp>
-#include <simql_returncodes.hpp>
+#include "connection_string_builder.hpp"
+#include "simql_constants.hpp"
+#include "environment.hpp"
+#include "database_connection.hpp"
+#include "statement.hpp"
+#include "diagnostic_set.hpp"
+#include "result_set.hpp"
 
 // STL stuff
 #include <string>
@@ -46,26 +47,21 @@ int main() {
     // helper to print diagnostics
     auto diag_printer = [&](simql::diagnostic_set* diag) {
         if (diag) {
+            if (diag->view_diagnostics().empty())
+                std::cout << "diagnostic buffer is empty" << std::endl;
+
             for (auto& element : diag->view_diagnostics()) {
                 std::cout << element.sql_state << "," << diag->state_description(element.sql_state) << "," << element.message << std::endl;
             }
         } else {
-            std::cout << "diagnostic buffer is empty" << std::endl;
+            std::cout << "diagnostic buffer is null" << std::endl;
         }
     };
 
     // allocate the environment handle
     simql::environment env(env_opts);
-    switch (env.return_code()) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        std::cout << "environment alloc info" << std::endl;
-        diag_printer(env.diagnostics());
-        break;
-    default:
+    if (!env.is_valid()) {
         std::cout << "environment alloc error" << std::endl;
-        std::cout << simql_returncodes::description(env.return_code()) << std::endl;
         diag_printer(env.diagnostics());
         return 1;
     }
@@ -88,16 +84,8 @@ int main() {
 
     // allocate the database connection handle
     simql::database_connection dbc(env, dbc_opts);
-    switch (dbc.return_code()) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        std::cout << "database connection alloc info" << std::endl;
-        diag_printer(dbc.diagnostics());
-        break;
-    default:
+    if (!dbc.is_valid()) {
         std::cout << "database connection alloc error" << std::endl;
-        std::cout << simql_returncodes::description(dbc.return_code()) << std::endl;
         diag_printer(dbc.diagnostics());
         return 1;
     }
@@ -121,70 +109,34 @@ int main() {
 
     // allocate a statement handle
     simql::statement stmt(dbc, stmt_opts);
-    switch (stmt.return_code()) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        std::cout << "statement alloc info" << std::endl;
-        diag_printer(stmt.diagnostics());
-        break;
-    default:
+    if (!stmt.is_valid()) {
         std::cout << "statement alloc error" << std::endl;
-        std::cout << simql_returncodes::description(stmt.return_code()) << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
     // prepare a select statement
-    simql_returncodes::code rc = stmt.prepare(test_secrets::generic_unfiltered_select);
-    switch (rc) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        std::cout << "prepare info" << std::endl;
-        diag_printer(stmt.diagnostics());
-        break;
-    default:
+    if (!stmt.prepare(test_secrets::generic_unfiltered_select)) {
         std::cout << "prepare error" << std::endl;
-        std::cout << simql_returncodes::description(rc) << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
     // execute the select statement
-    rc = stmt.execute();
-    switch (rc) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        std::cout << "execute info" << std::endl;
-        diag_printer(stmt.diagnostics());
-        break;
-    default:
+    if (!stmt.execute()) {
         std::cout << "execute error" << std::endl;
-        std::cout << simql_returncodes::description(rc) << std::endl;
-        diag_printer(stmt.diagnostics());
-        return 1;
-    }
-    // if async is enabled, then the statement needs to continue polling SQLExecute until it returns something other that SQL_STILL_EXECUTING
-
-    // get the results
-    std::vector<simql_types::sql_value> results;
-    std::vector<simql_types::sql_column> columns;
-    std::uint64_t row_count{0};
-    std::uint8_t skipped_columns{0};
-    std::uint64_t skipped_rows{0};
-    switch (stmt.get_result_set(results, columns, row_count, skipped_columns, skipped_rows)) {
-    case simql_returncodes::code::success:
-        break;
-    case simql_returncodes::code::success_info:
-        break;
-    default:
-        std::cout << "result extraction error" << std::endl;
-        std::cout << simql_returncodes::description(rc) << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
+    // get the result set
+    if (!stmt.results()) {
+        std::cout << "no result set" << std::endl;
+    } else {
+        std::cout << "row: " << std::to_string(stmt.results()->row_count()) << std::endl;
+        std::cout << "col: " << std::to_string(stmt.results()->column_count()) << std::endl;
+    }
+
+    std::cout << "end of test" << std::endl;
     return 0;
 }

@@ -3,9 +3,7 @@
 
 // SimQL stuff
 #include "database_connection.hpp"
-#include "simql_returncodes.hpp"
 #include "simql_types.hpp"
-#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>
@@ -13,6 +11,9 @@
 #include <unordered_map>
 
 namespace simql {
+    class diagnostic_set;
+    class result_set;
+    class value_set;
     class statement {
     public:
 
@@ -49,29 +50,30 @@ namespace simql {
         statement& operator=(const statement&) = delete;
 
         /* generic */
-        simql_returncodes::code prepare(std::string_view sql);
-        simql_returncodes::code execute();
-        simql_returncodes::code execute_direct(std::string_view sql);
+        bool prepare(std::string_view sql);
+        bool execute();
+        bool execute_direct(std::string_view sql);
+        bool configure(const alloc_options& options);
 
         /* data retrieval */
-        simql_returncodes::code get_result_set(std::vector<simql_types::sql_value>& results, std::vector<simql_types::sql_column>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns, std::uint64_t& skipped_rows);
-        simql_returncodes::code get_value_set(std::vector<value_pair>& value_pairs);
+        result_set* results();
+        value_set* values();
         bool next_result_set();
         bool next_value_set();
 
         /* parameter binding */
-        simql_returncodes::code bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_guid(std::string name, simql_types::guid_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_datetime(std::string name, simql_types::datetime_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
-        simql_returncodes::code bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_guid(std::string name, simql_types::guid_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_datetime(std::string name, simql_types::datetime_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
+        bool bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null);
 
         /* process transparency */
-        const simql_returncodes::code& return_code();
+        bool is_valid();
         diagnostic_set* diagnostics();
 
     private:

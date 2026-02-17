@@ -3,14 +3,13 @@
 
 // SimQL stuff
 #include "environment.hpp"
-#include "simql_returncodes.hpp"
-#include "diagnostic_set.hpp"
 
 // STL stuff
 #include <cstdint>
 #include <memory>
 
 namespace simql {
+    class diagnostic_set;
     class database_connection {
     public:
 
@@ -42,7 +41,7 @@ namespace simql {
         bool connect(std::string connection_string);
         bool is_connected();
         void disconnect();
-        const simql_returncodes::code& return_code();
+        bool is_valid();
         diagnostic_set* diagnostics();
 
     private:

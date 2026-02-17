@@ -1,10 +1,11 @@
 // SimQL stuff
 #include "statement.hpp"
 #include "database_connection.hpp"
-#include "simql_returncodes.hpp"
 #include "simql_strings.hpp"
 #include "simql_constants.hpp"
 #include "diagnostic_set.hpp"
+#include "result_set.hpp"
+#include "value_set.hpp"
 
 // STL stuff
 #include <cstdint>
@@ -78,11 +79,15 @@ namespace simql {
     struct statement::handle {
         SQLHDBC h_dbc = SQL_NULL_HDBC;
         SQLHSTMT h_stmt = SQL_NULL_HSTMT;
-        simql_returncodes::code return_code;
         SQLUSMALLINT pbind_index;
         handle_ownership ownership = handle_ownership::owns;
         void* p_pool;
         diagnostic_set diag;
+        bool is_valid{true};
+        result_set results;
+        value_set values;
+        bool valid_results{false};
+        bool valid_values{false};
 
         using BoundValue = std::variant<
             std::basic_string<SQLCHAR>,
@@ -113,7 +118,6 @@ namespace simql {
 
             h_dbc = static_cast<SQLHDBC>(get_dbc_handle(dbc));
             h_stmt = SQL_NULL_HSTMT;
-            return_code = simql_returncodes::code::success;
             pbind_index = 1;
 
             // allocate the handle
@@ -121,16 +125,15 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 break;
             default:
-                return_code = simql_returncodes::code::error_alloc_handle;
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc);
+                is_valid = false;
                 return;
             }
 
-            configure(options);
+            is_valid = configure(options);
             ownership = handle_ownership::owns;
         }
 
@@ -157,7 +160,289 @@ namespace simql {
             }
         }
 
-        void configure(const statement::alloc_options& options) {
+        void reset() {
+            SQLCloseCursor(h_stmt);
+            SQLFreeStmt(h_stmt, SQL_RESET_PARAMS);
+            SQLFreeStmt(h_stmt, SQL_UNBIND);
+        }
+
+        SQLSMALLINT param_type(const simql_types::parameter_binding_type& binding_type) {
+            switch (binding_type) {
+            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+                return SQL_PARAM_INPUT_OUTPUT;
+            case simql_types::parameter_binding_type::INPUT:
+                return SQL_PARAM_INPUT;
+            case simql_types::parameter_binding_type::OUTPUT:
+                return SQL_PARAM_OUTPUT;
+            default:
+                return SQL_PARAM_INPUT;
+            }
+        }
+
+        SQLSMALLINT get_column_count() {
+            SQLSMALLINT column_count{};
+            if (SQL_SUCCEEDED(SQLNumResultCols(h_stmt, &column_count)))
+                return column_count;
+
+            return -1;
+        }
+
+        void bind_columns(const SQLSMALLINT& column_count, std::deque<Binding>& data_binding) {
+            for (SQLSMALLINT i = 1; i < column_count; ++i) {
+
+                // get the column metadata
+                std::basic_string<SQLWCHAR> column_name_buffer;
+                column_name_buffer.resize(simql_constants::limits::max_sql_column_name_size);
+                SQLSMALLINT column_name_length;
+                SQLSMALLINT sql_type;
+                SQLULEN definition;
+                SQLSMALLINT scale;
+                SQLSMALLINT null_id;
+                
+                switch (SQLDescribeColW(h_stmt, i, column_name_buffer.data(), sizeof(column_name_buffer), &column_name_length, &sql_type, &definition, &scale, &null_id)) {
+                case SQL_SUCCESS:
+                    break;
+                case SQL_SUCCESS_WITH_INFO:
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                    break;
+                default:
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                    continue;
+                }
+
+                // add empty binding to deque
+                data_binding.emplace_back(handle::Binding {
+                    handle::BoundValue(),
+                    0
+                });
+
+                // map library data type and bind column
+                simql_types::sql_dtype data_type;
+                bool bind_state;
+                if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
+                    data_type = simql_types::sql_dtype::STRING;
+                    data_binding.back().c_type = SQL_C_CHAR;
+                    bind_state = bindcol_string(i, definition, data_binding.back());
+                } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
+                    data_type = simql_types::sql_dtype::STRING;
+                    data_binding.back().c_type = SQL_C_WCHAR;
+                    bind_state = bindcol_string(i, definition, data_binding.back());
+                } else if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
+                    data_type = simql_types::sql_dtype::FLOATING_POINT;
+                    data_binding.back().c_type = SQL_C_DOUBLE;
+                    bind_state = bindcol_floating_point(i, data_binding.back());
+                } else if (sql_type == SQL_REAL) {
+                    data_type = simql_types::sql_dtype::FLOATING_POINT;
+                    data_binding.back().c_type = SQL_C_FLOAT;
+                    bind_state = bindcol_floating_point(i, data_binding.back());
+                } else if (sql_type == SQL_BIT) {
+                    data_type = simql_types::sql_dtype::BOOLEAN;
+                    data_binding.back().c_type = SQL_C_BIT;
+                    bind_state = bindcol_boolean(i, data_binding.back());
+                } else if (sql_type == SQL_TINYINT || sql_type == SQL_SMALLINT || sql_type == SQL_INTEGER || sql_type == SQL_BIGINT) {
+                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_binding.back().c_type = SQL_C_STINYINT;
+                    bind_state = bindcol_integer(i, data_binding.back());
+                } else if (sql_type == SQL_SMALLINT) {
+                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_binding.back().c_type = SQL_C_SSHORT;
+                    bind_state = bindcol_integer(i, data_binding.back());
+                } else if (sql_type == SQL_INTEGER) {
+                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_binding.back().c_type = SQL_C_SLONG;
+                    bind_state = bindcol_integer(i, data_binding.back());
+                } else if (sql_type == SQL_BIGINT) {
+                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_binding.back().c_type = SQL_C_SBIGINT;
+                    bind_state = bindcol_integer(i, data_binding.back());
+                } else if (sql_type == SQL_GUID) {
+                    data_type = simql_types::sql_dtype::GUID;
+                    data_binding.back().c_type = SQL_C_GUID;
+                    bind_state = bindcol_guid(i, data_binding.back());
+                } else if (sql_type == SQL_TYPE_TIMESTAMP) {
+                    data_type = simql_types::sql_dtype::DATETIME;
+                    data_binding.back().c_type = SQL_C_TYPE_TIMESTAMP;
+                    bind_state = bindcol_datetime(i, data_binding.back());
+                } else if (sql_type == SQL_TYPE_DATE) {
+                    data_type = simql_types::sql_dtype::DATE;
+                    data_binding.back().c_type = SQL_C_TYPE_DATE;
+                    bind_state = bindcol_date(i, data_binding.back());
+                } else if (sql_type == SQL_TYPE_TIME) {
+                    data_type = simql_types::sql_dtype::TIME;
+                    data_binding.back().c_type = SQL_C_TYPE_TIME;
+                    bind_state = bindcol_time(i, data_binding.back());
+                } else if (sql_type == SQL_VARBINARY || sql_type == SQL_BINARY) {
+                    data_type = simql_types::sql_dtype::BLOB;
+                    data_binding.back().c_type = SQL_C_BINARY;
+                    bind_state = bindcol_blob(i, definition, data_binding.back());
+                } else {
+                    data_binding.pop_back();
+                    continue;
+                }
+                if (!bind_state) {
+                    data_binding.pop_back();
+                    continue;
+                }
+
+                // map the null rule
+                simql_types::null_rule_type null_rule;
+                switch (null_id) {
+                case SQL_NO_NULLS:
+                    null_rule = simql_types::null_rule_type::NOT_ALLOWED;
+                    break;
+                case SQL_NULLABLE:
+                    null_rule = simql_types::null_rule_type::ALLOWED;
+                    break;
+                case SQL_NULLABLE_UNKNOWN:
+                    null_rule = simql_types::null_rule_type::UNKNOWN;
+                    break;
+                }
+
+                // add to the column vector
+                std::cout << "adding a new column" << std::endl;
+                results.add_column(simql_types::sql_column {
+                    simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
+                    data_type,
+                    static_cast<std::uint64_t>(definition),
+                    static_cast<std::int16_t>(scale),
+                    null_rule
+                });
+            }
+        }
+
+        bool fetch(std::deque<Binding>& data_binding) {
+            std::vector<simql_types::sql_value> results_vector;
+            while (true) {
+                bool exit_condition = false;
+                switch (SQLFetch(h_stmt)) {
+                case SQL_SUCCESS:
+                    break;
+                case SQL_SUCCESS_WITH_INFO:
+                    break;
+                case SQL_NO_DATA:
+                    exit_condition = true;
+                    break;
+                default:
+                    continue;
+                }
+                if (exit_condition)
+                    break;
+
+                for (size_t i = 0; i < results.columns().size(); ++i) {
+
+                    if (data_binding[i].indicator == SQL_NULL_DATA) {
+                        results_vector.push_back(simql_types::sql_value {
+                            simql_types::sql_variant(),
+                            results.columns()[i].data_type,
+                            true
+                        });
+                        continue;
+                    }
+
+                    simql_types::sql_variant value;
+                    switch (data_binding[i].c_type) {
+                    case SQL_C_CHAR:
+                        {
+                            auto str = std::get<std::basic_string<SQLCHAR>>(data_binding[i].value);
+                            str.resize(data_binding[i].indicator / sizeof(SQLCHAR));
+                            value = simql_strings::from_odbc(std::basic_string_view<SQLCHAR>(str.data(), str.size()));
+                        }
+                        break;
+                    case SQL_C_WCHAR:
+                        {
+                            auto str = std::get<std::basic_string<SQLWCHAR>>(data_binding[i].value);
+                            str.resize(data_binding[i].indicator / sizeof(SQLWCHAR));
+                            value = simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(str.data(), str.size()));
+                        }
+                        break;
+                    case SQL_C_DOUBLE:
+                        value = static_cast<double>(std::get<SQLDOUBLE>(data_binding[i].value));
+                        break;
+                    case SQL_C_FLOAT:
+                        value = static_cast<double>(std::get<SQLREAL>(data_binding[i].value));
+                        break;
+                    case SQL_C_BIT:
+                        value = static_cast<bool>(std::get<SQLCHAR>(data_binding[i].value));
+                        break;
+                    case SQL_C_STINYINT:
+                        value = static_cast<int>(std::get<SQLCHAR>(data_binding[i].value));
+                        break;
+                    case SQL_C_SSHORT:
+                        value = static_cast<int>(std::get<SQLSMALLINT>(data_binding[i].value));
+                        break;
+                    case SQL_C_SLONG:
+                        value = static_cast<int>(std::get<SQLINTEGER>(data_binding[i].value));
+                        break;
+                    case SQL_C_SBIGINT:
+                        value = static_cast<int>(std::get<SQLLEN>(data_binding[i].value));
+                        break;
+                    case SQL_C_GUID:
+                        {
+                            auto guid = std::get<SQLGUID>(data_binding[i].value);
+                            simql_types::guid_struct x;
+                            x.time_low = guid.Data1;
+                            x.time_mid = guid.Data2;
+                            x.time_high = guid.Data3;
+                            std::copy(std::begin(guid.Data4), std::end(guid.Data4), std::begin(x.clock_seq_node));
+                            value = x;
+                        }
+                        break;
+                    case SQL_C_TYPE_TIMESTAMP:
+                        {
+                            auto dt = std::get<SQL_TIMESTAMP_STRUCT>(data_binding[i].value);
+                            simql_types::datetime_struct x;
+                            x.year = dt.year;
+                            x.month = dt.month;
+                            x.day = dt.day;
+                            x.hour = dt.hour;
+                            x.minute = dt.minute;
+                            x.second = dt.second;
+                            x.fraction = dt.fraction;
+                            value = x;
+                        }
+                        break;
+                    case SQL_C_TYPE_DATE:
+                        {
+                            auto d = std::get<SQL_DATE_STRUCT>(data_binding[i].value);
+                            simql_types::date_struct x;
+                            x.year = d.year;
+                            x.month = d.month;
+                            x.day = d.day;
+                            value = x;
+                        }
+                        break;
+                    case SQL_C_TYPE_TIME:
+                        {
+                            auto t = std::get<SQL_TIME_STRUCT>(data_binding[i].value);
+                            simql_types::time_struct x;
+                            x.hour = t.hour;
+                            x.minute = t.minute;
+                            x.second = t.second;
+                            value = x;
+                        }
+                        break;
+                    case SQL_C_BINARY:
+                        {
+                            auto bin = std::get<std::vector<SQLCHAR>>(data_binding[i].value);
+                            bin.resize(data_binding[i].indicator / sizeof(SQLCHAR));
+                            std::vector<std::uint8_t> blob;
+                            blob.resize(bin.size());
+                            std::transform(bin.begin(), bin.end(), blob.begin(), [&](SQLCHAR c) { return static_cast<std::uint8_t>(c); });
+                            value = blob;
+                        }
+                        break;
+                    }
+                    results_vector.push_back(simql_types::sql_value {
+                        value,
+                        results.columns()[i].data_type,
+                        false
+                    });
+                }
+            }
+            return results.set_data(std::move(results_vector));
+        }
+
+        bool configure(const statement::alloc_options& options) {
 
             // set attribute (cursor type)
             SQLPOINTER p_cursor_type;
@@ -179,13 +464,11 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_cursor_type;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return;
+                return false;
             }
 
             // set attribute (query timeout)
@@ -194,13 +477,11 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_query_timeout;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return;
+                return false;
             }
             
             // set attribute (max rows)
@@ -209,39 +490,94 @@ namespace simql {
             case SQL_SUCCESS:
                 break;
             case SQL_SUCCESS_WITH_INFO:
-                return_code = simql_returncodes::code::success_info;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                 break;
             default:
-                return_code = simql_returncodes::code::error_set_max_rows;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return;
+                return false;
             }
+
+            return true;
         }
 
-        void reset() {
-            SQLCloseCursor(h_stmt);
-            SQLFreeStmt(h_stmt, SQL_RESET_PARAMS);
-            SQLFreeStmt(h_stmt, SQL_UNBIND);
-        }
-
-        SQLSMALLINT param_type(const simql_types::parameter_binding_type& binding_type) {
-            switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
-                return SQL_PARAM_INPUT_OUTPUT;
-            case simql_types::parameter_binding_type::INPUT:
-                return SQL_PARAM_INPUT;
-            case simql_types::parameter_binding_type::OUTPUT:
-                return SQL_PARAM_OUTPUT;
+        bool prepare(std::string_view sql) {
+            std::basic_string<SQLWCHAR> w_sql = simql_strings::to_odbc_w(sql);
+            switch (SQLPrepareW(h_stmt, w_sql.data(), SQL_NTS)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return true;
             default:
-                return SQL_PARAM_INPUT;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_string(const std::string& name, const std::string& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool execute() {
+
+            // need to add more logic to handle async
+            switch (SQLExecute(h_stmt)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                break;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
+            update_result_set();
+            return true;
+        }
+
+        bool execute_direct(std::string_view sql) {
+
+            // need to add more logic to handle async
+            std::basic_string<SQLWCHAR> w_sql = simql_strings::to_odbc_w(sql);
+            switch (SQLExecDirectW(h_stmt, w_sql.data(), SQL_NTS)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                break;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                return false;
+            }
+            update_result_set();
+            return true;
+        }
+
+        void update_result_set() {
+
+            SQLSMALLINT column_count = get_column_count();
+            if (column_count < 1)
+                return;
+
+            std::deque<Binding> data_bindings;
+            bind_columns(column_count, data_bindings);
+            valid_results = fetch(data_bindings);
+        }
+
+        void update_value_set() {
+
+        }
+
+        bool next_result_set() {
+
+            return true;
+        }
+
+        bool next_value_set() {
+
+            return true;
+        }
+
+        bool bindparam_string(const std::string& name, const std::string& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition;
@@ -271,7 +607,7 @@ namespace simql {
                 auto& val = std::get<std::basic_string<SQLWCHAR>>(param.value);
                 p_val = reinterpret_cast<SQLPOINTER>(val.data());
             } else {
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
             }
 
             switch (binding_type) {
@@ -289,21 +625,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_floating_point(const std::string& name, const double& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_floating_point(const std::string& name, const double& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition;
@@ -333,7 +669,7 @@ namespace simql {
                 auto& val = std::get<SQLREAL>(param.value);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else {
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
             }
             definition = buffer_length * 2;
 
@@ -352,21 +688,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_boolean(const std::string& name, const bool& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_boolean(const std::string& name, const bool& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition;
@@ -388,7 +724,7 @@ namespace simql {
                 auto& val = std::get<SQLCHAR>(param.value);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else {
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
             }
 
             switch (binding_type) {
@@ -406,21 +742,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_integer(const std::string& name, const int& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_integer(const std::string& name, const int& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition = 0;
@@ -459,7 +795,7 @@ namespace simql {
                 auto& val = std::get<SQLBIGINT>(param.value);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else {
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
             }
 
             switch (binding_type) {
@@ -477,21 +813,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_guid(const std::string& name, const simql_types::guid_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_guid(const std::string& name, const simql_types::guid_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition;
@@ -520,7 +856,7 @@ namespace simql {
                 auto& val = std::get<SQLGUID>(param.value);
                 p_val = reinterpret_cast<SQLPOINTER>(&val);
             } else {
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
             }
 
             switch (binding_type) {
@@ -538,21 +874,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_datetime(const std::string& name, const simql_types::datetime_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_datetime(const std::string& name, const simql_types::datetime_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type = SQL_TYPE_TIMESTAMP;
             SQLSMALLINT c_type = SQL_C_TYPE_TIMESTAMP;
@@ -589,21 +925,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_date(const std::string& name, const simql_types::date_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_date(const std::string& name, const simql_types::date_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type = SQL_TYPE_DATE;
             SQLSMALLINT c_type = SQL_C_TYPE_DATE;
@@ -636,21 +972,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_time(const std::string& name, const simql_types::time_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_time(const std::string& name, const simql_types::time_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type = SQL_TYPE_TIME;
             SQLSMALLINT c_type = SQL_C_TYPE_TIME;
@@ -683,21 +1019,21 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
-        simql_returncodes::code bindparam_blob(const std::string& name, const std::vector<std::uint8_t>& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
+        bool bindparam_blob(const std::string& name, const std::vector<std::uint8_t>& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
             auto it = bound_parameters.find(name);
             if (it != bound_parameters.end())
-                return simql_returncodes::code::error_set_param_duplicate;
+                return false;
 
             SQLSMALLINT sql_type;
             SQLULEN definition;
@@ -712,7 +1048,7 @@ namespace simql {
             }
 
             if (sql_type != SQL_VARBINARY && sql_type != SQL_BINARY)
-                return simql_returncodes::code::error_set_param_invalid_dtype;
+                return false;
 
             bound_parameters.emplace(name, Binding { BoundValue(value), 0 });
             auto& param = bound_parameters.at(name);
@@ -734,14 +1070,14 @@ namespace simql {
             switch (SQLBindParameter(h_stmt, pbind_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
             case SQL_SUCCESS:
                 pbind_index++;
-                return simql_returncodes::code::success;
+                return true;
             case SQL_SUCCESS_WITH_INFO:
                 pbind_index++;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::success_info;
+                return true;
             default:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return simql_returncodes::code::error_set_param_binding;
+                return false;
             }
         }
 
@@ -752,12 +1088,12 @@ namespace simql {
                 buffer_length = (column_size + 1) * sizeof(SQLCHAR);
                 auto& val = std::get<std::basic_string<SQLCHAR>>(binding.value);
                 val.resize(buffer_length);
-                p_val = reinterpret_cast<SQLPOINTER>(&val);
+                p_val = reinterpret_cast<SQLPOINTER>(val.data());
             } else if (binding.c_type == SQL_C_WCHAR) {
                 buffer_length = (column_size + 1) * sizeof(SQLWCHAR);
                 auto& val = std::get<std::basic_string<SQLWCHAR>>(binding.value);
                 val.resize(buffer_length);
-                p_val = reinterpret_cast<SQLPOINTER>(&val);
+                p_val = reinterpret_cast<SQLPOINTER>(val.data());
             } else {
                 return false;
             }
@@ -988,414 +1324,91 @@ namespace simql {
         if (!sp_handle)
             return nullptr;
 
-        if (!sp_handle.get()->h_stmt)
+        if (!sp_handle->h_stmt)
             return nullptr;
 
-        if (sp_handle.get()->ownership == handle_ownership::owns)
+        if (sp_handle->ownership == handle_ownership::owns)
             return nullptr;
-        
-        SQLHSTMT h = sp_handle.get()->h_stmt;
-        sp_handle.get()->h_stmt = SQL_NULL_HSTMT;
+
+        SQLHSTMT h = sp_handle->h_stmt;
+        sp_handle->h_stmt = SQL_NULL_HSTMT;
         return reinterpret_cast<void*>(h);
     }
 
-    simql_returncodes::code statement::prepare(std::string_view sql) {
-        if (!sp_handle)
-            return simql_returncodes::code::null_response;
-
-        std::basic_string<SQLWCHAR> w_sql = simql_strings::to_odbc_w(sql);
-        switch (SQLPrepareW(sp_handle.get()->h_stmt, w_sql.data(), SQL_NTS)) {
-        case SQL_SUCCESS:
-            return simql_returncodes::code::success;
-        case SQL_SUCCESS_WITH_INFO:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::success_info;
-        default:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::error_stmt_prepare;
-        }
+    bool statement::prepare(std::string_view sql) {
+        return sp_handle ? sp_handle->prepare(sql) : false;
     }
 
-    simql_returncodes::code statement::execute() {
-        if (!sp_handle)
-            return simql_returncodes::code::null_response;
-
-        switch (SQLExecute(sp_handle.get()->h_stmt)) {
-        case SQL_SUCCESS:
-            return simql_returncodes::code::success;
-        case SQL_SUCCESS_WITH_INFO:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::success_info;
-        default:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::error_stmt_execute;
-        }
+    bool statement::execute() {
+        return sp_handle ? sp_handle->execute() : false;
     }
 
-    simql_returncodes::code statement::execute_direct(std::string_view sql) {
-        if (!sp_handle)
-            return simql_returncodes::code::null_response;
-
-        std::basic_string<SQLWCHAR> w_sql = simql_strings::to_odbc_w(sql);
-        switch (SQLExecDirectW(sp_handle.get()->h_stmt, w_sql.data(), SQL_NTS)) {
-        case SQL_SUCCESS:
-            return simql_returncodes::code::success;
-        case SQL_SUCCESS_WITH_INFO:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::success_info;
-        default:
-            sp_handle.get()->diag.update(sp_handle.get()->h_stmt, diagnostic_set::handle_type::stmt);
-            return simql_returncodes::code::error_stmt_execute;
-        }
+    bool statement::execute_direct(std::string_view sql) {
+        return sp_handle ? sp_handle->execute_direct(sql) : false;
     }
 
-    simql_returncodes::code statement::get_result_set(std::vector<simql_types::sql_value>& results, std::vector<simql_types::sql_column>& columns, std::uint64_t& row_count, std::uint8_t& skipped_columns, std::uint64_t& skipped_rows) {
-        simql_returncodes::code rc = simql_returncodes::code::success;
-        if (!sp_handle)
-            return simql_returncodes::code::null_response;
-
-        // get count of columns
-        SQLSMALLINT column_count;
-        if (!SQL_SUCCEEDED(SQLNumResultCols(sp_handle.get()->h_stmt, &column_count)))
-            return simql_returncodes::code::error_stmt_column_calc;
-
-        // if the count is 0, return non-select return code
-        if (column_count == 0)
-            return simql_returncodes::code::error_stmt_no_columns;
-
-        // bind columns
-        std::deque<handle::Binding> data_binding;
-        for (SQLSMALLINT i = 1; i < column_count; ++i) {
-
-            // get the column metadata
-            std::basic_string<SQLWCHAR> column_name_buffer;
-            column_name_buffer.resize(simql_constants::limits::max_sql_column_name_size);
-            SQLSMALLINT column_name_length;
-            SQLSMALLINT sql_type;
-            SQLULEN definition;
-            SQLSMALLINT scale;
-            SQLSMALLINT null_id;
-            switch (SQLDescribeColW(sp_handle.get()->h_stmt, i, column_name_buffer.data(), sizeof(column_name_buffer), &column_name_length, &sql_type, &definition, &scale, &null_id)) {
-            case SQL_SUCCESS: break;
-            case SQL_SUCCESS_WITH_INFO: rc = simql_returncodes::code::success_info; break;
-            default: skipped_columns++; continue;
-            }
-
-            // map library data type and bind column
-            simql_types::sql_dtype data_type;
-            bool bind_state;
-
-            // add empty binding to deque
-            data_binding.emplace_back(handle::Binding {
-                handle::BoundValue(),
-                0
-            });
-            if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
-                data_type = simql_types::sql_dtype::STRING;
-                data_binding.back().c_type = SQL_C_CHAR;
-                bind_state = sp_handle.get()->bindcol_string(i, definition, data_binding.back());
-            } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
-                data_type = simql_types::sql_dtype::STRING;
-                data_binding.back().c_type = SQL_C_WCHAR;
-                bind_state = sp_handle.get()->bindcol_string(i, definition, data_binding.back());
-            } else if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
-                data_type = simql_types::sql_dtype::FLOATING_POINT;
-                data_binding.back().c_type = SQL_C_DOUBLE;
-                bind_state = sp_handle.get()->bindcol_floating_point(i, data_binding.back());
-            } else if (sql_type == SQL_REAL) {
-                data_type = simql_types::sql_dtype::FLOATING_POINT;
-                data_binding.back().c_type = SQL_C_FLOAT;
-                bind_state = sp_handle.get()->bindcol_floating_point(i, data_binding.back());
-            } else if (sql_type == SQL_BIT) {
-                data_type = simql_types::sql_dtype::BOOLEAN;
-                data_binding.back().c_type = SQL_C_BIT;
-                bind_state = sp_handle.get()->bindcol_boolean(i, data_binding.back());
-            } else if (sql_type == SQL_TINYINT || sql_type == SQL_SMALLINT || sql_type == SQL_INTEGER || sql_type == SQL_BIGINT) {
-                data_type = simql_types::sql_dtype::INTEGER;
-                data_binding.back().c_type = SQL_C_STINYINT;
-                bind_state = sp_handle.get()->bindcol_integer(i, data_binding.back());
-            } else if (sql_type == SQL_SMALLINT) {
-                data_type = simql_types::sql_dtype::INTEGER;
-                data_binding.back().c_type = SQL_C_SSHORT;
-                bind_state = sp_handle.get()->bindcol_integer(i, data_binding.back());
-            } else if (sql_type == SQL_INTEGER) {
-                data_type = simql_types::sql_dtype::INTEGER;
-                data_binding.back().c_type = SQL_C_SLONG;
-                bind_state = sp_handle.get()->bindcol_integer(i, data_binding.back());
-            } else if (sql_type == SQL_BIGINT) {
-                data_type = simql_types::sql_dtype::INTEGER;
-                data_binding.back().c_type = SQL_C_SBIGINT;
-                bind_state = sp_handle.get()->bindcol_integer(i, data_binding.back());
-            } else if (sql_type == SQL_GUID) {
-                data_type = simql_types::sql_dtype::GUID;
-                data_binding.back().c_type = SQL_C_GUID;
-                bind_state = sp_handle.get()->bindcol_guid(i, data_binding.back());
-            } else if (sql_type == SQL_TYPE_TIMESTAMP) {
-                data_type = simql_types::sql_dtype::DATETIME;
-                data_binding.back().c_type = SQL_C_TYPE_TIMESTAMP;
-                bind_state = sp_handle.get()->bindcol_datetime(i, data_binding.back());
-            } else if (sql_type == SQL_TYPE_DATE) {
-                data_type = simql_types::sql_dtype::DATE;
-                data_binding.back().c_type = SQL_C_TYPE_DATE;
-                bind_state = sp_handle.get()->bindcol_date(i, data_binding.back());
-            } else if (sql_type == SQL_TYPE_TIME) {
-                data_type = simql_types::sql_dtype::TIME;
-                data_binding.back().c_type = SQL_C_TYPE_TIME;
-                bind_state = sp_handle.get()->bindcol_time(i, data_binding.back());
-            } else if (sql_type == SQL_VARBINARY || sql_type == SQL_BINARY) {
-                data_type = simql_types::sql_dtype::BLOB;
-                data_binding.back().c_type = SQL_C_BINARY;
-                bind_state = sp_handle.get()->bindcol_blob(i, definition, data_binding.back());
-            } else {
-                data_binding.pop_back();
-                skipped_columns++;
-                continue;
-            }
-            if (!bind_state) {
-                data_binding.pop_back();
-                skipped_columns++;
-                continue;
-            }
-
-            // map the null rule
-            simql_types::null_rule_type null_rule;
-            switch (null_id) {
-            case SQL_NO_NULLS: null_rule = simql_types::null_rule_type::NOT_ALLOWED; break;
-            case SQL_NULLABLE: null_rule = simql_types::null_rule_type::ALLOWED; break;
-            case SQL_NULLABLE_UNKNOWN: null_rule = simql_types::null_rule_type::UNKNOWN; break;
-            }
-
-            // add to the column vector
-            columns.emplace_back(simql_types::sql_column {
-                simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
-                data_type,
-                static_cast<std::uint64_t>(definition),
-                static_cast<std::int16_t>(scale),
-                null_rule
-            });
-        }
-
-        // iterate with calls to SQLFetch until it returns SQL_NO_DATA
-        while (true) {
-            bool exit_condition = false;
-            switch (SQLFetch(sp_handle.get()->h_stmt)) {
-            case SQL_SUCCESS: break;
-            case SQL_SUCCESS_WITH_INFO: rc = simql_returncodes::code::success_info; break;
-            case SQL_NO_DATA: exit_condition = true; break;
-            default: skipped_rows++; continue;
-            }
-            if (exit_condition)
-                break;
-
-            for (size_t i = 0; i < columns.size(); ++i) {
-
-                if (data_binding[i].indicator == SQL_NULL_DATA) {
-                    results.push_back(simql_types::sql_value {
-                        simql_types::sql_variant(),
-                        columns[i].data_type,
-                        true
-                    });
-                    continue;
-                }
-
-                simql_types::sql_variant value;
-                switch (data_binding[i].c_type) {
-                case SQL_C_CHAR:
-                    {
-                        auto str = std::get<std::basic_string<SQLCHAR>>(data_binding[i].value);
-                        str.resize(data_binding[i].indicator / sizeof(SQLCHAR));
-                        value = simql_strings::from_odbc(std::basic_string_view<SQLCHAR>(str.data(), str.size()));
-                    }
-                    break;
-                case SQL_C_WCHAR:
-                    {
-                        auto str = std::get<std::basic_string<SQLWCHAR>>(data_binding[i].value);
-                        str.resize(data_binding[i].indicator / sizeof(SQLWCHAR));
-                        value = simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(str.data(), str.size()));
-                    }
-                    break;
-                case SQL_C_DOUBLE:
-                    value = static_cast<double>(std::get<SQLDOUBLE>(data_binding[i].value));
-                    break;
-                case SQL_C_FLOAT:
-                    value = static_cast<double>(std::get<SQLREAL>(data_binding[i].value));
-                    break;
-                case SQL_C_BIT:
-                    value = static_cast<bool>(std::get<SQLCHAR>(data_binding[i].value));
-                    break;
-                case SQL_C_STINYINT:
-                    value = static_cast<int>(std::get<SQLCHAR>(data_binding[i].value));
-                    break;
-                case SQL_C_SSHORT:
-                    value = static_cast<int>(std::get<SQLSMALLINT>(data_binding[i].value));
-                    break;
-                case SQL_C_SLONG:
-                    value = static_cast<int>(std::get<SQLINTEGER>(data_binding[i].value));
-                    break;
-                case SQL_C_SBIGINT:
-                    value = static_cast<int>(std::get<SQLLEN>(data_binding[i].value));
-                    break;
-                case SQL_C_GUID:
-                    {
-                        auto guid = std::get<SQLGUID>(data_binding[i].value);
-                        simql_types::guid_struct x;
-                        x.time_low = guid.Data1;
-                        x.time_mid = guid.Data2;
-                        x.time_high = guid.Data3;
-                        std::copy(std::begin(guid.Data4), std::end(guid.Data4), std::begin(x.clock_seq_node));
-                        value = x;
-                    }
-                    break;
-                case SQL_C_TYPE_TIMESTAMP:
-                    {
-                        auto dt = std::get<SQL_TIMESTAMP_STRUCT>(data_binding[i].value);
-                        simql_types::datetime_struct x;
-                        x.year = dt.year;
-                        x.month = dt.month;
-                        x.day = dt.day;
-                        x.hour = dt.hour;
-                        x.minute = dt.minute;
-                        x.second = dt.second;
-                        x.fraction = dt.fraction;
-                        value = x;
-                    }
-                    break;
-                case SQL_C_TYPE_DATE:
-                    {
-                        auto d = std::get<SQL_DATE_STRUCT>(data_binding[i].value);
-                        simql_types::date_struct x;
-                        x.year = d.year;
-                        x.month = d.month;
-                        x.day = d.day;
-                        value = x;
-                    }
-                    break;
-                case SQL_C_TYPE_TIME:
-                    {
-                        auto t = std::get<SQL_TIME_STRUCT>(data_binding[i].value);
-                        simql_types::time_struct x;
-                        x.hour = t.hour;
-                        x.minute = t.minute;
-                        x.second = t.second;
-                        value = x;
-                    }
-                    break;
-                case SQL_C_BINARY:
-                    {
-                        auto bin = std::get<std::vector<SQLCHAR>>(data_binding[i].value);
-                        bin.resize(data_binding[i].indicator / sizeof(SQLCHAR));
-                        std::vector<std::uint8_t> blob;
-                        blob.resize(bin.size());
-                        std::transform(bin.begin(), bin.end(), blob.begin(), [&](SQLCHAR c) { return static_cast<std::uint8_t>(c); });
-                        value = blob;
-                    }
-                    break;
-                }
-                results.push_back(simql_types::sql_value {
-                    value,
-                    columns[i].data_type,
-                    false
-                });
-            }
-            row_count++;
-        }
-
-        return rc;
+    bool statement::configure(const statement::alloc_options& options) {
+        return !sp_handle ? false : sp_handle->configure(options);
     }
 
-    simql_returncodes::code statement::get_value_set(std::vector<statement::value_pair>& value_pairs) {
-        value_pairs.clear();
-        return simql_returncodes::code::success;
+    result_set* statement::results() {
+        return !sp_handle ? nullptr : sp_handle->valid_results ? &sp_handle->results : nullptr;
+    }
+
+    value_set* statement::values() {
+        return !sp_handle ? nullptr : sp_handle->valid_values ? &sp_handle->values : nullptr;
     }
 
     bool statement::next_result_set() {
-
-        return true;
+        return sp_handle ? sp_handle->next_result_set() : false;
     }
 
     bool statement::next_value_set() {
-
-        return true;
+        return sp_handle ? sp_handle->next_value_set() : false;
     }
 
-    simql_returncodes::code statement::bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_string(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_string(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_floating_point(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_floating_point(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_boolean(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_boolean(std::string name, bool value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_boolean(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_integer(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_integer(std::string name, int value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_integer(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_guid(std::string name, simql_types::guid_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_guid(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_guid(std::string name, simql_types::guid_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_guid(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_datetime(std::string name, simql_types::datetime_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_datetime(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_datetime(std::string name, simql_types::datetime_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_datetime(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_date(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_date(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_time(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_time(name, value, binding_type, set_null);
     }
 
-    simql_returncodes::code statement::bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null) {
-        if (sp_handle)
-            return sp_handle.get()->bindparam_blob(name, value, binding_type, set_null);
-
-        return simql_returncodes::code::null_response;
+    bool statement::bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null) {
+        return !sp_handle ? false : sp_handle->bindparam_blob(name, value, binding_type, set_null);
     }
 
-    const simql_returncodes::code& statement::return_code() {
-        if (sp_handle)
-            return sp_handle.get()->return_code;
-
-        return simql_returncodes::is_nullptr;
+    bool statement::is_valid() {
+        return !sp_handle ? false : sp_handle->is_valid;
     }
 
     diagnostic_set* statement::diagnostics() {
-        if (!sp_handle)
-            return nullptr;
-
-        if (!sp_handle.get())
-            return nullptr;
-
-        return &sp_handle.get()->diag;
+        return !sp_handle ? nullptr : &sp_handle->diag;
     }
 
 }
