@@ -29,8 +29,8 @@ namespace simql {
         std::vector<simql_types::sql_value> row(const std::size_t& r);
         std::vector<simql_types::sql_value> column(const std::string& c);
         std::vector<simql_types::sql_value> column(const std::size_t& c);
-        const std::size_t& row_count();
-        const std::size_t& column_count();
+        std::size_t row_count();
+        std::size_t column_count();
 
     private:
 

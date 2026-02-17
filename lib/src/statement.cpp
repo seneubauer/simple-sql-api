@@ -168,11 +168,11 @@ namespace simql {
 
         SQLSMALLINT param_type(const simql_types::parameter_binding_type& binding_type) {
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 return SQL_PARAM_INPUT_OUTPUT;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 return SQL_PARAM_INPUT;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 return SQL_PARAM_OUTPUT;
             default:
                 return SQL_PARAM_INPUT;
@@ -188,7 +188,7 @@ namespace simql {
         }
 
         void bind_columns(const SQLSMALLINT& column_count, std::deque<Binding>& data_binding) {
-            for (SQLSMALLINT i = 1; i < column_count; ++i) {
+            for (SQLSMALLINT i = 1; i <= column_count; ++i) {
 
                 // get the column metadata
                 std::basic_string<SQLWCHAR> column_name_buffer;
@@ -220,59 +220,59 @@ namespace simql {
                 simql_types::sql_dtype data_type;
                 bool bind_state;
                 if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
-                    data_type = simql_types::sql_dtype::STRING;
+                    data_type = simql_types::sql_dtype::string;
                     data_binding.back().c_type = SQL_C_CHAR;
                     bind_state = bindcol_string(i, definition, data_binding.back());
                 } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
-                    data_type = simql_types::sql_dtype::STRING;
+                    data_type = simql_types::sql_dtype::string;
                     data_binding.back().c_type = SQL_C_WCHAR;
                     bind_state = bindcol_string(i, definition, data_binding.back());
                 } else if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
-                    data_type = simql_types::sql_dtype::FLOATING_POINT;
+                    data_type = simql_types::sql_dtype::floating_point;
                     data_binding.back().c_type = SQL_C_DOUBLE;
                     bind_state = bindcol_floating_point(i, data_binding.back());
                 } else if (sql_type == SQL_REAL) {
-                    data_type = simql_types::sql_dtype::FLOATING_POINT;
+                    data_type = simql_types::sql_dtype::floating_point;
                     data_binding.back().c_type = SQL_C_FLOAT;
                     bind_state = bindcol_floating_point(i, data_binding.back());
                 } else if (sql_type == SQL_BIT) {
-                    data_type = simql_types::sql_dtype::BOOLEAN;
+                    data_type = simql_types::sql_dtype::boolean;
                     data_binding.back().c_type = SQL_C_BIT;
                     bind_state = bindcol_boolean(i, data_binding.back());
                 } else if (sql_type == SQL_TINYINT || sql_type == SQL_SMALLINT || sql_type == SQL_INTEGER || sql_type == SQL_BIGINT) {
-                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_STINYINT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_SMALLINT) {
-                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SSHORT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_INTEGER) {
-                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SLONG;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_BIGINT) {
-                    data_type = simql_types::sql_dtype::INTEGER;
+                    data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SBIGINT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_GUID) {
-                    data_type = simql_types::sql_dtype::GUID;
+                    data_type = simql_types::sql_dtype::guid;
                     data_binding.back().c_type = SQL_C_GUID;
                     bind_state = bindcol_guid(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_TIMESTAMP) {
-                    data_type = simql_types::sql_dtype::DATETIME;
+                    data_type = simql_types::sql_dtype::datetime;
                     data_binding.back().c_type = SQL_C_TYPE_TIMESTAMP;
                     bind_state = bindcol_datetime(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_DATE) {
-                    data_type = simql_types::sql_dtype::DATE;
+                    data_type = simql_types::sql_dtype::date;
                     data_binding.back().c_type = SQL_C_TYPE_DATE;
                     bind_state = bindcol_date(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_TIME) {
-                    data_type = simql_types::sql_dtype::TIME;
+                    data_type = simql_types::sql_dtype::time;
                     data_binding.back().c_type = SQL_C_TYPE_TIME;
                     bind_state = bindcol_time(i, data_binding.back());
                 } else if (sql_type == SQL_VARBINARY || sql_type == SQL_BINARY) {
-                    data_type = simql_types::sql_dtype::BLOB;
+                    data_type = simql_types::sql_dtype::blob;
                     data_binding.back().c_type = SQL_C_BINARY;
                     bind_state = bindcol_blob(i, definition, data_binding.back());
                 } else {
@@ -288,18 +288,17 @@ namespace simql {
                 simql_types::null_rule_type null_rule;
                 switch (null_id) {
                 case SQL_NO_NULLS:
-                    null_rule = simql_types::null_rule_type::NOT_ALLOWED;
+                    null_rule = simql_types::null_rule_type::not_allowed;
                     break;
                 case SQL_NULLABLE:
-                    null_rule = simql_types::null_rule_type::ALLOWED;
+                    null_rule = simql_types::null_rule_type::allowed;
                     break;
                 case SQL_NULLABLE_UNKNOWN:
-                    null_rule = simql_types::null_rule_type::UNKNOWN;
+                    null_rule = simql_types::null_rule_type::unknown;
                     break;
                 }
 
                 // add to the column vector
-                std::cout << "adding a new column" << std::endl;
                 results.add_column(simql_types::sql_column {
                     simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
                     data_type,
@@ -318,15 +317,16 @@ namespace simql {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                     break;
                 case SQL_NO_DATA:
                     exit_condition = true;
                     break;
                 default:
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt);
                     continue;
                 }
-                if (exit_condition)
-                    break;
+                std::cout << "iteration here" << std::endl;
 
                 for (size_t i = 0; i < results.columns().size(); ++i) {
 
@@ -438,6 +438,8 @@ namespace simql {
                         false
                     });
                 }
+                if (exit_condition)
+                    break;
             }
             return results.set_data(std::move(results_vector));
         }
@@ -611,13 +613,13 @@ namespace simql {
             }
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -674,13 +676,13 @@ namespace simql {
             definition = buffer_length * 2;
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -728,13 +730,13 @@ namespace simql {
             }
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -799,13 +801,13 @@ namespace simql {
             }
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -860,13 +862,13 @@ namespace simql {
             }
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -911,13 +913,13 @@ namespace simql {
             SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -958,13 +960,13 @@ namespace simql {
             SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -1005,13 +1007,13 @@ namespace simql {
             SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -1056,13 +1058,13 @@ namespace simql {
             SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(val.data());
 
             switch (binding_type) {
-            case simql_types::parameter_binding_type::INPUT_OUTPUT:
+            case simql_types::parameter_binding_type::input_output:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : buffer_length;
                 break;
-            case simql_types::parameter_binding_type::INPUT:
+            case simql_types::parameter_binding_type::input:
                 bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : buffer_length;
                 break;
-            case simql_types::parameter_binding_type::OUTPUT:
+            case simql_types::parameter_binding_type::output:
                 bound_parameters.at(name).indicator = 0;
                 break;
             }
@@ -1345,10 +1347,6 @@ namespace simql {
 
     bool statement::execute_direct(std::string_view sql) {
         return sp_handle ? sp_handle->execute_direct(sql) : false;
-    }
-
-    bool statement::configure(const statement::alloc_options& options) {
-        return !sp_handle ? false : sp_handle->configure(options);
     }
 
     result_set* statement::results() {

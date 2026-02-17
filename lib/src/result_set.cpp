@@ -95,11 +95,11 @@ namespace simql {
         return v;
     }
 
-    const std::size_t& result_set::row_count() {
+    std::size_t result_set::row_count() {
         return m_row_count;
     }
 
-    const std::size_t& result_set::column_count() {
+    std::size_t result_set::column_count() {
         return m_columns.size();
     }
 

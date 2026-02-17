@@ -97,10 +97,6 @@ int main() {
         return 1;
     }
 
-    // test connection
-    if (dbc.is_connected())
-        std::cout << "connection is open" << std::endl;
-
     // select statement allocation options
     simql::statement::alloc_options stmt_opts;
     stmt_opts.cursor = simql::statement::cursor_type::forward_only;
@@ -133,8 +129,9 @@ int main() {
     if (!stmt.results()) {
         std::cout << "no result set" << std::endl;
     } else {
-        std::cout << "row: " << std::to_string(stmt.results()->row_count()) << std::endl;
-        std::cout << "col: " << std::to_string(stmt.results()->column_count()) << std::endl;
+        for (size_t r = 0; r < stmt.results()->row_count(); r++) {
+            std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
+        }
     }
 
     std::cout << "end of test" << std::endl;
