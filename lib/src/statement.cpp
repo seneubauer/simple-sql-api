@@ -88,6 +88,7 @@ namespace simql {
         value_set values;
         bool valid_results{false};
         bool valid_values{false};
+        std::string last_error{};
 
         using BoundValue = std::variant<
             std::basic_string<SQLCHAR>,
@@ -130,10 +131,69 @@ namespace simql {
             default:
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc);
                 is_valid = false;
+                last_error = std::string("could not allocate SQLHSTMT");
                 return;
             }
 
-            is_valid = configure(options);
+            // set attribute (cursor type)
+            SQLPOINTER p_cursor_type;
+            switch (options.cursor) {
+            case cursor_type::forward_only:
+                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
+                break;
+            case cursor_type::static_cursor:
+                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
+                break;
+            case cursor_type::dyanmic_cursor:
+                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
+                break;
+            case cursor_type::keyset_driven:
+                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_KEYSET_DRIVEN);
+                break;
+            }
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_TYPE, p_cursor_type, 0)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                break;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                is_valid = false;
+                last_error = std::string("could not set SQL_ATTR_CURSOR_TYPE on SQLHSTMT");
+                return;
+            }
+
+            // set attribute (query timeout)
+            SQLPOINTER p_query_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(options.query_timeout));
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, 0)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                break;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                is_valid = false;
+                last_error = std::string("could not set the SQL_ATTR_QUERY_TIMEOUT on SQLHSTMT");
+                return;
+            }
+
+            // set attribute (max rows)
+            SQLPOINTER p_max_rows = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(options.max_rows));
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_MAX_ROWS, p_max_rows, 0)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                break;
+            default:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
+                is_valid = false;
+                last_error = std::string("could not set SQL_ATTR_MAX_ROWS on SQLHSTMT");
+                return;
+            }
+
             ownership = handle_ownership::owns;
         }
 
@@ -179,6 +239,17 @@ namespace simql {
             }
         }
 
+        simql_types::null_rule_type null_rule(const SQLSMALLINT& null_id) {
+            switch (null_id) {
+            case SQL_NO_NULLS:
+                return simql_types::null_rule_type::not_allowed;
+            case SQL_NULLABLE:
+                return simql_types::null_rule_type::allowed;
+            case SQL_NULLABLE_UNKNOWN:
+                return simql_types::null_rule_type::unknown;
+            }
+        }
+
         SQLSMALLINT get_column_count() {
             SQLSMALLINT column_count{};
             if (SQL_SUCCEEDED(SQLNumResultCols(h_stmt, &column_count)))
@@ -187,7 +258,7 @@ namespace simql {
             return -1;
         }
 
-        void bind_columns(const SQLSMALLINT& column_count, std::deque<Binding>& data_binding) {
+        bool bind_columns(const SQLSMALLINT& column_count, std::deque<Binding>& data_binding) {
             for (SQLSMALLINT i = 1; i <= column_count; ++i) {
 
                 // get the column metadata
@@ -198,7 +269,7 @@ namespace simql {
                 SQLULEN definition;
                 SQLSMALLINT scale;
                 SQLSMALLINT null_id;
-                
+
                 switch (SQLDescribeColW(h_stmt, i, column_name_buffer.data(), sizeof(column_name_buffer), &column_name_length, &sql_type, &definition, &scale, &null_id)) {
                 case SQL_SUCCESS:
                     break;
@@ -210,68 +281,76 @@ namespace simql {
                     continue;
                 }
 
-                // add empty binding to deque
-                data_binding.emplace_back(handle::Binding {
-                    handle::BoundValue(),
-                    0
-                });
-
                 // map library data type and bind column
                 simql_types::sql_dtype data_type;
                 bool bind_state;
                 if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
+                    data_binding.emplace_back(Binding { std::basic_string<SQLCHAR>{}, 0 });
                     data_type = simql_types::sql_dtype::string;
                     data_binding.back().c_type = SQL_C_CHAR;
                     bind_state = bindcol_string(i, definition, data_binding.back());
                 } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
+                    data_binding.emplace_back(Binding { std::basic_string<SQLWCHAR>(), 0 });
                     data_type = simql_types::sql_dtype::string;
                     data_binding.back().c_type = SQL_C_WCHAR;
                     bind_state = bindcol_string(i, definition, data_binding.back());
                 } else if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
+                    data_binding.emplace_back(Binding { 0.0, 0 });
                     data_type = simql_types::sql_dtype::floating_point;
                     data_binding.back().c_type = SQL_C_DOUBLE;
                     bind_state = bindcol_floating_point(i, data_binding.back());
                 } else if (sql_type == SQL_REAL) {
+                    data_binding.emplace_back(Binding { 0.0f, 0 });
                     data_type = simql_types::sql_dtype::floating_point;
                     data_binding.back().c_type = SQL_C_FLOAT;
                     bind_state = bindcol_floating_point(i, data_binding.back());
                 } else if (sql_type == SQL_BIT) {
+                    data_binding.emplace_back(Binding { SQLCHAR{}, 0 });
                     data_type = simql_types::sql_dtype::boolean;
                     data_binding.back().c_type = SQL_C_BIT;
                     bind_state = bindcol_boolean(i, data_binding.back());
-                } else if (sql_type == SQL_TINYINT || sql_type == SQL_SMALLINT || sql_type == SQL_INTEGER || sql_type == SQL_BIGINT) {
+                } else if (sql_type == SQL_TINYINT) {
+                    data_binding.emplace_back(Binding { SQLCHAR{}, 0 });
                     data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_STINYINT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_SMALLINT) {
+                    data_binding.emplace_back(Binding { SQLSMALLINT{}, 0 });
                     data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SSHORT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_INTEGER) {
+                    data_binding.emplace_back(Binding { SQLINTEGER{}, 0 });
                     data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SLONG;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_BIGINT) {
+                    data_binding.emplace_back(Binding { SQLLEN{}, 0 });
                     data_type = simql_types::sql_dtype::integer;
                     data_binding.back().c_type = SQL_C_SBIGINT;
                     bind_state = bindcol_integer(i, data_binding.back());
                 } else if (sql_type == SQL_GUID) {
+                    data_binding.emplace_back(Binding { SQLGUID{}, 0 });
                     data_type = simql_types::sql_dtype::guid;
                     data_binding.back().c_type = SQL_C_GUID;
                     bind_state = bindcol_guid(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_TIMESTAMP) {
+                    data_binding.emplace_back(Binding { SQL_TIMESTAMP_STRUCT{}, 0 });
                     data_type = simql_types::sql_dtype::datetime;
                     data_binding.back().c_type = SQL_C_TYPE_TIMESTAMP;
                     bind_state = bindcol_datetime(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_DATE) {
+                    data_binding.emplace_back(Binding { SQL_DATE_STRUCT{}, 0 });
                     data_type = simql_types::sql_dtype::date;
                     data_binding.back().c_type = SQL_C_TYPE_DATE;
                     bind_state = bindcol_date(i, data_binding.back());
                 } else if (sql_type == SQL_TYPE_TIME) {
+                    data_binding.emplace_back(Binding { SQL_TIME_STRUCT{}, 0 });
                     data_type = simql_types::sql_dtype::time;
                     data_binding.back().c_type = SQL_C_TYPE_TIME;
                     bind_state = bindcol_time(i, data_binding.back());
                 } else if (sql_type == SQL_VARBINARY || sql_type == SQL_BINARY) {
+                    data_binding.emplace_back(Binding { std::vector<SQLCHAR>{}, 0 });
                     data_type = simql_types::sql_dtype::blob;
                     data_binding.back().c_type = SQL_C_BINARY;
                     bind_state = bindcol_blob(i, definition, data_binding.back());
@@ -284,29 +363,14 @@ namespace simql {
                     continue;
                 }
 
-                // map the null rule
-                simql_types::null_rule_type null_rule;
-                switch (null_id) {
-                case SQL_NO_NULLS:
-                    null_rule = simql_types::null_rule_type::not_allowed;
-                    break;
-                case SQL_NULLABLE:
-                    null_rule = simql_types::null_rule_type::allowed;
-                    break;
-                case SQL_NULLABLE_UNKNOWN:
-                    null_rule = simql_types::null_rule_type::unknown;
-                    break;
-                }
-
                 // add to the column vector
                 results.add_column(simql_types::sql_column {
                     simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(column_name_buffer.data(), column_name_length)),
                     data_type,
                     static_cast<std::uint64_t>(definition),
                     static_cast<std::int16_t>(scale),
-                    null_rule
+                    null_rule(null_id)
                 });
-                std::cout << results.columns().back().name << std::endl;
             }
         }
 
@@ -445,64 +509,6 @@ namespace simql {
                 }
             }
             return results.set_data(std::move(results_vector));
-        }
-
-        bool configure(const statement::alloc_options& options) {
-
-            // set attribute (cursor type)
-            SQLPOINTER p_cursor_type;
-            switch (options.cursor) {
-            case cursor_type::forward_only:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
-                break;
-            case cursor_type::static_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
-                break;
-            case cursor_type::dyanmic_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
-                break;
-            case cursor_type::keyset_driven:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_KEYSET_DRIVEN);
-                break;
-            }
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_TYPE, p_cursor_type, 0)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                break;
-            default:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return false;
-            }
-
-            // set attribute (query timeout)
-            SQLPOINTER p_query_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(options.query_timeout));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, 0)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                break;
-            default:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return false;
-            }
-            
-            // set attribute (max rows)
-            SQLPOINTER p_max_rows = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(options.max_rows));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_MAX_ROWS, p_max_rows, 0)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                break;
-            default:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt);
-                return false;
-            }
-
-            return true;
         }
 
         bool prepare(std::string_view sql) {
@@ -1410,6 +1416,10 @@ namespace simql {
 
     diagnostic_set* statement::diagnostics() {
         return !sp_handle ? nullptr : &sp_handle->diag;
+    }
+
+    std::string_view statement::last_error() {
+        return !sp_handle ? std::string_view{} : sp_handle->last_error;
     }
 
 }

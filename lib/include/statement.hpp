@@ -74,6 +74,7 @@ namespace simql {
         /* process transparency */
         bool is_valid();
         diagnostic_set* diagnostics();
+        std::string_view last_error();
 
     private:
         friend class statement_pool;

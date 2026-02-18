@@ -129,9 +129,9 @@ int main() {
     if (!stmt.results()) {
         std::cout << "no result set" << std::endl;
     } else {
-        for (size_t r = 0; r < stmt.results()->row_count(); r++) {
-            // std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
-        }
+        // for (size_t r = 0; r < stmt.results()->row_count(); r++) {
+        //     std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
+        // }
     }
 
     std::cout << "end of test" << std::endl;
