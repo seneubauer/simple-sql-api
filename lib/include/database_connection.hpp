@@ -7,37 +7,30 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 namespace simql {
     class diagnostic_set;
     class database_connection {
     public:
 
-        /* handle options */
         struct alloc_options {
-            bool read_only = false;
-            std::uint32_t connection_timeout = 0;
-            std::uint32_t login_timeout = 0;
-            std::uint32_t packet_size = 0;
-            bool enable_async = false;
-            bool enable_autocommit = true;
-            bool enable_tracing = false;
-            std::string tracefile;
+            bool read_only{false};
+            std::uint32_t connection_timeout{0};
+            std::uint32_t login_timeout{0};
+            std::uint32_t packet_size{0};
+            bool enable_autocommit{true};
+            bool enable_tracing{false};
+            std::string tracefile{};
         };
 
-        /* constructor/destructor */
         explicit database_connection(environment& env, alloc_options& options);
         ~database_connection();
-
-        /* set to move assignment */
         database_connection(database_connection&&) noexcept;
         database_connection& operator=(database_connection&&) noexcept;
-
-        /* disable copy assignment */
         database_connection(const database_connection&) = delete;
         database_connection& operator=(const database_connection&) = delete;
 
-        /* functions */
         bool connect(std::string connection_string);
         bool is_connected();
         void disconnect();

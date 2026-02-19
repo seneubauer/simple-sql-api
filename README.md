@@ -12,4 +12,8 @@ The installation guide will go here. I encourage the use of CMake for building f
 ## To-Do
 
 - Add a "last error" member to the `environment`, `database_connection`, and `statement` classes.
-- Add an option to set `SQL_ATTR_ROW_ARRAY_SIZE` to control rowset binding.
+- Add rowset binding to improve large result set returns.
+  - Add option to `simql::statement::alloc_options` for rowset size.
+  - Use `SQLSetStmtAttr` to set `SQL_ATTR_ROW_ARRAY_SIZE` to an array size with a `SQLULEN` value.
+  - Use `SQLSetStmtAttr` to set `SQL_ATTR_ROWS_FETCHED_PTR` to a `SQLULEN` member value.
+- Add bulk operation functionality.

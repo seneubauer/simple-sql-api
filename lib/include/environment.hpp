@@ -4,49 +4,49 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 namespace simql {
     class diagnostic_set;
     class environment {
     public:
 
-        /* enums */
         enum class pooling_type : std::uint8_t {
             off,
             one_per_driver,
             one_per_env
         };
 
-        enum class pooling_match_type : std::uint8_t {
+        enum class match_type : std::uint8_t {
             strict_match,
             relaxed_match
         };
 
-        /* handle options */
-        struct alloc_options {
-            pooling_type pool_type = pooling_type::one_per_driver;
-            pooling_match_type match_type = pooling_match_type::strict_match;
+        enum class odbc_version : std::uint8_t {
+            odbc3x,
+            odbc38
         };
 
-        /* constructor/destructor */
+        struct alloc_options {
+            pooling_type pooling = pooling_type::one_per_driver;
+            match_type match = match_type::strict_match;
+            odbc_version odbc = odbc_version::odbc3x;
+        };
+
         explicit environment(const alloc_options& options);
         ~environment();
-
-        /* set to move assignment */
         environment(environment&&) noexcept;
         environment& operator=(environment&&) noexcept;
-
-        /* disable copy assignment */
         environment(const environment&) = delete;
         environment& operator=(const environment&) = delete;
 
-        /* functions */
         bool is_valid();
+        std::string_view get_last_error();
         diagnostic_set* diagnostics();
 
     private:
         struct handle;
-        std::unique_ptr<handle> sp_handle;
+        std::unique_ptr<handle> p_handle;
         friend void* get_env_handle(environment& env) noexcept;
     };
 }

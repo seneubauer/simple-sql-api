@@ -9,18 +9,18 @@
 namespace simql_constants {
 
     namespace database_drivers {
-        static constexpr std::string_view odbc_17_sql_server    = std::string_view("ODBC Driver 17 for SQL Server");
-        static constexpr std::string_view psql_odbc_ansi        = std::string_view("PostgreSQL ANSI");
-        static constexpr std::string_view psql_odbc_uni         = std::string_view("PostgreSQL UNICODE");
-        static constexpr std::string_view psql_odbc             = std::string_view("PostgreSQL");
+        static constexpr std::string_view odbc_17_sql_server                = std::string_view("ODBC Driver 17 for SQL Server");
+        static constexpr std::string_view psql_odbc_ansi                    = std::string_view("PostgreSQL ANSI");
+        static constexpr std::string_view psql_odbc_uni                     = std::string_view("PostgreSQL UNICODE");
+        static constexpr std::string_view psql_odbc                         = std::string_view("PostgreSQL");
     }
 
     namespace limits {
-        static constexpr std::uint8_t max_sql_column_name_size = 255;
-        static constexpr std::uint8_t max_parallel_query_count = 8;
-        static constexpr std::uint8_t max_statement_handle_pool_size = 16;
-        static constexpr std::uint8_t min_statement_handle_pool_size = 4;
-        static constexpr std::uint16_t max_error_fetches = 2048;
+        static constexpr std::uint8_t max_sql_column_name_size              = 255;
+        static constexpr std::uint8_t max_parallel_query_count              = 8;
+        static constexpr std::uint8_t max_statement_handle_pool_size        = 16;
+        static constexpr std::uint8_t min_statement_handle_pool_size        = 4;
+        static constexpr std::uint16_t max_error_fetches                    = 2048;
     }
 
 }

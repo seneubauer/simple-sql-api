@@ -41,8 +41,8 @@ int main() {
 
     // select environment allocation options
     simql::environment::alloc_options env_opts;
-    env_opts.match_type = simql::environment::pooling_match_type::strict_match;
-    env_opts.pool_type = simql::environment::pooling_type::one_per_driver;
+    env_opts.match = simql::environment::match_type::strict_match;
+    env_opts.pooling = simql::environment::pooling_type::one_per_driver;
 
     // helper to print diagnostics
     auto diag_printer = [&](simql::diagnostic_set* diag) {
