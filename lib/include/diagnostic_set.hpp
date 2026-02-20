@@ -54,13 +54,13 @@ namespace simql {
         // functions
         diagnostic_filter_view view_diagnostics(std::optional<std::string> sql_state = std::nullopt, std::optional<std::int32_t> native_error = std::nullopt);
         void flush();
-        void update(void* handle, const handle_type& type, const std::string& library_message);
+        void update(void* handle, const handle_type& type, std::string library_message);
         std::string_view state_description(const std::string& sql_state);
 
     private:
 
         /* functions */
-        void update_diagnostics(const std::int16_t& type, void* handle, const std::string& library_message);
+        void update_diagnostics(const std::int16_t& type, void* handle, std::string library_message);
 
         /* members */
         std::vector<diagnostic> m_diagnostics;

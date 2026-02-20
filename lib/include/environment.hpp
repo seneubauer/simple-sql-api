@@ -41,7 +41,7 @@ namespace simql {
         environment& operator=(const environment&) = delete;
 
         bool is_valid();
-        std::string_view get_last_error();
+        std::string_view last_error();
         diagnostic_set* diagnostics();
 
     private:

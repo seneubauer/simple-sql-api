@@ -35,7 +35,7 @@ namespace simql {
         m_diagnostics.clear();
     }
 
-    void diagnostic_set::update(void* handle, const handle_type& type, const std::string& library_message) {
+    void diagnostic_set::update(void* handle, const handle_type& type, std::string library_message) {
         switch (type) {
         case handle_type::dbc:
             update_diagnostics(static_cast<std::int16_t>(SQL_HANDLE_DBC), handle, library_message);
@@ -49,7 +49,7 @@ namespace simql {
         }
     }
 
-    void diagnostic_set::update_diagnostics(const std::int16_t& type, void* handle, const std::string& library_message) {
+    void diagnostic_set::update_diagnostics(const std::int16_t& type, void* handle, std::string library_message) {
 
         SQLSMALLINT handle_type = static_cast<SQLSMALLINT>(type);
         SQLSMALLINT current_record_number{1};

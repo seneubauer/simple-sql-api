@@ -34,12 +34,14 @@ namespace simql {
         bool connect(std::string connection_string);
         bool is_connected();
         void disconnect();
+
         bool is_valid();
+        std::string_view last_error();
         diagnostic_set* diagnostics();
 
     private:
         struct handle;
-        std::unique_ptr<handle> sp_handle;
+        std::unique_ptr<handle> p_handle;
         friend void* get_dbc_handle(database_connection& dbc) noexcept;
     };
 }
