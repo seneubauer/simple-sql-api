@@ -168,11 +168,6 @@ namespace simql {
             if (!is_valid)
                 return;
 
-            // bind the row size pointer
-            is_valid = bind_fetched_row_count();
-            if (!is_valid)
-                return;
-
         }
 
         handle(void* stmt_handle, database_connection& conn, void* pool) noexcept {
@@ -180,9 +175,6 @@ namespace simql {
             h_stmt = static_cast<SQLHSTMT>(stmt_handle);
             ownership = handle_ownership::borrows;
             p_pool = pool;
-            is_valid = bind_fetched_row_count();
-            if (!is_valid)
-                return;
 
             SQLULEN is_scrollable;
             switch (SQLGetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_SCROLLABLE, &is_scrollable, SQL_IS_INTEGER, nullptr)) {
@@ -347,7 +339,7 @@ namespace simql {
             }
         }
 
-        bool bind_fetched_row_count() {
+        bool update_fetched_row_count() {
             switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_ROWS_FETCHED_PTR, &rows_fetched, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
@@ -410,6 +402,7 @@ namespace simql {
             case SQL_NULLABLE_UNKNOWN:
                 return simql_types::null_rule_type::unknown;
             }
+            return simql_types::null_rule_type::unknown;
         }
 
         SQLSMALLINT get_column_count() {
@@ -509,10 +502,10 @@ namespace simql {
         bool fetch_first() {
             switch (SQLFetchScroll(h_stmt, SQL_FETCH_FIRST, 0)) {
             case SQL_SUCCESS:
-                return true;
+                return update_fetched_row_count();
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> SUCCESS_WITH_INFO"});
-                return true;
+                return update_fetched_row_count();
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-first from the result set: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> INVALID_HANDLE"});
@@ -527,10 +520,10 @@ namespace simql {
         bool fetch_last() {
             switch (SQLFetchScroll(h_stmt, SQL_FETCH_LAST, 0)) {
             case SQL_SUCCESS:
-                return true;
+                return update_fetched_row_count();
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> SUCCESS_WITH_INFO"});
-                return true;
+                return update_fetched_row_count();
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-last from the result set: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> INVALID_HANDLE"});
@@ -545,10 +538,10 @@ namespace simql {
         bool fetch_prev() {
             switch (SQLFetchScroll(h_stmt, SQL_FETCH_PREV, 0)) {
             case SQL_SUCCESS:
-                return true;
+                return update_fetched_row_count();
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> SUCCESS_WITH_INFO"});
-                return true;
+                return update_fetched_row_count();
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-prev from the result set: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> INVALID_HANDLE"});
@@ -563,10 +556,10 @@ namespace simql {
         bool fetch_next() {
             switch (SQLFetchScroll(h_stmt, SQL_FETCH_NEXT, 0)) {
             case SQL_SUCCESS:
-                return true;
+                return update_fetched_row_count();
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> SUCCESS_WITH_INFO"});
-                return true;
+                return update_fetched_row_count();
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-next from the result set: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> INVALID_HANDLE"});
@@ -1743,7 +1736,7 @@ namespace simql {
         template <fixed_size T>
         bool bindcol_fixed_size(const SQLSMALLINT& index, const SQLSMALLINT& c_type, const SQLUINTEGER& rowset_size) {
 
-            SQLLEN buffer_length{sizeof(T)};
+            SQLLEN max_buffer = rowset_size * static_cast<SQLUINTEGER>(sizeof(T));
             bound_columns.emplace_back(
                 array_binding {
                     std::vector<T>(rowset_size),
@@ -1754,7 +1747,7 @@ namespace simql {
 
             auto& val = std::get<std::vector<T>>(bound_columns.back().values);
             auto& ind = bound_columns.back().indicators;
-            switch (SQLBindCol(h_stmt, index, c_type, val.data(), buffer_length, ind.data())) {
+            switch (SQLBindCol(h_stmt, index, c_type, val.data(), max_buffer, ind.data())) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
