@@ -77,31 +77,36 @@ namespace simql {
 
         void configure_stmt(SQLHSTMT h) {
 
-            // set attribute (cursor type)
-            SQLPOINTER p_cursor_type;
-            switch (stmt_opts.cursor) {
-            case statement::cursor_type::forward_only:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
+            // set query timeout
+            SQLPOINTER p_query_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(stmt_opts.query_timeout));
+            SQLSetStmtAttrW(h, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, SQL_IS_INTEGER);
+
+            // set max rows
+            SQLPOINTER p_max_rows = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(stmt_opts.max_rows));
+            SQLSetStmtAttrW(h, SQL_ATTR_MAX_ROWS, p_max_rows, SQL_IS_INTEGER);
+
+            // set rowset size
+            SQLPOINTER p_rowset_size = reinterpret_cast<SQLPOINTER>(static_cast<SQLUINTEGER>(stmt_opts.rowset_size));
+            SQLSetStmtAttrW(h, SQL_ATTR_ROW_ARRAY_SIZE, p_rowset_size, SQL_IS_INTEGER);
+
+            // set cursor scrollability
+            SQLPOINTER p_is_scrollable = stmt_opts.is_scrollable ? reinterpret_cast<SQLPOINTER>(SQL_SCROLLABLE) : reinterpret_cast<SQLPOINTER>(SQL_NONSCROLLABLE);
+            SQLSetStmtAttrW(h, SQL_ATTR_CURSOR_SCROLLABLE, p_is_scrollable, SQL_IS_INTEGER);
+
+            // set cursor sensitivity
+            SQLPOINTER p_cursor_sensitivity;
+            switch (stmt_opts.sensitivity) {
+            case statement::cursor_sensitivity::unspecified:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_UNSPECIFIED);
                 break;
-            case statement::cursor_type::static_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
+            case statement::cursor_sensitivity::sensitive:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_SENSITIVE);
                 break;
-            case statement::cursor_type::dynamic_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
-                break;
-            case statement::cursor_type::keyset_driven:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_KEYSET_DRIVEN);
+            case statement::cursor_sensitivity::insensitive:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_INSENSITIVE);
                 break;
             }
-            SQLSetStmtAttrW(h, SQL_ATTR_CURSOR_TYPE, p_cursor_type, 0);
-
-            // set attribute (query timeout)
-            SQLPOINTER p_query_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(stmt_opts.query_timeout));
-            SQLSetStmtAttrW(h, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, 0);
-
-            // set attribute (max rows)
-            SQLPOINTER p_max_rows = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(stmt_opts.max_rows));
-            SQLSetStmtAttrW(h, SQL_ATTR_MAX_ROWS, p_max_rows, 0);
+            SQLSetStmtAttrW(h, SQL_ATTR_CURSOR_SENSITIVITY, p_cursor_sensitivity, SQL_IS_INTEGER);
         }
 
         SQLHSTMT acquire() {

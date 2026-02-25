@@ -106,7 +106,7 @@ namespace simql {
         bool set_access_mode(bool read_only) {
 
             SQLPOINTER p_access_mode = read_only ? reinterpret_cast<SQLPOINTER>(SQL_MODE_READ_ONLY) : reinterpret_cast<SQLPOINTER>(SQL_MODE_READ_WRITE);
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_ACCESS_MODE, p_access_mode, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_ACCESS_MODE, p_access_mode, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -114,7 +114,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the access mode: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_ACCESS_MODE) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_ACCESS_MODE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the access mode: generic error"};
@@ -126,7 +126,7 @@ namespace simql {
         bool set_connection_timeout(std::uint32_t timeout) {
 
             SQLPOINTER p_connection_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLUINTEGER>(timeout));
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_CONNECTION_TIMEOUT, p_connection_timeout, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_CONNECTION_TIMEOUT, p_connection_timeout, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -134,7 +134,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the connection timeout: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_CONNECTION_TIMEOUT) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_CONNECTION_TIMEOUT) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the connection timeout: generic error"};
@@ -146,7 +146,7 @@ namespace simql {
         bool set_login_timeout(std::uint32_t timeout) {
 
             SQLPOINTER p_login_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLUINTEGER>(timeout));
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_LOGIN_TIMEOUT, p_login_timeout, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_LOGIN_TIMEOUT, p_login_timeout, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -154,7 +154,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the login timeout: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_LOGIN_TIMEOUT) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_LOGIN_TIMEOUT) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the login timeout: generic error"};
@@ -166,7 +166,7 @@ namespace simql {
         bool set_packet_size(std::uint32_t packet_size) {
 
             SQLPOINTER p_packet_size = reinterpret_cast<SQLPOINTER>(static_cast<SQLUINTEGER>(packet_size));
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_PACKET_SIZE, p_packet_size, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_PACKET_SIZE, p_packet_size, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -174,7 +174,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the packet size: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_PACKET_SIZE) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_PACKET_SIZE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the packet size: generic error"};
@@ -186,7 +186,7 @@ namespace simql {
         bool set_autocommit(bool autocommit) {
 
             SQLPOINTER p_autocommit = autocommit ? reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_ON) : reinterpret_cast<SQLPOINTER>(SQL_AUTOCOMMIT_OFF);
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_AUTOCOMMIT, p_autocommit, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_AUTOCOMMIT, p_autocommit, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -194,7 +194,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the autocommit mode: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_AUTOCOMMIT) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_AUTOCOMMIT) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the autocommit mode: generic error"};
@@ -206,7 +206,7 @@ namespace simql {
         bool set_tracing(bool tracing) {
 
             SQLPOINTER p_tracing = tracing ? reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_ON) : reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_OFF);
-            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACE, p_tracing, 0)) {
+            switch (SQLSetConnectAttrW(h_dbc, SQL_ATTR_TRACE, p_tracing, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -214,7 +214,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the tracing mode: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_TRACE) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_TRACE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the tracing mode: generic error"};
@@ -236,7 +236,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the tracefile: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetConnectAttr(SQL_ATTR_TRACEFILE) -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetConnectAttr(SQL_ATTR_TRACEFILE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the tracefile: generic error"};
@@ -259,7 +259,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not open the connection: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLDriverConnect() -> INVALID_HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLDriverConnect() -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not open the connection: generic error"};
@@ -270,14 +270,14 @@ namespace simql {
 
         bool is_connected() {
             SQLUINTEGER output;
-            switch (SQLGetConnectAttrW(h_dbc, SQL_ATTR_CONNECTION_DEAD, &output, 0, nullptr)) {
+            switch (SQLGetConnectAttrW(h_dbc, SQL_ATTR_CONNECTION_DEAD, &output, SQL_IS_INTEGER, nullptr)) {
             case SQL_SUCCESS:
                 return output == SQL_CD_FALSE;
             case SQL_SUCCESS_WITH_INFO:
                 return output == SQL_CD_FALSE;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not determine the connection status: invalid handle"};
-                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLGetConnectAttr(SQL_ATTR_CONNECTION_DEAD) -> INVALID HANDLE"});
+                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLGetConnectAttr(SQL_ATTR_CONNECTION_DEAD) -> INVALID HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not determine the connection status: generic error"};

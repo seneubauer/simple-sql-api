@@ -47,12 +47,7 @@ namespace simql {
         bool prepare(std::string_view sql);
         bool execute();
         bool execute_direct(std::string_view sql);
-
-        // --------------------------------------------------
-        // FILL DATA BUFFERS
-        // --------------------------------------------------
-
-        bool fetch();
+        bool open_cursor();
 
         // --------------------------------------------------
         // RESULT NAVIGATION

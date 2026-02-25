@@ -151,11 +151,6 @@ namespace simql {
                 return;
             }
 
-            // set cursor type
-            is_valid = set_cursor_type(options.cursor);
-            if (!is_valid)
-                return;
-
             // set query timeout
             is_valid = set_query_timeout(options.query_timeout);
             if (!is_valid)
@@ -176,6 +171,11 @@ namespace simql {
             if (!is_valid)
                 return;
 
+            // set cursor sensitivity
+            is_valid = set_cursor_sensitivity(options.sensitivity);
+            if (!is_valid)
+                return;
+
             // bind the row size pointer
             is_valid = bind_fetched_row_count();
             if (!is_valid)
@@ -188,7 +188,30 @@ namespace simql {
             h_stmt = static_cast<SQLHSTMT>(stmt_handle);
             ownership = handle_ownership::borrows;
             p_pool = pool;
-            bind_fetched_row_count();
+            is_valid = bind_fetched_row_count();
+            if (!is_valid)
+                return;
+
+            SQLULEN is_scrollable;
+            switch (SQLGetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_SCROLLABLE, &is_scrollable, SQL_IS_INTEGER, nullptr)) {
+            case SQL_SUCCESS:
+                cursor_is_scrollable = is_scrollable == SQL_SCROLLABLE;
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                cursor_is_scrollable = is_scrollable == SQL_SCROLLABLE;
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> SUCCESS_WITH_INFO"});
+                break;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not determine the cursor scrolling status: invalid handle"};
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> INVALID_HANDLE"});
+                is_valid = false;
+                break;
+            default:
+                last_error = std::string{"could not determine the cursor scrolling status: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> ERROR"});
+                is_valid = false;
+                break;
+            }
         }
 
         ~handle() {
@@ -227,7 +250,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the query timeout: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_QUERY_TIMEOUT) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_QUERY_TIMEOUT) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the query timeout: generic error"};
@@ -246,7 +269,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the max rows: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_MAX_ROWS) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_MAX_ROWS) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the max rows: generic error"};
@@ -271,7 +294,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the rowset size: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_ROW_ARRAY_SIZE) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_ROW_ARRAY_SIZE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the rowset size: generic error"};
@@ -292,7 +315,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the rowset size: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the rowset size: generic error"};
@@ -323,7 +346,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the cursor sensitivity: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SENSITIVITY) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SENSITIVITY) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the cursor sensitivity: generic error"};
@@ -341,7 +364,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not bind the fetched array size pointer: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_FETCHED_PTR) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLSetStmtAttr(SQL_ATTR_FETCHED_PTR) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not bind the fetched array size pointer: generic error"};
@@ -364,7 +387,7 @@ namespace simql {
                 return rowset_size;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not retrieve the SQL_ATTR_ROW_ARRAY_SIZE attribute: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_ROW_ARRAY_SIZE) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLGetStmtAttr(SQL_ATTR_ROW_ARRAY_SIZE) -> INVALID_HANDLE"});
                 return 0;
             default:
                 last_error = std::string{"could not retrieve the SQL_ATTR_ROW_ARRAY_SIZE attribute: generic error"};
@@ -419,7 +442,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not prepare the provided SQL: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLPrepare() -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLPrepare() -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not prepare the provided SQL: generic error"};
@@ -437,7 +460,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not execute the prepared SQL: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecute() -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLExecute() -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not execute the prepared SQL: generic error"};
@@ -456,7 +479,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not execute the provided SQL: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecuteDirect() -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLExecuteDirect() -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not execute the provided SQL: generic error"};
@@ -500,7 +523,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-first from the result set: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not fetch-first from the result set: generic error"};
@@ -518,7 +541,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-last from the result set: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not fetch-last from the result set: generic error"};
@@ -536,7 +559,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-prev from the result set: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not fetch-prev from the result set: generic error"};
@@ -554,7 +577,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not fetch-next from the result set: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not fetch-next from the result set: generic error"};
@@ -645,7 +668,7 @@ namespace simql {
                 return false;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not request the next result set: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLMoreResults() -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLMoreResults() -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not request the next result set: generic error"};
@@ -665,7 +688,7 @@ namespace simql {
                     break;
                 case SQL_INVALID_HANDLE:
                     last_error = std::string{"could not advance to the next result set: invalid handle"};
-                    diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLMoreResults() -> INVALID_HANDLE"});
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLMoreResults() -> INVALID_HANDLE"});
                     return false;
                 case SQL_NO_DATA:
                     exit_condition = true;
@@ -979,7 +1002,7 @@ namespace simql {
                 return rows;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not retreive the affected row count: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLRowCount() -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLRowCount() -> INVALID_HANDLE"});
                 return -1;
             default:
                 last_error = std::string{"could not retreive the affected row count: generic error"};
@@ -1686,7 +1709,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not bind the fixed size data rowset to the column: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindCol() -> ROWSET_FIXED_SIZE -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLBindCol() -> ROWSET_FIXED_SIZE -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not bind the fixed size data rowset to the column: generic handle"};
@@ -1717,7 +1740,7 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not bind the variable sized data rowset to the column: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindCol() -> ROWSET_VARIABLE_SIZE -> INVALID_HANDLE"});
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLBindCol() -> ROWSET_VARIABLE_SIZE -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not bind the variable sized data rowset to the column: generic error"};
@@ -1753,12 +1776,15 @@ namespace simql {
         return p_handle ? p_handle->execute_direct(sql) : false;
     }
 
-    // --------------------------------------------------
-    // FILL DATA BUFFERS
-    // --------------------------------------------------
+    bool statement::open_cursor() {
+        if (!p_handle)
+            return false;
 
-    bool statement::fetch() {
-        return !p_handle ? false : p_handle->fetch();
+        if (p_handle->cursor_is_scrollable) {
+            return p_handle->fetch_first();
+        } else {
+            return p_handle->fetch_next();
+        }
     }
 
     // --------------------------------------------------

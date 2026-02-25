@@ -83,7 +83,7 @@ namespace simql {
                 return false;
             }
 
-            switch (SQLSetEnvAttr(h_env, SQL_ATTR_ODBC_VERSION, p_odbc, 0)) {
+            switch (SQLSetEnvAttr(h_env, SQL_ATTR_ODBC_VERSION, p_odbc, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -91,7 +91,6 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the ODBC version: invalid handle"};
-                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetEnvAttr(SQL_ATTR_ODBC_VERSION) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the ODBC version: generic error"};
@@ -115,7 +114,7 @@ namespace simql {
                 break;
             }
 
-            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, p_pooling, 0)) {
+            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CONNECTION_POOLING, p_pooling, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -123,7 +122,6 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the connection pooling type: invalid handle"};
-                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetEnvAttr(SQL_ATTR_CONNECTION_POOLING) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the connection pooling type: generic error"};
@@ -144,7 +142,7 @@ namespace simql {
                 break;
             }
 
-            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, p_match, 0)) {
+            switch (SQLSetEnvAttr(h_env, SQL_ATTR_CP_MATCH, p_match, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -152,7 +150,6 @@ namespace simql {
                 return true;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not set the pool match type: invalid handle"};
-                diag.update(h_env, diagnostic_set::handle_type::env, std::string{"SQLSetEnvAttr(SQL_ATTR_CP_MATCH) -> INVALID_HANDLE"});
                 return false;
             default:
                 last_error = std::string{"could not set the pool match type: generic error"};
