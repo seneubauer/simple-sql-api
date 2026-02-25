@@ -86,7 +86,7 @@ namespace simql {
             case statement::cursor_type::static_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
                 break;
-            case statement::cursor_type::dyanmic_cursor:
+            case statement::cursor_type::dynamic_cursor:
                 p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
                 break;
             case statement::cursor_type::keyset_driven:

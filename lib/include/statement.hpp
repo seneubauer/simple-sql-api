@@ -12,24 +12,26 @@
 
 namespace simql {
     class diagnostic_set;
-    class result_set;
-    class value_set;
     class statement {
     public:
 
         enum class cursor_type : std::uint8_t {
             forward_only,
             static_cursor,
-            dyanmic_cursor,
-            keyset_driven
+            dynamic_cursor
         };
 
         struct alloc_options {
             cursor_type cursor{cursor_type::forward_only};
             std::uint32_t query_timeout{0};
             std::uint64_t max_rows{0};
-            std::uint32_t rowset_size{1};
+            std::uint32_t rowset_size{1000};
+            bool is_scrollable{false};
         };
+
+        // --------------------------------------------------
+        // LIFECYCLE
+        // --------------------------------------------------
 
         explicit statement(database_connection& dbc, const alloc_options& options);
         ~statement();
@@ -38,17 +40,42 @@ namespace simql {
         statement(const statement&) = delete;
         statement& operator=(const statement&) = delete;
 
+        // --------------------------------------------------
+        // EXECUTION
+        // --------------------------------------------------
+
         bool prepare(std::string_view sql);
         bool execute();
         bool execute_direct(std::string_view sql);
 
-        bool fetch_dynamic();
-        bool fetch_defined(std::vector<simql_types::sql_column>&& columns);
+        // --------------------------------------------------
+        // FILL DATA BUFFERS
+        // --------------------------------------------------
 
+        bool fetch();
+
+        // --------------------------------------------------
+        // RESULT NAVIGATION
+        // --------------------------------------------------
+
+        bool first_record();
+        bool last_record();
+        bool prev_record();
+        bool next_record();
         bool next_result_set();
+        bool goto_bound_parameters();
+
+        // --------------------------------------------------
+        // DATA RETRIEVAL
+        // --------------------------------------------------
+
+        bool parameter_value(const std::string& name, simql_types::sql_value& value);
+        bool current_record(std::vector<simql_types::sql_value>& values);
         std::int64_t rows_affected();
-        result_set* results();
-        value_set* values();
+
+        // --------------------------------------------------
+        // PARAMETER BINDING
+        // --------------------------------------------------
 
         bool bind_string(std::string name, std::string value, simql_types::parameter_binding_type binding_type, bool set_null);
         bool bind_floating_point(std::string name, double value, simql_types::parameter_binding_type binding_type, bool set_null);
@@ -59,6 +86,10 @@ namespace simql {
         bool bind_date(std::string name, simql_types::date_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
         bool bind_time(std::string name, simql_types::time_struct value, simql_types::parameter_binding_type binding_type, bool set_null);
         bool bind_blob(std::string name, std::vector<std::uint8_t> value, simql_types::parameter_binding_type binding_type, bool set_null);
+        
+        // --------------------------------------------------
+        // DIAGNOSTICS
+        // --------------------------------------------------
 
         bool is_valid();
         std::string_view last_error();
