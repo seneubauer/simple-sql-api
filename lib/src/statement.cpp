@@ -24,15 +24,9 @@
 #include <sql.h>
 
 template <typename T>
-concept variable_size_element =
+concept variable_size =
     std::is_same_v<T, SQLCHAR> ||
     std::is_same_v<T, SQLWCHAR>;
-
-template <typename T>
-concept variable_size_container =
-    std::is_same_v<T, std::vector<SQLCHAR>> ||
-    std::is_same_v<T, std::basic_string<SQLCHAR>> ||
-    std::is_same_v<T, std::basic_string<SQLWCHAR>>;
 
 template <typename T>
 concept fixed_size =
@@ -100,12 +94,10 @@ namespace simql {
 
         // odbc binding data type for columns
         using bound_array_variant = std::variant<
-            std::vector<std::basic_string<SQLCHAR>>,
-            std::vector<std::basic_string<SQLWCHAR>>,
-            std::vector<std::vector<SQLCHAR>>,
+            std::vector<SQLCHAR>,
+            std::vector<SQLWCHAR>,
             std::vector<SQLDOUBLE>,
             std::vector<SQLREAL>,
-            std::vector<SQLCHAR>,
             std::vector<SQLSMALLINT>,
             std::vector<SQLINTEGER>,
             std::vector<SQLLEN>,
@@ -823,11 +815,17 @@ namespace simql {
         }
 
         bool current_record(std::vector<simql_types::sql_value>& values) {
-            if (columns.empty() || bound_columns.empty())
-                return false;
+            values.clear();
 
-            if (columns.size() != bound_columns.size())
+            if (columns.empty() || bound_columns.empty()) {
+                last_error = std::string{"column metadata and/or column bindings are empty"};
                 return false;
+            }
+
+            if (columns.size() != bound_columns.size()) {
+                last_error = std::string{"column metadata and column bindings are not in sync"};
+                return false;
+            }
 
             int column_index{0};
             for (array_binding& binding : bound_columns) {
@@ -844,23 +842,49 @@ namespace simql {
                 switch (binding.c_type) {
                 case SQL_C_CHAR:
                     {
-                        std::basic_string<SQLCHAR> odbc_str = std::get<std::vector<std::basic_string<SQLCHAR>>>(binding.values)[current_row_index];
-                        odbc_str.resize(binding.indicators[current_row_index] / sizeof(SQLCHAR));
+                        auto& ind = binding.indicators[current_row_index];
+                        SQLCHAR* p_buffer = std::get<std::vector<SQLCHAR>>(binding.values).data();
+                        SQLCHAR* p_row = p_buffer + current_row_index * (columns[column_index].size + 1);
+
+                        bool is_null{false};
+                        std::basic_string<SQLCHAR> odbc_str;
+                        if (ind == SQL_NO_TOTAL) {
+                            odbc_str = std::basic_string<SQLCHAR>(p_row);
+                        } else if (ind >= 0) {
+                            auto character_count = ind / sizeof(SQLCHAR);
+                            odbc_str = std::basic_string<SQLCHAR>(p_row, character_count);
+                        } else {
+                            odbc_str = std::basic_string<SQLCHAR>{};
+                            is_null = true;
+                        }
                         values.emplace_back(
                             simql_strings::from_odbc(std::basic_string_view<SQLCHAR>(odbc_str.data(), odbc_str.size())),
                             simql_types::sql_dtype::string,
-                            false
+                            is_null
                         );
                     }
                     break;
                 case SQL_C_WCHAR:
                     {
-                        std::basic_string<SQLWCHAR> odbc_str = std::get<std::vector<std::basic_string<SQLWCHAR>>>(binding.values)[current_row_index];
-                        odbc_str.resize(binding.indicators[current_row_index] / sizeof(SQLWCHAR));
+                        auto& ind = binding.indicators[current_row_index];
+                        SQLWCHAR* p_buffer = std::get<std::vector<SQLWCHAR>>(binding.values).data();
+                        SQLWCHAR* p_row = p_buffer + current_row_index * (columns[column_index].size + 1);
+
+                        bool is_null{false};
+                        std::basic_string<SQLWCHAR> odbc_str;
+                        if (ind == SQL_NO_TOTAL) {
+                            odbc_str = std::basic_string<SQLWCHAR>(p_row);
+                        } else if (ind >= 0) {
+                            auto character_count = ind / sizeof(SQLWCHAR);
+                            odbc_str = std::basic_string<SQLWCHAR>(p_row, character_count);
+                        } else {
+                            odbc_str = std::basic_string<SQLWCHAR>{};
+                            is_null = true;
+                        }
                         values.emplace_back(
                             simql_strings::from_odbc(std::basic_string_view<SQLWCHAR>(odbc_str.data(), odbc_str.size())),
                             simql_types::sql_dtype::string,
-                            false
+                            is_null
                         );
                     }
                     break;
@@ -976,20 +1000,36 @@ namespace simql {
                     break;
                 case SQL_C_BINARY:
                     {
-                        auto bin = std::get<std::vector<std::vector<SQLCHAR>>>(binding.values)[current_row_index];
-                        bin.resize(binding.indicators[current_row_index] / sizeof(SQLCHAR));
-                        std::vector<std::uint8_t> blob;
-                        blob.resize(bin.size());
-                        std::transform(bin.begin(), bin.end(), blob.begin(), [&](SQLCHAR c) { return static_cast<std::uint8_t>(c); });
+                        auto& ind = binding.indicators[current_row_index];
+                        SQLCHAR* p_buffer = std::get<std::vector<SQLCHAR>>(binding.values).data();
+
+                        bool is_null{false};
+                        std::vector<std::uint8_t> blob{};
+                        if (ind == SQL_NO_TOTAL) {
+                            SQLCHAR* p_row = p_buffer + current_row_index * columns[column_index].size;
+                            auto bytes = std::vector<SQLCHAR>(p_row, p_row + columns[column_index].size);
+                            blob.resize(bytes.size());
+                            std::transform(bytes.begin(), bytes.end(), blob.begin(), [&](SQLCHAR c) { return static_cast<std::uint8_t>(c); });
+                        } else if (ind >= 0) {
+                            SQLCHAR* p_row = p_buffer + current_row_index * columns[column_index].size;
+                            std::uint64_t byte_count = (static_cast<std::uint64_t>(ind) < columns[column_index].size) ? static_cast<std::uint64_t>(ind) : columns[column_index].size;
+                            auto bytes = std::vector<SQLCHAR>(p_row, p_row + byte_count);
+                            blob.resize(bytes.size());
+                            std::transform(bytes.begin(), bytes.end(), blob.begin(), [&](SQLCHAR c) { return static_cast<std::uint8_t>(c); });
+                        } else {
+                            is_null = true;
+                        }
+
                         values.emplace_back(
                             blob,
-                            simql_types::sql_dtype::blob,
-                            false
+                            simql_types::sql_dtype::string,
+                            is_null
                         );
                     }
                     break;
                 }
             }
+            return true;
         }
 
         std::int64_t rows_affected() {
@@ -1586,90 +1626,103 @@ namespace simql {
 
                 // map library data type and bind column
                 simql_types::sql_dtype data_type;
-                bool bind_state;
                 if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
 
                     // bind a narrow string
                     data_type = simql_types::sql_dtype::string;
-                    bind_state = bindcol_variable_size<std::basic_string<SQLCHAR>, SQLCHAR>(i, SQL_C_CHAR, definition, true, rowset_size);
+                    if (!bindcol_variable_size<SQLCHAR>(i, SQL_C_CHAR, definition, true, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
 
                     // bind a wide string
                     data_type = simql_types::sql_dtype::string;
-                    bind_state = bindcol_variable_size<std::basic_string<SQLWCHAR>, SQLWCHAR>(i, SQL_C_WCHAR, definition, true, rowset_size);
+                    if (!bindcol_variable_size<SQLWCHAR>(i, SQL_C_WCHAR, definition, true, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_VARBINARY || sql_type == SQL_BINARY) {
 
                     // bind a blob
                     data_type = simql_types::sql_dtype::blob;
-                    bind_state = bindcol_variable_size<std::vector<SQLCHAR>, SQLCHAR>(i, SQL_C_CHAR, definition, false, rowset_size);
+                    if (!bindcol_variable_size<SQLCHAR>(i, SQL_C_CHAR, definition, false, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
 
                     // bind a double precision floating point
                     data_type = simql_types::sql_dtype::floating_point;
-                    bind_state = bindcol_fixed_size<SQLDOUBLE>(i, SQL_C_DOUBLE, rowset_size);
+                    if (!bindcol_fixed_size<SQLDOUBLE>(i, SQL_C_DOUBLE, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_REAL) {
 
                     // bind a single precision floating point
                     data_type = simql_types::sql_dtype::floating_point;
-                    bind_state = bindcol_fixed_size<SQLREAL>(i, SQL_C_FLOAT, rowset_size);
+                    if (!bindcol_fixed_size<SQLREAL>(i, SQL_C_FLOAT, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_BIT) {
 
                     // bind a boolean
                     data_type = simql_types::sql_dtype::boolean;
-                    bind_state = bindcol_fixed_size<SQLCHAR>(i, SQL_C_BIT, rowset_size);
+                    if (!bindcol_fixed_size<SQLCHAR>(i, SQL_C_BIT, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_TINYINT) {
                     
                     // bind a signed 8-bit integer
                     data_type = simql_types::sql_dtype::integer;
-                    bind_state = bindcol_fixed_size<SQLCHAR>(i, SQL_C_STINYINT, rowset_size);
+                    if (!bindcol_fixed_size<SQLCHAR>(i, SQL_C_STINYINT, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_SMALLINT) {
                     
                     // bind a signed 16-bit integer
                     data_type = simql_types::sql_dtype::integer;
-                    bind_state = bindcol_fixed_size<SQLSMALLINT>(i, SQL_C_SSHORT, rowset_size);
+                    if (!bindcol_fixed_size<SQLSMALLINT>(i, SQL_C_SSHORT, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_INTEGER) {
                                         
                     // bind a signed 32-bit integer
                     data_type = simql_types::sql_dtype::integer;
-                    bind_state = bindcol_fixed_size<SQLINTEGER>(i, SQL_C_SLONG, rowset_size);
+                    if (!bindcol_fixed_size<SQLINTEGER>(i, SQL_C_SLONG, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_BIGINT) {
                                                             
                     // bind a signed 64-bit integer
                     data_type = simql_types::sql_dtype::integer;
-                    bind_state = bindcol_fixed_size<SQLLEN>(i, SQL_C_SBIGINT, rowset_size);
+                    if (!bindcol_fixed_size<SQLLEN>(i, SQL_C_SBIGINT, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_GUID) {
 
                     // bind a GUID struct
                     data_type = simql_types::sql_dtype::guid;
-                    bind_state = bindcol_fixed_size<SQLGUID>(i, SQL_C_GUID, rowset_size);
+                    if (!bindcol_fixed_size<SQLGUID>(i, SQL_C_GUID, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_TYPE_TIMESTAMP) {
                     
                     // bind a timestamp struct
                     data_type = simql_types::sql_dtype::datetime;
-                    bind_state = bindcol_fixed_size<SQL_TIMESTAMP_STRUCT>(i, SQL_C_TYPE_TIMESTAMP, rowset_size);
+                    if (!bindcol_fixed_size<SQL_TIMESTAMP_STRUCT>(i, SQL_C_TYPE_TIMESTAMP, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_TYPE_DATE) {
                                         
                     // bind a date struct
                     data_type = simql_types::sql_dtype::date;
-                    bind_state = bindcol_fixed_size<SQL_DATE_STRUCT>(i, SQL_C_TYPE_DATE, rowset_size);
+                    if (!bindcol_fixed_size<SQL_DATE_STRUCT>(i, SQL_C_TYPE_DATE, rowset_size))
+                        return false;
 
                 } else if (sql_type == SQL_TYPE_TIME) {
 
                     // bind a time struct
                     data_type = simql_types::sql_dtype::time;
-                    bind_state = bindcol_fixed_size<SQL_TIME_STRUCT>(i, SQL_C_TYPE_TIME, rowset_size);
+                    if (!bindcol_fixed_size<SQL_TIME_STRUCT>(i, SQL_C_TYPE_TIME, rowset_size))
+                        return false;
 
                 } else {
                     last_error = std::string{"the column's SQL data type is not mapped"};
@@ -1687,21 +1740,21 @@ namespace simql {
             return true;
         }
 
-        template <fixed_size F>
+        template <fixed_size T>
         bool bindcol_fixed_size(const SQLSMALLINT& index, const SQLSMALLINT& c_type, const SQLUINTEGER& rowset_size) {
 
-            SQLLEN buffer_length{sizeof(F)};
+            SQLLEN buffer_length{sizeof(T)};
             bound_columns.emplace_back(
                 array_binding {
-                    std::vector<F>(F{}, rowset_size),
+                    std::vector<T>(rowset_size),
                     std::vector<SQLLEN>(0, rowset_size),
                     c_type
                 }
             );
 
-            auto& val = std::get<std::vector<F>>(bound_columns.back().values);
+            auto& val = std::get<std::vector<T>>(bound_columns.back().values);
             auto& ind = bound_columns.back().indicators;
-            switch (SQLBindCol(h_stmt, index, c_type, val.data()[0], buffer_length, ind.data()[0])) {
+            switch (SQLBindCol(h_stmt, index, c_type, val.data(), buffer_length, ind.data())) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -1718,21 +1771,23 @@ namespace simql {
             }
         }
 
-        template <variable_size_container Tc, variable_size_element Te>
+        template <variable_size T>
         bool bindcol_variable_size(const SQLSMALLINT& index, const SQLSMALLINT& c_type, const SQLULEN& column_size, const bool& null_terminated, const SQLUINTEGER& rowset_size) {
 
-            SQLLEN buffer_length = null_terminated ? (column_size + 1) * sizeof(Te) : column_size;
+            SQLULEN max_length = column_size * rowset_size;
+            SQLLEN max_buffer = null_terminated ? (max_length + 1) * sizeof(T) : max_length * sizeof(T);
+
             bound_columns.emplace_back(
                 array_binding {
-                    std::vector<Tc>(Tc(buffer_length), rowset_size),
-                    std::vector<SQLLEN>(0, rowset_size),
+                    std::vector<T>(max_length, T{}),
+                    std::vector<SQLLEN>(rowset_size, 0),
                     c_type
                 }
             );
 
-            auto& val = std::get<std::vector<Tc>>(bound_columns.back().values);
+            auto& val = std::get<std::vector<T>>(bound_columns.back().values);
             auto& ind = bound_columns.back().indicators;
-            switch (SQLBindCol(h_stmt, index, c_type, val.data()[0], buffer_length, ind.data()[0])) {
+            switch (SQLBindCol(h_stmt, index, c_type, val.data(), max_buffer, ind.data())) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:

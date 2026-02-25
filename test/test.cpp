@@ -5,7 +5,6 @@
 #include "database_connection.hpp"
 #include "statement.hpp"
 #include "diagnostic_set.hpp"
-#include "result_set.hpp"
 
 // STL stuff
 #include <string>
@@ -16,6 +15,22 @@
 
 // secrets
 #include <test_secrets.hpp>
+
+// helper to print diagnostics
+void diag_printer(simql::diagnostic_set* diag) {
+    if (diag) {
+        if (diag->view_diagnostics().empty()) {
+            std::cout << "diagnostic buffer is empty" << std::endl;
+            return;
+        }
+
+        for (auto& element : diag->view_diagnostics()) {
+            std::cout << element.sql_state << ", " << diag->state_description(element.sql_state) << ", " << element.message << std::endl;
+        }
+    } else {
+        std::cout << "diagnostic buffer is null" << std::endl;
+    }
+}
 
 int main() {
 
@@ -44,24 +59,10 @@ int main() {
     env_opts.match = simql::environment::match_type::strict_match;
     env_opts.pooling = simql::environment::pooling_type::one_per_driver;
 
-    // helper to print diagnostics
-    auto diag_printer = [&](simql::diagnostic_set* diag) {
-        if (diag) {
-            if (diag->view_diagnostics().empty())
-                std::cout << "diagnostic buffer is empty" << std::endl;
-
-            for (auto& element : diag->view_diagnostics()) {
-                std::cout << element.sql_state << "," << diag->state_description(element.sql_state) << "," << element.message << std::endl;
-            }
-        } else {
-            std::cout << "diagnostic buffer is null" << std::endl;
-        }
-    };
-
     // allocate the environment handle
     simql::environment env(env_opts);
     if (!env.is_valid()) {
-        std::cout << "environment alloc error" << std::endl;
+        std::cout << "environment alloc error: " << env.last_error() << std::endl;
         diag_printer(env.diagnostics());
         return 1;
     }
@@ -69,7 +70,6 @@ int main() {
     // select connection allocation options
     simql::database_connection::alloc_options dbc_opts;
     dbc_opts.connection_timeout = 30;
-    dbc_opts.enable_async = false;
     dbc_opts.enable_autocommit = true;
     dbc_opts.enable_tracing = true;
     dbc_opts.login_timeout = 10;
@@ -85,53 +85,67 @@ int main() {
     // allocate the database connection handle
     simql::database_connection dbc(env, dbc_opts);
     if (!dbc.is_valid()) {
-        std::cout << "database connection alloc error" << std::endl;
+        std::cout << "database connection alloc error: " << dbc.last_error() << std::endl;
         diag_printer(dbc.diagnostics());
         return 1;
     }
 
     // open the connection to the database
     if (!dbc.connect(builder.get())) {
-        std::cout << "database connection open error" << std::endl;
+        std::cout << "database connection open error: " << dbc.last_error() << std::endl;
         diag_printer(dbc.diagnostics());
         return 1;
     }
 
     // select statement allocation options
     simql::statement::alloc_options stmt_opts;
-    stmt_opts.cursor = simql::statement::cursor_type::forward_only;
+    stmt_opts.is_scrollable = true;
     stmt_opts.max_rows = 100000;
     stmt_opts.query_timeout = 30;
+    stmt_opts.rowset_size = 1000;
+    stmt_opts.sensitivity = simql::statement::cursor_sensitivity::sensitive;
 
     // allocate a statement handle
     simql::statement stmt(dbc, stmt_opts);
     if (!stmt.is_valid()) {
-        std::cout << "statement alloc error" << std::endl;
+        std::cout << "statement alloc error: " << stmt.last_error() << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
     // prepare a select statement
     if (!stmt.prepare(test_secrets::generic_unfiltered_select)) {
-        std::cout << "prepare error" << std::endl;
+        std::cout << "prepare error: " << stmt.last_error() << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
     // execute the select statement
     if (!stmt.execute()) {
-        std::cout << "execute error" << std::endl;
+        std::cout << "execute error: " << stmt.last_error() << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
     // get the result set
-    if (!stmt.results()) {
-        std::cout << "no result set" << std::endl;
-    } else {
-        // for (size_t r = 0; r < stmt.results()->row_count(); r++) {
-        //     std::cout << stmt.results()->value(r, 0)->to_string() << std::endl;
-        // }
+    if (!stmt.open_cursor()) {
+        std::cout << "could not open the cursor: " << stmt.last_error() << std::endl;
+        diag_printer(stmt.diagnostics());
+        return 1;
+    }
+
+    // get the first row
+    std::vector<simql_types::sql_value> row;
+    if (!stmt.current_record(row)) {
+        std::cout << "could not retrieve the first row: " << stmt.last_error() << std::endl;
+        diag_printer(stmt.diagnostics());
+        return 1;
+    }
+
+    // print all of the string values from the first row
+    for (auto& element : row) {
+        if (element.data_type == simql_types::sql_dtype::string)
+            std::cout << element.to_string() << std::endl;
     }
 
     std::cout << "end of test" << std::endl;
