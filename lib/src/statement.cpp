@@ -1835,6 +1835,9 @@ namespace simql {
         if (!p_handle)
             return false;
 
+        if (!p_handle->update_buffers())
+            return false;
+
         if (p_handle->cursor_is_scrollable) {
             return p_handle->fetch_first();
         } else {
