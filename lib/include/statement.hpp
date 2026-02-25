@@ -15,18 +15,18 @@ namespace simql {
     class statement {
     public:
 
-        enum class cursor_type : std::uint8_t {
-            forward_only,
-            static_cursor,
-            dynamic_cursor
+        enum class cursor_sensitivity : std::uint8_t {
+            unspecified,
+            insensitive,
+            sensitive
         };
 
         struct alloc_options {
-            cursor_type cursor{cursor_type::forward_only};
             std::uint32_t query_timeout{0};
             std::uint64_t max_rows{0};
             std::uint32_t rowset_size{1000};
             bool is_scrollable{false};
+            cursor_sensitivity sensitivity{cursor_sensitivity::unspecified};
         };
 
         // --------------------------------------------------

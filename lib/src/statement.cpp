@@ -68,6 +68,7 @@ namespace simql {
         diagnostic_set diag{};
 
         // trackers
+        bool cursor_is_scrollable{false};
         bool is_valid{true};
         handle_ownership ownership{handle_ownership::owns};
         SQLUSMALLINT bound_parameter_index{1};
@@ -216,40 +217,9 @@ namespace simql {
         // CONFIGURATION
         // --------------------------------------------------
 
-        bool set_cursor_type(statement::cursor_type cursor) {
-            SQLPOINTER p_cursor_type;
-            switch (cursor) {
-            case cursor_type::forward_only:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_FORWARD_ONLY);
-                break;
-            case cursor_type::static_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_STATIC);
-                break;
-            case cursor_type::dynamic_cursor:
-                p_cursor_type = reinterpret_cast<SQLPOINTER>(SQL_CURSOR_DYNAMIC);
-                break;
-            }
-
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_TYPE, p_cursor_type, 0)) {
-            case SQL_SUCCESS:
-                return true;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> SUCCESS_WITH_INFO"});
-                return true;
-            case SQL_INVALID_HANDLE:
-                last_error = std::string{"could not set the cursor type: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> INVALID_HANDLE"});
-                return false;
-            default:
-                last_error = std::string{"could not set the cursor type: generic error"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> ERROR"});
-                return false;
-            }
-        }
-
         bool set_query_timeout(std::uint32_t timeout) {
             SQLPOINTER p_query_timeout = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(timeout));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, 0)) {
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_QUERY_TIMEOUT, p_query_timeout, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -268,7 +238,7 @@ namespace simql {
 
         bool set_max_rows(std::uint64_t max_rows) {
             SQLPOINTER p_max_rows = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(max_rows));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_MAX_ROWS, p_max_rows, 0)) {
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_MAX_ROWS, p_max_rows, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -293,7 +263,7 @@ namespace simql {
             }
 
             SQLPOINTER p_rowset_size = reinterpret_cast<SQLPOINTER>(static_cast<SQLUINTEGER>(rowset_size));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_ROW_ARRAY_SIZE, p_rowset_size, 0)) {
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_ROW_ARRAY_SIZE, p_rowset_size, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
                 return true;
             case SQL_SUCCESS_WITH_INFO:
@@ -311,11 +281,13 @@ namespace simql {
         }
 
         bool set_scrollable(bool is_scrollable) {
-            SQLPOINTER p_is_scrollable = reinterpret_cast<SQLPOINTER>(static_cast<SQLULEN>(is_scrollable));
-            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_SCROLLABLE, p_is_scrollable, 0)) {
+            SQLPOINTER p_is_scrollable = is_scrollable ? reinterpret_cast<SQLPOINTER>(SQL_SCROLLABLE) : reinterpret_cast<SQLPOINTER>(SQL_NONSCROLLABLE);
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_SCROLLABLE, p_is_scrollable, SQL_IS_INTEGER)) {
             case SQL_SUCCESS:
+                cursor_is_scrollable = is_scrollable;
                 return true;
             case SQL_SUCCESS_WITH_INFO:
+                cursor_is_scrollable = is_scrollable;
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> SUCCESS_WITH_INFO"});
                 return true;
             case SQL_INVALID_HANDLE:
@@ -325,6 +297,37 @@ namespace simql {
             default:
                 last_error = std::string{"could not set the rowset size: generic error"};
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SCROLLABLE) -> ERROR"});
+                return false;
+            }
+        }
+
+        bool set_cursor_sensitivity(statement::cursor_sensitivity cursor) {
+            SQLPOINTER p_cursor_sensitivity;
+            switch (cursor) {
+            case statement::cursor_sensitivity::unspecified:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_UNSPECIFIED);
+                break;
+            case statement::cursor_sensitivity::insensitive:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_INSENSITIVE);
+                break;
+            case statement::cursor_sensitivity::sensitive:
+                p_cursor_sensitivity = reinterpret_cast<SQLPOINTER>(SQL_SENSITIVE);
+                break;
+            }
+
+            switch (SQLSetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_SENSITIVITY, p_cursor_sensitivity, SQL_IS_INTEGER)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SENSITIVITY) -> SUCCESS_WITH_INFO"});
+                return true;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not set the cursor sensitivity: invalid handle"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SENSITIVITY) -> INVALID_HANDLE"});
+                return false;
+            default:
+                last_error = std::string{"could not set the cursor sensitivity: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLSetStmtAttr(SQL_ATTR_CURSOR_SENSITIVITY) -> ERROR"});
                 return false;
             }
         }
@@ -351,29 +354,9 @@ namespace simql {
         // INTERNAL UTILITY
         // --------------------------------------------------
 
-        bool is_forward_only() {
-            SQLULEN cursor{};
-            switch (SQLGetStmtAttrW(h_stmt, SQL_ATTR_CURSOR_TYPE, &cursor, SQL_IS_INTEGER, nullptr)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> SUCCESS_WITH_INFO"});
-                break;
-            case SQL_INVALID_HANDLE:
-                last_error = std::string{"could not determine the cursor type: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> INVALID_HANDLE"});
-                return false;
-            default:
-                last_error = std::string{"could not determine the cursor type: generic handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLGetStmtAttr(SQL_ATTR_CURSOR_TYPE) -> ERROR"});
-                return false;
-            }
-            return cursor == SQL_CURSOR_FORWARD_ONLY;
-        }
-
         SQLUINTEGER get_rowset_size() {
             SQLUINTEGER rowset_size{};
-            switch (SQLGetStmtAttrW(h_stmt, SQL_ATTR_ROW_ARRAY_SIZE, &rowset_size, 0, nullptr)) {
+            switch (SQLGetStmtAttrW(h_stmt, SQL_ATTR_ROW_ARRAY_SIZE, &rowset_size, SQL_IS_INTEGER, nullptr)) {
             case SQL_SUCCESS:
                 return rowset_size;
             case SQL_SUCCESS_WITH_INFO:
@@ -486,107 +469,98 @@ namespace simql {
         // FILL DATA BUFFERS
         // --------------------------------------------------
 
-        bool update_buffers_scrollable() {
-
-            switch (SQLFetchScroll(h_stmt, SQL_FETCH_FIRST, 0))
-            switch (SQLFetch(h_stmt)) {
-            case SQL_SUCCESS:
-                break;
-            case SQL_SUCCESS_WITH_INFO:
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetch() -> SUCCESS_WITH_INFO"});
-                break;
-            case SQL_INVALID_HANDLE:
-                last_error = std::string{"could not fetch data from the database: invalid handle"};
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetch() -> INVALID_HANDLE"});
-                return false;
-            case SQL_NO_DATA:
-                iterate = false;
-                continue;
-            default:
-                error_count++;
-                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetch() -> ERROR"});
-                if (error_count >= simql_constants::limits::max_error_fetches)
-                    return false;
-
-                continue;
-            }
-        }
-
-        bool update_buffers_forward_only() {
-
-        }
-
         bool update_buffers() {
 
-        }
-
-        bool fetch_first() {
-
-            // get column count
             SQLSMALLINT column_count = get_column_count();
             if (column_count < 1) {
                 last_error = std::string{"could not determine the result set column count"};
                 return false;
             }
 
-            // get the rowset size
             SQLUINTEGER rowset_size = get_rowset_size();
             if (rowset_size <= 1) {
                 last_error = std::string{"invalid rowset size"};
                 return false;
             }
 
-            // bind columns to arrays
             if (!bind_columns(column_count, rowset_size)) {
                 last_error = std::string{"could not bind arrays to the result set columns"};
                 return false;
             }
 
-            // choose between forward only or scrolling
-
+            return true;
         }
 
-        bool fetch() {
-
-            SQLSMALLINT column_count = get_column_count();
-            if (column_count < 1) {
-                last_error = std::string{"could not determine the result set's column count"};
+        bool fetch_first() {
+            switch (SQLFetchScroll(h_stmt, SQL_FETCH_FIRST, 0)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> SUCCESS_WITH_INFO"});
+                return true;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not fetch-first from the result set: invalid handle"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> INVALID_HANDLE"});
+                return false;
+            default:
+                last_error = std::string{"could not fetch-first from the result set: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_FIRST) -> ERROR"});
                 return false;
             }
+        }
 
-            SQLUINTEGER rowset_size = get_rowset_size();
-            if (rowset_size > 1) {
-
-                std::deque<array_binding> data_bindings{};
-                if (!bind_columns(column_count, data_bindings, rowset_size)) {
-                    last_error = std::string{"could not bind arrays to the returned columns"};
-                    return false;
-                }
-
-                if (!retrieve(data_bindings)) {
-                    last_error = std::string{"could not retrieve the bound column arrays"};
-                    return false;
-                }
-
-            } else if (rowset_size == 1) {
-
-                std::deque<value_binding> data_bindings{};
-                if (!bind_columns(column_count, data_bindings)) {
-                    last_error = std::string{"could not bind values the returned columns"};
-                    return false;
-                }
-
-                if (!retrieve(data_bindings)) {
-                    last_error = std::string{"could not retrieve the bound column values"};
-                    return false;
-                }
-
-            } else {
-                last_error = std::string{"invalid rowset size for fetching result set(s)"};
+        bool fetch_last() {
+            switch (SQLFetchScroll(h_stmt, SQL_FETCH_LAST, 0)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> SUCCESS_WITH_INFO"});
+                return true;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not fetch-last from the result set: invalid handle"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> INVALID_HANDLE"});
+                return false;
+            default:
+                last_error = std::string{"could not fetch-last from the result set: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_LAST) -> ERROR"});
                 return false;
             }
+        }
 
-            return true;
+        bool fetch_prev() {
+            switch (SQLFetchScroll(h_stmt, SQL_FETCH_PREV, 0)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> SUCCESS_WITH_INFO"});
+                return true;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not fetch-prev from the result set: invalid handle"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> INVALID_HANDLE"});
+                return false;
+            default:
+                last_error = std::string{"could not fetch-prev from the result set: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_PREV) -> ERROR"});
+                return false;
+            }
+        }
+
+        bool fetch_next() {
+            switch (SQLFetchScroll(h_stmt, SQL_FETCH_NEXT, 0)) {
+            case SQL_SUCCESS:
+                return true;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> SUCCESS_WITH_INFO"});
+                return true;
+            case SQL_INVALID_HANDLE:
+                last_error = std::string{"could not fetch-next from the result set: invalid handle"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> INVALID_HANDLE"});
+                return false;
+            default:
+                last_error = std::string{"could not fetch-next from the result set: generic error"};
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLFetchScroll(SQL_FETCH_NEXT) -> ERROR"});
+                return false;
+            }
         }
 
         // --------------------------------------------------
@@ -595,25 +569,66 @@ namespace simql {
 
         bool first_record() {
 
+            if (!cursor_is_scrollable) {
+                last_error = std::string{"cursor scrolling is disabled"};
+                return false;
+            }
+
+            if (!fetch_first())
+                return false;
+
+            current_row_index = 0;
+            return true;
         }
 
         bool last_record() {
 
+            if (!cursor_is_scrollable) {
+                last_error = std::string{"cursor scrolling is disabled"};
+                return false;
+            }
+
+            if (!fetch_last())
+                return false;
+
+            current_row_index = rows_fetched - 1;
+            return true;
         }
 
         bool prev_record() {
 
-            if (current_row_index > 0) {
+            if (current_row_index - 1 > 0) {
                 current_row_index--;
                 return true;
             } else {
-                
+
+                if (!cursor_is_scrollable) {
+                    last_error = std::string{"cursor scrolling is disabled"};
+                    return false;
+                }
+
+                if (!fetch_prev())
+                    return false;
+
+                current_row_index = rows_fetched - 1;
                 return true;
             }
 
         }
 
         bool next_record() {
+
+            if (current_row_index + 1 < rows_fetched) {
+                current_row_index++;
+                return true;
+            } else {
+
+                if (!fetch_next())
+                    return false;
+
+                current_row_index = 0;
+                return true;
+            }
 
         }
 
