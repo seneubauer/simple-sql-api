@@ -97,8 +97,8 @@ namespace simql_types {
 
     using sql_variant = std::variant<
         std::string,
-        double,
         bool,
+        double,
         int,
         guid_struct,
         datetime_struct,
@@ -107,12 +107,30 @@ namespace simql_types {
         std::vector<std::uint8_t>
     >;
 
+    template<typename T>
+    concept sql_variant_type = 
+        std::is_same_v<T, std::monostate> ||
+        std::is_same_v<T, std::string> ||
+        std::is_same_v<T, bool> ||
+        std::is_same_v<T, double> ||
+        std::is_same_v<T, float> ||
+        std::is_same_v<T, std::int8_t> ||
+        std::is_same_v<T, std::int16_t> ||
+        std::is_same_v<T, std::int32_t> ||
+        std::is_same_v<T, std::int64_t> ||
+        std::is_same_v<T, guid_struct> ||
+        std::is_same_v<T, datetime_struct> ||
+        std::is_same_v<T, date_struct> ||
+        std::is_same_v<T, time_struct> ||
+        std::is_same_v<T, std::vector<std::uint8_t>>;
+
     struct sql_val {
     private:
 
         using sql_val_variant = std::variant<
             std::monostate,
             std::string,
+            bool,
             double,
             float,
             std::int8_t,
@@ -129,337 +147,30 @@ namespace simql_types {
 
     public:
 
-        constexpr bool is_null() {
-            return std::holds_alternative<std::monostate>(data);
-        }
+        sql_val() : data() {}
 
-        constexpr bool is_string() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::string>;
-        }
+        template<sql_variant_type T>
+        sql_val(T value) : data(value) {}
 
-        constexpr bool is_double() {
-            return std::is_same_v<std::decay_t<decltype(data)>, double>;
-        }
+        constexpr bool is_null() { return std::holds_alternative<std::monostate>(data); }
+        void set_null() { data = std::monostate{}; }
 
-        constexpr bool is_float() {
-            return std::is_same_v<std::decay_t<decltype(data)>, float>;
-        }
+        template<sql_variant_type T>
+        void set(T value) { data = value; }
 
-        constexpr bool is_int8() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::int8_t>;
-        }
+        template<sql_variant_type T>
+        T get() {
+            auto visitor = [&](sql_val_variant& d) -> T {
+                if constexpr (std::is_same_v<std::decay_t<decltype(d)>, T)
+                    return std::get<T>(d);
 
-        constexpr bool is_int16() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::int16_t>;
-        }
-
-        constexpr bool is_int32() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::int32_t>;
-        }
-
-        constexpr bool is_int64() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::int64_t>;
-        }
-
-        constexpr bool is_guid() {
-            return std::is_same_v<std::decay_t<decltype(data)>, guid_struct>;
-        }
-
-        constexpr bool is_datetime() {
-            return std::is_same_v<std::decay_t<decltype(data)>, datetime_struct>;
-        }
-
-        constexpr bool is_date() {
-            return std::is_same_v<std::decay_t<decltype(data)>, date_struct>;
-        }
-
-        constexpr bool is_time() {
-            return std::is_same_v<std::decay_t<decltype(data)>, time_struct>;
-        }
-
-        constexpr bool is_blob() {
-            return std::is_same_v<std::decay_t<decltype(data)>, std::vector<std::uint8_t>>;
-        }
-
-        void set_null() {
-            data = std::monostate{};
-        }
-
-        void set_value(std::string value) {
-            data = value;
-        }
-
-        void set_value(double value) {
-            data = value;
-        }
-
-        void set_value(float value) {
-            data = value;
-        }
-
-        void set_value(std::int8_t value) {
-            data = value;
-        }
-
-        void set_value(std::int16_t value) {
-            data = value;
-        }
-
-        void set_value(std::int32_t value) {
-            data = value;
-        }
-
-        void set_value(std::int64_t value) {
-            data = value;
-        }
-
-        void set_value(guid_struct value) {
-            data = value;
-        }
-
-        void set_value(datetime_struct value) {
-            data = value;
-        }
-
-        void set_value(date_struct value) {
-            data = value;
-        }
-
-        void set_value(time_struct value) {
-            data = value;
-        }
-
-        void set_value(std::vector<std::uint8_t> value) {
-            data = value;
-        }
-
-        std::string to_string() {
-            auto visitor = [&](sql_val_variant& d) -> std::string {
-                return is_string() ? std::get<std::string>(data) : std::string{};
+                return T{};
             };
-            return std::visit<std::string>(visitor, data);
-        }
-
-        double to_double() {
-            auto visitor = [&](sql_val_variant& d) -> double {
-                return is_double() ? std::get<double>(data) : double{};
-            };
-            return std::visit<double>(visitor, data);
-        }
-
-        float to_float() {
-            auto visitor = [&](sql_val_variant& d) -> float {
-                return is_float() ? std::get<float>(data) : float{};
-            };
-            return std::visit<float>(visitor, data);
-        }
-
-        std::int8_t to_int8() {
-            auto visitor = [&](sql_val_variant& d) -> std::int8_t {
-                return is_int8() ? std::get<std::int8_t>(data) : std::int8_t{};
-            };
-            return std::visit<std::int8_t>(visitor, data);
-        }
-
-        std::int16_t to_int16() {
-            auto visitor = [&](sql_val_variant& d) -> std::int16_t {
-                return is_int16() ? std::get<std::int16_t>(data) : std::int16_t{};
-            };
-            return std::visit<std::int16_t>(visitor, data);
-        }
-
-        std::int32_t to_int32() {
-            auto visitor = [&](sql_val_variant& d) -> std::int32_t {
-                return is_int32() ? std::get<std::int32_t>(data) : std::int32_t{};
-            };
-            return std::visit<std::int32_t>(visitor, data);
-        }
-
-        std::int64_t to_int64() {
-            auto visitor = [&](sql_val_variant& d) -> std::int64_t {
-                return is_int64() ? std::get<std::int64_t>(data) : std::int64_t{};
-            };
-            return std::visit<std::int64_t>(visitor, data);
-        }
-
-        guid_struct to_guid() {
-            auto visitor = [&](sql_val_variant& d) -> guid_struct {
-                return is_guid() ? std::get<guid_struct>(data) : guid_struct{};
-            };
-            return std::visit<guid_struct>(visitor, data);
-        }
-
-        datetime_struct to_datetime() {
-            auto visitor = [&](sql_val_variant& d) -> datetime_struct {
-                return is_datetime() ? std::get<datetime_struct>(data) : datetime_struct{};
-            };
-            return std::visit<datetime_struct>(visitor, data);
-        }
-
-        date_struct to_date() {
-            auto visitor = [&](sql_val_variant& d) -> date_struct {
-                return is_date() ? std::get<date_struct>(data) : date_struct{};
-            };
-            return std::visit<date_struct>(visitor, data);
-        }
-
-        time_struct to_time() {
-            auto visitor = [&](sql_val_variant& d) -> time_struct {
-                return is_time() ? std::get<time_struct>(data) : time_struct{};
-            };
-            return std::visit<time_struct>(visitor, data);
-        }
-
-        std::vector<std::uint8_t> to_blob() {
-            auto visitor = [&](sql_val_variant& d) -> std::vector<std::uint8_t> {
-                return is_blob() ? std::get<std::vector<std::uint8_t>>(data) : std::vector<std::uint8_t>{};
-            };
-            return std::visit<std::vector<std::uint8_t>>(visitor, data);
+            return std::visit<T>(visitor, data);
         }
 
     };
 
-    struct sql_value {
-        sql_variant data;
-        sql_dtype data_type;
-        bool is_null;
-
-        std::string to_string(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return std::string();
-
-            if (data_type != sql_dtype::string) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return std::string();
-            }
-            return std::get<std::basic_string<char>>(data);
-        }
-
-        double to_double(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return 0.0;
-
-            if (data_type != sql_dtype::floating_point) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return 0.0;
-            }
-            return std::get<double>(data);
-        }
-
-        int to_int(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return 0;
-
-            if (data_type != sql_dtype::integer) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return 0;
-            }
-            return std::get<int>(data);
-        }
-
-        guid_struct to_guid(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return guid_struct{};
-
-            if (data_type != sql_dtype::guid) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return guid_struct{};
-            }
-            return std::get<guid_struct>(data);
-        }
-
-        datetime_struct to_datetime(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return datetime_struct{};
-
-            if (data_type != sql_dtype::datetime) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return datetime_struct{};
-            }
-            return std::get<datetime_struct>(data);
-        }
-
-        date_struct to_date(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return date_struct{};
-
-            if (data_type != sql_dtype::date) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return date_struct{};
-            }
-            return std::get<date_struct>(data);
-        }
-
-        time_struct to_time(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return time_struct{};
-
-            if (data_type != sql_dtype::time) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return time_struct{};
-            }
-            return std::get<time_struct>(data);
-        }
-
-        std::vector<std::uint8_t> to_blob(bool* invalid_dtype = nullptr) {
-            if (invalid_dtype)
-                *invalid_dtype = false;
-
-            if (is_null)
-                return {};
-
-            if (data_type != sql_dtype::blob) {
-                if (invalid_dtype)
-                    *invalid_dtype = true;
-
-                return {};
-            }
-            return std::get<std::vector<std::uint8_t>>(data);
-        }
-    };
-
-    struct sql_column {
-        std::string name;
-        sql_dtype data_type;
-        std::uint64_t size;
-        std::int16_t precision;
-        null_rule_type null_type;
-    };
 }
 
 #endif
