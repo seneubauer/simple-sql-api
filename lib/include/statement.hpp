@@ -8,7 +8,6 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
 
 namespace simql {
     class diagnostic_set;
@@ -39,12 +38,6 @@ namespace simql {
 
             // data type hint flags to assist with data binding
             bool is_wide_string{false};
-        };
-
-        template<typename T>
-        struct parameter_value {
-            std::string name{};
-            T data{};
         };
 
         // --------------------------------------------------

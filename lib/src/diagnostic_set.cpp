@@ -1,7 +1,6 @@
 // SimQL stuff
 #include "diagnostic_set.hpp"
 #include "simql_strings.hpp"
-#include "simql_types.hpp"
 
 // STL stuff
 #include <cstdint>
