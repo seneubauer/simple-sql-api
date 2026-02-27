@@ -53,7 +53,7 @@ namespace simql {
         SQLUINTEGER current_row_index{0};
 
         // binding for columns
-        struct column_binding {
+        struct column_binding_struct {
         private:
 
             using buffer_variant = std::variant<
@@ -79,7 +79,7 @@ namespace simql {
             std::vector<SQLLEN>     indicators;
             statement::sql_column&  column;
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_string& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_string& col) : column(col) {
                 if (col.is_wide_string) {
                     c_type              = SQL_C_WCHAR;
                     buffer_length       = (col.max_character_count + 1) * sizeof(SQLWCHAR);
@@ -93,84 +93,84 @@ namespace simql {
                 }
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_boolean& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_boolean& col) : column(col) {
                 c_type                  = SQL_C_BIT;
                 buffer_length           = sizeof(SQLCHAR);
                 buffer                  = std::vector<SQLCHAR>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_double& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_double& col) : column(col) {
                 c_type                  = SQL_C_DOUBLE;
                 buffer_length           = sizeof(SQLDOUBLE);
                 buffer                  = std::vector<SQLDOUBLE>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_float& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_float& col) : column(col) {
                 c_type                  = SQL_C_FLOAT;
                 buffer_length           = sizeof(SQLREAL);
                 buffer                  = std::vector<SQLREAL>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_int8& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_int8& col) : column(col) {
                 c_type                  = SQL_C_STINYINT;
                 buffer_length           = sizeof(SQLCHAR);
                 buffer                  = std::vector<SQLCHAR>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_int16& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_int16& col) : column(col) {
                 c_type                  = SQL_C_SSHORT;
                 buffer_length           = sizeof(SQLSMALLINT);
                 buffer                  = std::vector<SQLSMALLINT>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_int32& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_int32& col) : column(col) {
                 c_type                  = SQL_C_SLONG;
                 buffer_length           = sizeof(SQLINTEGER);
                 buffer                  = std::vector<SQLINTEGER>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_int64& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_int64& col) : column(col) {
                 c_type                  = SQL_C_SBIGINT;
                 buffer_length           = sizeof(SQLLEN);
                 buffer                  = std::vector<SQLLEN>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_guid& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_guid& col) : column(col) {
                 c_type                  = SQL_C_GUID;
                 buffer_length           = sizeof(simql_types::guid_struct);
                 buffer                  = std::vector<simql_types::guid_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_datetime& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_datetime& col) : column(col) {
                 c_type                  = SQL_C_TYPE_TIMESTAMP;
                 buffer_length           = sizeof(simql_types::datetime_struct);
                 buffer                  = std::vector<simql_types::datetime_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_date& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_date& col) : column(col) {
                 c_type                  = SQL_C_TYPE_DATE;
                 buffer_length           = sizeof(simql_types::date_struct);
                 buffer                  = std::vector<simql_types::date_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_time& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_time& col) : column(col) {
                 c_type                  = SQL_C_TYPE_TIME;
                 buffer_length           = sizeof(simql_types::time_struct);
                 buffer                  = std::vector<simql_types::time_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            column_binding(SQLUINTEGER row_count, statement::sql_column_blob& col) : column(col) {
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_blob& col) : column(col) {
                 c_type                  = SQL_C_BINARY;
                 buffer_length           = col.max_byte_count;
                 buffer                  = std::vector<SQLCHAR>(row_count * col.max_byte_count);
@@ -304,11 +304,351 @@ namespace simql {
             }
 
         };
-        std::deque<column_binding> column_bindings;
+        std::deque<column_binding_struct> column_bindings;
 
         // binding for parameters
         struct parameter_binding_struct {
+        private:
 
+            using buffer_variant = std::variant<
+                std::monostate,                             // null
+                std::basic_string<SQLCHAR>,                 // SQL_C_CHAR
+                std::basic_string<SQLWCHAR>,                // SQL_C_WCHAR
+                SQLCHAR,                                    // SQL_C_CHAR, SQL_C_STINYINT, SQL_C_BIT
+                SQLWCHAR,                                   // SQL_C_WCHAR
+                SQLDOUBLE,                                  // SQL_C_DOUBLE
+                SQLREAL,                                    // SQL_C_FLOAT
+                SQLSMALLINT,                                // SQL_C_SSHORT
+                SQLINTEGER,                                 // SQL_C_SLONG
+                SQLLEN,                                     // SQL_C_SBIGINT
+                simql_types::guid_struct,                   // SQL_C_GUID
+                simql_types::datetime_struct,               // SQL_C_TYPE_TIMESTAMP
+                simql_types::date_struct,                   // SQL_C_TYPE_DATE
+                simql_types::time_struct,                   // SQL_C_TYPE_TIME
+                std::vector<std::uint8_t>                   // SQL_C_BINARY
+            >;
+            buffer_variant buffer;
+
+        public:
+
+            SQLSMALLINT                 binding_type;
+            SQLSMALLINT                 c_data_type;
+            SQLSMALLINT                 sql_data_type;
+            SQLULEN                     column_size;
+            SQLSMALLINT                 decimal_digits;
+            SQLLEN                      buffer_length;
+            SQLLEN                      indicator;
+            statement::sql_parameter&   parameter;
+
+            parameter_binding_struct(statement::sql_parameter_string& param) : parameter(param) {
+
+                if (param.is_wide_string) {
+                    c_data_type = SQL_C_WCHAR;
+                    sql_data_type = SQL_WVARCHAR;
+                    buffer = simql_strings::to_odbc_w(param.data());
+                    column_size = param.data().size() + 1;
+                    buffer_length = column_size * sizeof(SQLWCHAR);
+                } else {
+                    c_data_type = SQL_C_CHAR;
+                    sql_data_type = SQL_VARCHAR;
+                    buffer = simql_strings::to_odbc_n(param.data());
+                    column_size = param.data().size() + 1;
+                    buffer_length = column_size * sizeof(SQLCHAR);
+                }
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : SQL_NTS;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : SQL_NTS;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_boolean& param) : parameter(param) {
+
+                c_data_type = SQL_C_BIT;
+                sql_data_type = SQL_BIT;
+                buffer = static_cast<SQLCHAR>(param.data());
+                buffer_length = sizeof(SQLCHAR);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_double& param) : parameter(param) {
+
+                c_data_type = SQL_C_DOUBLE;
+                sql_data_type = SQL_DOUBLE;
+                buffer = static_cast<SQLDOUBLE>(param.data());
+                buffer_length = sizeof(SQLDOUBLE);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_float& param) : parameter(param) {
+
+                c_data_type = SQL_C_FLOAT;
+                sql_data_type = SQL_FLOAT;
+                buffer = static_cast<SQLREAL>(param.data());
+                buffer_length = sizeof(SQLREAL);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_int8& param) : parameter(param) {
+
+                c_data_type = SQL_C_STINYINT;
+                sql_data_type = SQL_TINYINT;
+                buffer = static_cast<SQLCHAR>(param.data());
+                buffer_length = sizeof(SQLCHAR);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_int16& param) : parameter(param) {
+
+                c_data_type = SQL_C_SSHORT;
+                sql_data_type = SQL_SMALLINT;
+                buffer = static_cast<SQLSMALLINT>(param.data());
+                buffer_length = sizeof(SQLSMALLINT);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_int32& param) : parameter(param) {
+
+                c_data_type = SQL_C_SLONG;
+                sql_data_type = SQL_INTEGER;
+                buffer = static_cast<SQLINTEGER>(param.data());
+                buffer_length = sizeof(SQLINTEGER);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_int64& param) : parameter(param) {
+
+                c_data_type = SQL_C_SBIGINT;
+                sql_data_type = SQL_BIGINT;
+                buffer = static_cast<SQLLEN>(param.data());
+                buffer_length = sizeof(SQLLEN);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_guid& param) : parameter(param) {
+
+                c_data_type = SQL_C_GUID;
+                sql_data_type = SQL_GUID;
+                buffer = param.data();
+                buffer_length = sizeof(simql_types::guid_struct);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_datetime& param) : parameter(param) {
+
+                c_data_type = SQL_C_TYPE_TIMESTAMP;
+                sql_data_type = SQL_TIMESTAMP;
+                buffer = param.data();
+                buffer_length = 29;
+                decimal_digits = 9;
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_date& param) : parameter(param) {
+
+                c_data_type = SQL_C_TYPE_DATE;
+                sql_data_type = SQL_DATE;
+                buffer = param.data();
+                buffer_length = 10;
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_time& param) : parameter(param) {
+
+                c_data_type = SQL_C_TYPE_TIME;
+                sql_data_type = SQL_TIME;
+                buffer = param.data();
+                buffer_length = 10;
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : 0;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_blob& param) : parameter(param) {
+
+            }
+
+            SQLPOINTER ptr() {
+
+            }
+
+            void update(SQLUSMALLINT parameter_index) {
+
+            }
         };
         std::map<std::string, parameter_binding_struct> bound_parameters;
 
@@ -1501,11 +1841,11 @@ namespace simql {
                 return false;
             }
 
-            column_bindings.emplace_back(column_binding(rowset_size, col));
+            column_bindings.emplace_back(column_binding_struct(rowset_size, col));
         }
 
         bool bind_columns() {
-            for (column_binding& binding : column_bindings) {
+            for (column_binding_struct& binding : column_bindings) {
                 switch (SQLBindCol(h_stmt, binding.column.position + 1, binding.c_type, binding.ptr(), binding.buffer_length, binding.indicators.data())) {
                 case SQL_SUCCESS:
                     break;
