@@ -29,6 +29,24 @@ namespace simql {
             cursor_sensitivity sensitivity{cursor_sensitivity::unspecified};
         };
 
+        struct column_value {
+            std::string name{};
+            simql_types::sql_val data{};
+
+            std::uint8_t column_number;
+            std::uint32_t column_size;
+            std::uint16_t precision;
+
+            // data type hint flags to assist with data binding
+            bool is_wide_string{false};
+        };
+
+        template<typename T>
+        struct parameter_value {
+            std::string name{};
+            T data{};
+        };
+
         // --------------------------------------------------
         // LIFECYCLE
         // --------------------------------------------------
@@ -44,6 +62,8 @@ namespace simql {
         // EXECUTION
         // --------------------------------------------------
 
+        template<typename T, typename...args>
+        bool prepare(std::string_view sql, T first, args... rest);
         bool prepare(std::string_view sql);
         bool execute();
         bool execute_direct(std::string_view sql);
