@@ -13,6 +13,14 @@
 namespace simql {
     class diagnostic_set;
     class statement {
+    private:
+
+        struct sql_column_base {
+            std::uint8_t position{};
+            std::string name{};
+            simql_types::sql_val value{};
+        };
+
     public:
 
         enum class cursor_sensitivity : std::uint8_t {
@@ -29,22 +37,55 @@ namespace simql {
             cursor_sensitivity sensitivity{cursor_sensitivity::unspecified};
         };
 
-        struct column_value {
-            std::string name{};
-            simql_types::sql_val data{};
-
-            std::uint8_t column_number;
-            std::uint32_t column_size;
-            std::uint16_t precision;
-
-            // data type hint flags to assist with data binding
+        struct sql_column_string : sql_column_base {
+            std::uint32_t max_character_count{};
             bool is_wide_string{false};
+            std::string data() { return value.to_string(); }
+        };
+        
+        struct sql_column_double : sql_column_base {
+            double data() { return value.to_double(); }
         };
 
-        template<typename T>
-        struct parameter_value {
-            std::string name{};
-            T data{};
+        struct sql_column_float : sql_column_base {
+            float data() { return value.to_float(); }
+        };
+
+        struct sql_column_int8 : sql_column_base {
+            std::int8_t data() { return value.to_int8(); }
+        };
+
+        struct sql_column_int16 : sql_column_base {
+            std::int16_t data() { return value.to_int16(); }
+        };
+
+        struct sql_column_int32 : sql_column_base {
+            std::int32_t data() { return value.to_int32(); }
+        };
+
+        struct sql_column_int64 : sql_column_base {
+            std::int64_t data() { return value.to_int64(); }
+        };
+
+        struct sql_column_guid : sql_column_base {
+            simql_types::guid_struct data() { return value.to_guid(); }
+        };
+
+        struct sql_column_datetime : sql_column_base {
+            simql_types::datetime_struct data() { return value.to_datetime(); }
+        };
+
+        struct sql_column_date : sql_column_base {
+            simql_types::date_struct data() { return value.to_date(); }
+        };
+
+        struct sql_column_time : sql_column_base {
+            simql_types::time_struct data() { return value.to_time(); }
+        };
+
+        struct sql_column_blob : sql_column_base {
+            std::uint32_t max_byte_count{};
+            std::vector<std::uint8_t> data() { return value.to_blob(); }
         };
 
         // --------------------------------------------------
@@ -62,8 +103,6 @@ namespace simql {
         // EXECUTION
         // --------------------------------------------------
 
-        template<typename T, typename...args>
-        bool prepare(std::string_view sql, T first, args... rest);
         bool prepare(std::string_view sql);
         bool execute();
         bool execute_direct(std::string_view sql);
@@ -87,6 +126,16 @@ namespace simql {
         bool parameter_value(const std::string& name, simql_types::sql_value& value);
         bool current_record(std::vector<simql_types::sql_value>& values);
         std::int64_t rows_affected();
+
+        // --------------------------------------------------
+        // COLUMN BINDING
+        // --------------------------------------------------
+
+        template<typename T>
+        bool set_columns(T column);
+
+        template<typename T, typename... args>
+        bool set_columns(T first_column, args... other_columns);
 
         // --------------------------------------------------
         // PARAMETER BINDING

@@ -109,6 +109,7 @@ namespace simql_types {
 
     struct sql_val {
     private:
+
         using sql_val_variant = std::variant<
             std::monostate,
             std::string,

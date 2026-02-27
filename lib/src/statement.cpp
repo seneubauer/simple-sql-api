@@ -118,7 +118,7 @@ namespace simql {
         struct column_binding {
         private:
 
-            using buffer_variant_vector = std::variant<
+            using buffer_variant = std::variant<
                 std::vector<std::monostate>,                // null
                 std::vector<SQLCHAR>,                       // SQL_C_CHAR, SQL_C_BINARY, SQL_C_STINYINT
                 std::vector<SQLWCHAR>,                      // SQL_C_WCHAR
@@ -132,121 +132,134 @@ namespace simql {
                 std::vector<simql_types::date_struct>,      // SQL_C_TYPE_DATE
                 std::vector<simql_types::time_struct>       // SQL_C_TYPE_TIME
             >;
-            buffer_variant_vector buffer;
+            buffer_variant buffer;
 
         public:
 
-            SQLUSMALLINT        column_number;
+            std::string         name;
+            SQLUSMALLINT        position;
             SQLSMALLINT         c_type;
-            SQLLEN              bytes_per_value;
+            SQLLEN              buffer_length;
             std::vector<SQLLEN> indicators;
 
-            void init_string(SQLUSMALLINT col_num, SQLLEN max_characters, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_CHAR;
-                bytes_per_value     = (max_characters + 1) * sizeof(SQLCHAR);
-                buffer              = std::vector<SQLCHAR>(row_count * (max_characters + 1));
+            column_binding(SQLUINTEGER row_count, statement::sql_column_string& col) {
+                name = col.name;
+                if (col.is_wide_string) {
+                    position            = col.position + 1;
+                    c_type              = SQL_C_WCHAR;
+                    buffer_length       = (col.max_character_count + 1) * sizeof(SQLWCHAR);
+                    buffer              = std::vector<SQLWCHAR>(row_count * (col.max_character_count + 1));
+                    indicators.resize(row_count);
+                } else {
+                    position            = col.position + 1;
+                    c_type              = SQL_C_CHAR;
+                    buffer_length       = (col.max_character_count + 1) * sizeof(SQLCHAR);
+                    buffer              = std::vector<SQLCHAR>(row_count * (col.max_character_count + 1));
+                    indicators.resize(row_count);
+                }
+            }
+
+            column_binding(SQLUINTEGER row_count, statement::sql_column_double& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_DOUBLE;
+                buffer_length           = sizeof(SQLDOUBLE);
+                buffer                  = std::vector<SQLDOUBLE>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_wstring(SQLUSMALLINT col_num, SQLLEN max_characters, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_WCHAR;
-                bytes_per_value     = (max_characters + 1) * sizeof(SQLWCHAR);
-                buffer              = std::vector<SQLWCHAR>(row_count * (max_characters + 1));
+            column_binding(SQLUINTEGER row_count, statement::sql_column_float& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_FLOAT;
+                buffer_length           = sizeof(SQLREAL);
+                buffer                  = std::vector<SQLREAL>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_double(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_DOUBLE;
-                bytes_per_value     = sizeof(SQLDOUBLE);
-                buffer              = std::vector<SQLDOUBLE>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_int8& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_STINYINT;
+                buffer_length           = sizeof(SQLCHAR);
+                buffer                  = std::vector<SQLCHAR>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_float(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_FLOAT;
-                bytes_per_value     = sizeof(SQLREAL);
-                buffer              = std::vector<SQLREAL>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_int16& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_SSHORT;
+                buffer_length           = sizeof(SQLSMALLINT);
+                buffer                  = std::vector<SQLSMALLINT>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_int8(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_STINYINT;
-                bytes_per_value     = sizeof(SQLCHAR);
-                buffer              = std::vector<SQLCHAR>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_int32& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_SLONG;
+                buffer_length           = sizeof(SQLINTEGER);
+                buffer                  = std::vector<SQLINTEGER>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_int16(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_SSHORT;
-                bytes_per_value     = sizeof(SQLSMALLINT);
-                buffer              = std::vector<SQLSMALLINT>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_int64& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_SBIGINT;
+                buffer_length           = sizeof(SQLLEN);
+                buffer                  = std::vector<SQLLEN>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_int32(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_SLONG;
-                bytes_per_value     = sizeof(SQLINTEGER);
-                buffer              = std::vector<SQLINTEGER>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_guid& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_GUID;
+                buffer_length           = sizeof(simql_types::guid_struct);
+                buffer                  = std::vector<simql_types::guid_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_int64(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_SBIGINT;
-                bytes_per_value     = sizeof(SQLLEN);
-                buffer              = std::vector<SQLLEN>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_datetime& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_TYPE_TIMESTAMP;
+                buffer_length           = sizeof(simql_types::datetime_struct);
+                buffer                  = std::vector<simql_types::datetime_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_guid(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_GUID;
-                bytes_per_value     = sizeof(simql_types::guid_struct);
-                buffer              = std::vector<simql_types::guid_struct>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_date& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_TYPE_DATE;
+                buffer_length           = sizeof(simql_types::date_struct);
+                buffer                  = std::vector<simql_types::date_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_datetime(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_TYPE_TIMESTAMP;
-                bytes_per_value     = sizeof(simql_types::datetime_struct);
-                buffer              = std::vector<simql_types::datetime_struct>(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_time& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_TYPE_TIME;
+                buffer_length           = sizeof(simql_types::time_struct);
+                buffer                  = std::vector<simql_types::time_struct>(row_count);
                 indicators.resize(row_count);
             }
 
-            void init_date(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_TYPE_DATE;
-                bytes_per_value     = sizeof(simql_types::date_struct);
-                buffer              = std::vector<simql_types::date_struct>(row_count);
-                indicators.resize(row_count);
-            }
-
-            void init_time(SQLUSMALLINT col_num, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_TYPE_TIME;
-                bytes_per_value     = sizeof(simql_types::time_struct);
-                buffer              = std::vector<simql_types::time_struct>(row_count);
-                indicators.resize(row_count);
-            }
-
-            void init_blob(SQLUSMALLINT col_num, SQLLEN max_bytes, SQLUINTEGER row_count) {
-                column_number       = col_num;
-                c_type              = SQL_C_BINARY;
-                bytes_per_value     = max_bytes;
-                buffer              = std::vector<SQLCHAR>(row_count * max_bytes);
-                indicators.resize(row_count);
+            column_binding(SQLUINTEGER row_count, statement::sql_column_blob& col) {
+                name                    = col.name;
+                position                = col.position + 1;
+                c_type                  = SQL_C_BINARY;
+                buffer_length           = col.max_byte_count;
+                buffer                  = std::vector<SQLCHAR>(row_count * col.max_byte_count);
+                indicators.reserve(row_count);
             }
 
             SQLPOINTER ptr() {
-                auto visitor = [&](buffer_variant_vector& bfr) -> SQLPOINTER {
+                auto visitor = [&](buffer_variant& bfr) -> SQLPOINTER {
                     using T = std::decay_t<decltype(bfr)>;
                     if constexpr (std::is_same_v<T, std::vector<SQLCHAR>>) {
                         return static_cast<SQLPOINTER>(std::get<std::vector<SQLCHAR>>(bfr).data());
@@ -277,7 +290,7 @@ namespace simql {
                 return std::visit<SQLPOINTER>(visitor, buffer);
             }
         };
-        std::map<statement::column_value&, column_binding> column_bindings; 
+        std::deque<column_binding> column_bindings;
 
         // --------------------------------------------------
         // LIFECYCLE
@@ -570,14 +583,6 @@ namespace simql {
             return simql_types::null_rule_type::unknown;
         }
 
-        SQLSMALLINT get_column_count() {
-            SQLSMALLINT column_count{};
-            if (SQL_SUCCEEDED(SQLNumResultCols(h_stmt, &column_count)))
-                return column_count;
-
-            return -1;
-        }
-
         // --------------------------------------------------
         // EXECUTION
         // --------------------------------------------------
@@ -604,10 +609,10 @@ namespace simql {
         bool execute() {
             switch (SQLExecute(h_stmt)) {
             case SQL_SUCCESS:
-                return true;
+                break;
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecute() -> SUCCESS_WITH_INFO"});
-                return true;
+                break;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not execute the prepared SQL: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLExecute() -> INVALID_HANDLE"});
@@ -617,16 +622,40 @@ namespace simql {
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecute() -> ERROR"});
                 return false;
             }
+
+            SQLSMALLINT column_count;
+            if (!SQL_SUCCEEDED(SQLNumResultCols(h_stmt, &column_count))) {
+                last_error = std::string{"could not determine if the SQL query returned one or more result sets"};
+                return false;
+            }
+
+            if (column_count >= 1) {
+
+                if (!bind_columns())
+                    return false;
+
+                if (cursor_is_scrollable) {
+                    if (!fetch_first())
+                        return false;
+
+                } else {
+                    if (!fetch_next())
+                        return false;
+
+                }
+            }
+
+            return true;
         }
 
         bool execute_direct(std::string_view sql) {
             std::basic_string<SQLWCHAR> w_sql = simql_strings::to_odbc_w(sql);
             switch (SQLExecDirectW(h_stmt, w_sql.data(), SQL_NTS)) {
             case SQL_SUCCESS:
-                return true;
+                break;
             case SQL_SUCCESS_WITH_INFO:
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecuteDirect() -> SUCCESS_WITH_INFO"});
-                return true;
+                break;
             case SQL_INVALID_HANDLE:
                 last_error = std::string{"could not execute the provided SQL: invalid handle"};
                 diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::string{"SQLExecuteDirect() -> INVALID_HANDLE"});
@@ -636,33 +665,35 @@ namespace simql {
                 diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLExecuteDirect() -> ERROR"});
                 return false;
             }
+
+            SQLSMALLINT column_count;
+            if (!SQL_SUCCEEDED(SQLNumResultCols(h_stmt, &column_count))) {
+                last_error = std::string{"could not determine if the SQL query returned one or more result sets"};
+                return false;
+            }
+
+            if (column_count >= 1) {
+
+                if (!bind_columns())
+                    return false;
+
+                if (cursor_is_scrollable) {
+                    if (!fetch_first())
+                        return false;
+
+                } else {
+                    if (!fetch_next())
+                        return false;
+
+                }
+            }
+
+            return true;
         }
 
         // --------------------------------------------------
         // FILL DATA BUFFERS
         // --------------------------------------------------
-
-        bool update_buffers() {
-
-            SQLSMALLINT column_count = get_column_count();
-            if (column_count < 1) {
-                last_error = std::string{"could not determine the result set column count"};
-                return false;
-            }
-
-            SQLUINTEGER rowset_size = get_rowset_size();
-            if (rowset_size <= 1) {
-                last_error = std::string{"invalid rowset size"};
-                return false;
-            }
-
-            if (!bind_columns(column_count, rowset_size)) {
-                last_error = std::string{"could not bind arrays to the result set columns"};
-                return false;
-            }
-
-            return true;
-        }
 
         bool fetch_first() {
             switch (SQLFetchScroll(h_stmt, SQL_FETCH_FIRST, 0)) {
@@ -1758,65 +1789,34 @@ namespace simql {
         // COLUMN BINDING
         // --------------------------------------------------
 
-        bool add_column(statement::column_value& col) {
+        template<typename T>
+        bool add_column(T& col) {
 
-            SQLUSMALLINT column_index = static_cast<SQLUSMALLINT>(col.column_number);
             SQLUINTEGER rowset_size = get_rowset_size();
             if (rowset_size <= 1) {
                 last_error = std::string{"invalid rowset size"};
                 return false;
             }
 
-            // create a column_binding based on the underlying type of the column_value
-            column_binding cb;
-            if (col.data.is_string()) {
-                col.is_wide_string ? cb.init_wstring(column_index, col.column_size, rowset_size) : cb.init_string(column_index, col.column_size, rowset_size);
-            } else if (col.data.is_double()) {
-                cb.init_double(column_index, rowset_size);
-            } else if (col.data.is_float()) {
-                cb.init_double(column_index, rowset_size);
-            } else if (col.data.is_int8()) {
-                cb.init_int8(column_index, rowset_size);
-            } else if (col.data.is_int16()) {
-                cb.init_int16(column_index, rowset_size);
-            } else if (col.data.is_int32()) {
-                cb.init_int32(column_index, rowset_size);
-            } else if (col.data.is_int64()) {
-                cb.init_int64(column_index, rowset_size);
-            } else if (col.data.is_guid()) {
-                cb.init_guid(column_index, rowset_size);
-            } else if (col.data.is_datetime()) {
-                cb.init_datetime(column_index, rowset_size);
-            } else if (col.data.is_date()) {
-                cb.init_date(column_index, rowset_size);
-            } else if (col.data.is_time()) {
-                cb.init_time(column_index, rowset_size);
-            } else if (col.data.is_blob()) {
-                cb.init_blob(column_index, col.column_size, rowset_size);
-            } else {
-                last_error = std::string{"could not determine the column underlying data type"};
-                return false;
-            }
-
             // add to the association map
-            column_bindings.emplace(col, cb);
+            column_bindings.emplace_back(column_binding(rowset_size, col));
         }
 
-        bool bind_columns(const SQLSMALLINT& column_count, const SQLUINTEGER& rowset_size) {
-            for (auto& col : column_bindings) {
-                switch (SQLBindCol(h_stmt, col.second.column_number, col.second.c_type, col.second.ptr(), col.second.bytes_per_value, col.second.indicators.data())) {
+        bool bind_columns() {
+            for (column_binding& col : column_bindings) {
+                switch (SQLBindCol(h_stmt, col.position, col.c_type, col.ptr(), col.buffer_length, col.indicators.data())) {
                 case SQL_SUCCESS:
                     break;
                 case SQL_SUCCESS_WITH_INFO:
-                    diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> SUCCESS_WITH_INFO", col.first.name));
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> SUCCESS_WITH_INFO", col.name));
                     break;
                 case SQL_INVALID_HANDLE:
-                    last_error = std::format("could not bind column: '{}' -> invalid handle", col.first.name);
-                    diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::format("SQLBindCol()::{} -> INVALID_HANDLE", col.first.name));
+                    last_error = std::format("could not bind column: '{}' -> invalid handle", col.name);
+                    diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::format("SQLBindCol()::{} -> INVALID_HANDLE", col.name));
                     return false;
                 default:
-                    last_error = std::format("could not bind column: '{}' -> generic error", col.first.name);
-                    diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> INVALID_HANDLE", col.first.name));
+                    last_error = std::format("could not bind column: '{}' -> generic error", col.name);
+                    diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> INVALID_HANDLE", col.name));
                     return false;
                 }
             }
@@ -1838,14 +1838,6 @@ namespace simql {
     // EXECUTION
     // --------------------------------------------------
 
-    template<typename T, typename...args>
-    bool statement::prepare(std::string_view sql, T first, args... rest) {
-        if (!p_handle)
-            return false;
-
-        return prepare(rest);
-    }
-
     bool statement::prepare(std::string_view sql) {
         return !p_handle ? false : p_handle->prepare(sql);
     }
@@ -1856,20 +1848,6 @@ namespace simql {
 
     bool statement::execute_direct(std::string_view sql) {
         return p_handle ? p_handle->execute_direct(sql) : false;
-    }
-
-    bool statement::open_cursor() {
-        if (!p_handle)
-            return false;
-
-        if (!p_handle->update_buffers())
-            return false;
-
-        if (p_handle->cursor_is_scrollable) {
-            return p_handle->fetch_first();
-        } else {
-            return p_handle->fetch_next();
-        }
     }
 
     // --------------------------------------------------
@@ -1914,6 +1892,20 @@ namespace simql {
 
     std::int64_t statement::rows_affected() {
         return !p_handle ? -1 : p_handle->rows_affected();
+    }
+
+    // --------------------------------------------------
+    // COLUMN BINDING
+    // --------------------------------------------------
+
+    template<typename T>
+    bool statement::set_columns(T column) {
+
+    }
+
+    template<typename T, typename... args>
+    bool statement::set_columns(T column, args... other_columns) {
+        
     }
 
     // --------------------------------------------------
