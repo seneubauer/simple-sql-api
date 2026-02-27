@@ -8,7 +8,6 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
 
 namespace simql {
     class diagnostic_set;
