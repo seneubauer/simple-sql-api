@@ -95,22 +95,11 @@ namespace simql_types {
         std::uint8_t clock_seq_node[8];
     };
 
-    using sql_variant = std::variant<
-        std::string,
-        bool,
-        double,
-        int,
-        guid_struct,
-        datetime_struct,
-        date_struct,
-        time_struct,
-        std::vector<std::uint8_t>
-    >;
-
     template<typename T>
     concept sql_variant_type = 
         std::is_same_v<T, std::monostate> ||
         std::is_same_v<T, std::string> ||
+        std::is_same_v<T, char> ||
         std::is_same_v<T, bool> ||
         std::is_same_v<T, double> ||
         std::is_same_v<T, float> ||
@@ -130,6 +119,7 @@ namespace simql_types {
         using sql_val_variant = std::variant<
             std::monostate,
             std::string,
+            char,
             bool,
             double,
             float,

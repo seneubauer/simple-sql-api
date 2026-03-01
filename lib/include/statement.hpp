@@ -8,6 +8,7 @@
 // STL stuff
 #include <cstdint>
 #include <memory>
+#include <concepts>
 
 namespace simql {
     class diagnostic_set;
@@ -36,8 +37,13 @@ namespace simql {
 
         struct sql_column_string : sql_column {
             std::uint32_t max_character_count{};
-            bool is_wide_string{false};
+            bool is_wide{false};
             std::string data() { return value.get<std::string>(); }
+        };
+
+        struct sql_column_character : sql_column {
+            bool is_wide{false};
+            char data() { return value.get<char>(); }
         };
 
         struct sql_column_boolean : sql_column {
@@ -98,8 +104,13 @@ namespace simql {
 
         struct sql_parameter_string : sql_parameter {
             std::uint32_t max_character_count{};
-            bool is_wide_string{false};
+            bool is_wide{false};
             std::string data() { return value.get<std::string>(); }
+        };
+
+        struct sql_parameter_character : sql_parameter {
+            bool is_wide{false};
+            char data() { return value.get<char>(); }
         };
 
         struct sql_parameter_boolean : sql_parameter {
@@ -191,20 +202,76 @@ namespace simql {
         // COLUMN BINDING
         // --------------------------------------------------
 
-        template<typename T>
+        template<typename T> requires
+            std::is_same_v<T, statement::sql_column_string> ||
+            std::is_same_v<T, statement::sql_column_character> ||
+            std::is_same_v<T, statement::sql_column_boolean> ||
+            std::is_same_v<T, statement::sql_column_double> ||
+            std::is_same_v<T, statement::sql_column_float> ||
+            std::is_same_v<T, statement::sql_column_int8> ||
+            std::is_same_v<T, statement::sql_column_int16> ||
+            std::is_same_v<T, statement::sql_column_int32> ||
+            std::is_same_v<T, statement::sql_column_int64> ||
+            std::is_same_v<T, statement::sql_column_guid> ||
+            std::is_same_v<T, statement::sql_column_datetime> ||
+            std::is_same_v<T, statement::sql_column_date> ||
+            std::is_same_v<T, statement::sql_column_time> ||
+            std::is_same_v<T, statement::sql_column_blob>
         bool bind_columns(T& column);
 
-        template<typename T, typename... args>
+        template<typename T, typename... args> requires
+            std::is_same_v<T, statement::sql_column_string> ||
+            std::is_same_v<T, statement::sql_column_character> ||
+            std::is_same_v<T, statement::sql_column_boolean> ||
+            std::is_same_v<T, statement::sql_column_double> ||
+            std::is_same_v<T, statement::sql_column_float> ||
+            std::is_same_v<T, statement::sql_column_int8> ||
+            std::is_same_v<T, statement::sql_column_int16> ||
+            std::is_same_v<T, statement::sql_column_int32> ||
+            std::is_same_v<T, statement::sql_column_int64> ||
+            std::is_same_v<T, statement::sql_column_guid> ||
+            std::is_same_v<T, statement::sql_column_datetime> ||
+            std::is_same_v<T, statement::sql_column_date> ||
+            std::is_same_v<T, statement::sql_column_time> ||
+            std::is_same_v<T, statement::sql_column_blob>
         bool bind_columns(T& first_column, args... other_columns);
 
         // --------------------------------------------------
         // PARAMETER BINDING
         // --------------------------------------------------
 
-        template<typename T>
+        template<typename T> requires
+            std::is_same_v<T, statement::sql_parameter_string> ||
+            std::is_same_v<T, statement::sql_parameter_character> ||
+            std::is_same_v<T, statement::sql_parameter_boolean> ||
+            std::is_same_v<T, statement::sql_parameter_double> ||
+            std::is_same_v<T, statement::sql_parameter_float> ||
+            std::is_same_v<T, statement::sql_parameter_int8> ||
+            std::is_same_v<T, statement::sql_parameter_int16> ||
+            std::is_same_v<T, statement::sql_parameter_int32> ||
+            std::is_same_v<T, statement::sql_parameter_int64> ||
+            std::is_same_v<T, statement::sql_parameter_guid> ||
+            std::is_same_v<T, statement::sql_parameter_datetime> ||
+            std::is_same_v<T, statement::sql_parameter_date> ||
+            std::is_same_v<T, statement::sql_parameter_time> ||
+            std::is_same_v<T, statement::sql_parameter_blob>
         bool bind_parameters(T& parameter);
 
-        template<typename T, typename... args>
+        template<typename T, typename... args> requires
+            std::is_same_v<T, statement::sql_parameter_string> ||
+            std::is_same_v<T, statement::sql_parameter_character> ||
+            std::is_same_v<T, statement::sql_parameter_boolean> ||
+            std::is_same_v<T, statement::sql_parameter_double> ||
+            std::is_same_v<T, statement::sql_parameter_float> ||
+            std::is_same_v<T, statement::sql_parameter_int8> ||
+            std::is_same_v<T, statement::sql_parameter_int16> ||
+            std::is_same_v<T, statement::sql_parameter_int32> ||
+            std::is_same_v<T, statement::sql_parameter_int64> ||
+            std::is_same_v<T, statement::sql_parameter_guid> ||
+            std::is_same_v<T, statement::sql_parameter_datetime> ||
+            std::is_same_v<T, statement::sql_parameter_date> ||
+            std::is_same_v<T, statement::sql_parameter_time> ||
+            std::is_same_v<T, statement::sql_parameter_blob>
         bool bind_parameters(T& first_parameter, args... other_parameters);
 
         // --------------------------------------------------
@@ -222,6 +289,7 @@ namespace simql {
         struct handle;
         std::unique_ptr<handle> p_handle;
     };
+
 }
 
 #endif

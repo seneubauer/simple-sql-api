@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <type_traits>
 #include <format>
+#include <concepts>
 
 // OS stuff
 #include "os_inclusions.hpp"
@@ -23,6 +24,38 @@
 #include <sqltypes.h>
 #include <sqlext.h>
 #include <sql.h>
+
+template<typename T>
+concept column_binding_type =
+    std::is_same_v<T, std::vector<SQLCHAR>> ||
+    std::is_same_v<T, std::vector<SQLWCHAR>> ||
+    std::is_same_v<T, std::vector<SQLDOUBLE>> ||
+    std::is_same_v<T, std::vector<SQLREAL>> ||
+    std::is_same_v<T, std::vector<SQLSMALLINT>> ||
+    std::is_same_v<T, std::vector<SQLINTEGER>> ||
+    std::is_same_v<T, std::vector<SQLLEN>> ||
+    std::is_same_v<T, std::vector<simql_types::guid_struct>> ||
+    std::is_same_v<T, std::vector<simql_types::datetime_struct>> ||
+    std::is_same_v<T, std::vector<simql_types::date_struct>> ||
+    std::is_same_v<T, std::vector<simql_types::time_struct>> ||
+    std::is_same_v<T, std::vector<std::uint8_t>>;
+
+template<typename T>
+concept parameter_binding_type =
+    std::is_same_v<T, std::basic_string<SQLCHAR>> ||
+    std::is_same_v<T, std::basic_string<SQLWCHAR>> ||
+    std::is_same_v<T, SQLCHAR> ||
+    std::is_same_v<T, SQLWCHAR> ||
+    std::is_same_v<T, SQLDOUBLE> ||
+    std::is_same_v<T, SQLREAL> ||
+    std::is_same_v<T, SQLSMALLINT> ||
+    std::is_same_v<T, SQLINTEGER> ||
+    std::is_same_v<T, SQLLEN> ||
+    std::is_same_v<T, simql_types::guid_struct> ||
+    std::is_same_v<T, simql_types::datetime_struct> ||
+    std::is_same_v<T, simql_types::date_struct> ||
+    std::is_same_v<T, simql_types::time_struct> ||
+    std::is_same_v<T, std::vector<std::uint8_t>>;
 
 namespace simql {
 
@@ -80,7 +113,7 @@ namespace simql {
             statement::sql_column&  column;
 
             column_binding_struct(SQLUINTEGER row_count, statement::sql_column_string& col) : column(col) {
-                if (col.is_wide_string) {
+                if (col.is_wide) {
                     c_type              = SQL_C_WCHAR;
                     buffer_length       = (col.max_character_count + 1) * sizeof(SQLWCHAR);
                     buffer              = std::vector<SQLWCHAR>(row_count * (col.max_character_count + 1));
@@ -342,7 +375,7 @@ namespace simql {
 
             parameter_binding_struct(statement::sql_parameter_string& param) : parameter(param) {
 
-                if (param.is_wide_string) {
+                if (param.is_wide) {
                     c_data_type = SQL_C_WCHAR;
                     sql_data_type = SQL_WVARCHAR;
                     buffer = simql_strings::to_odbc_w(param.data());
@@ -640,6 +673,27 @@ namespace simql {
 
             parameter_binding_struct(statement::sql_parameter_blob& param) : parameter(param) {
 
+                c_data_type = SQL_C_CHAR;
+                sql_data_type = SQL_VARCHAR;
+                buffer = param.data();
+                column_size = param.data().size();
+                buffer_length = column_size * sizeof(SQLCHAR);
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : buffer_length;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : buffer_length;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
             }
 
             SQLPOINTER ptr() {
@@ -650,7 +704,7 @@ namespace simql {
 
             }
         };
-        std::map<std::string, parameter_binding_struct> bound_parameters;
+        std::map<std::string, parameter_binding_struct> parameter_bindings;
 
         // --------------------------------------------------
         // LIFECYCLE
@@ -1266,557 +1320,37 @@ namespace simql {
         // PARAMETER BINDING
         // --------------------------------------------------
 
-        bool bindparam_string(const std::string& name, const std::string& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{};
-            // SQLSMALLINT scale{0};
-            // SQLSMALLINT nullable{0};
-            // SQLLEN buffer_length{};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     sql_type = SQL_WVARCHAR;
-            //     definition = static_cast<SQLULEN>(value.size() + 1);
-            // }
-
-            // SQLPOINTER p_val;
-            // SQLSMALLINT c_type;
-            // if (sql_type == SQL_VARCHAR || sql_type == SQL_CHAR) {
-            //     c_type = SQL_C_CHAR;
-            //     buffer_length = definition * sizeof(SQLCHAR);
-            //     bound_parameters.emplace(name, value_binding { bound_variant {simql_strings::to_odbc_n(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<std::basic_string<SQLCHAR>>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(val.data());
-            // } else if (sql_type == SQL_WVARCHAR || sql_type == SQL_WCHAR) {
-            //     c_type = SQL_C_WCHAR;
-            //     buffer_length = definition * sizeof(SQLWCHAR);
-            //     bound_parameters.emplace(name, value_binding { bound_variant {simql_strings::to_odbc_w(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<std::basic_string<SQLWCHAR>>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(val.data());
-            // } else {
-            //     last_error = std::string{"the SQL data type is not mapped"};
-            //     return false;
-            // }
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : SQL_NTS;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> STRING -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the string parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> STRING -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_floating_point(const std::string& name, const double& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{};
-            // SQLSMALLINT scale{0};
-            // SQLSMALLINT nullable{0};
-            // SQLLEN buffer_length{};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     sql_type = SQL_DOUBLE;
-            // }
-
-            // SQLPOINTER p_val;
-            // SQLSMALLINT c_type;
-            // if (sql_type == SQL_DOUBLE || sql_type == SQL_FLOAT) {
-            //     sql_type = SQL_DOUBLE;
-            //     c_type = SQL_C_DOUBLE;
-            //     buffer_length = sizeof(SQLDOUBLE);
-            //     bound_parameters.emplace(name, value_binding { bound_variant {value}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLDOUBLE>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else if (sql_type == SQL_REAL) {
-            //     c_type = SQL_C_FLOAT;
-            //     buffer_length = sizeof(SQLREAL);
-            //     bound_parameters.emplace(name, value_binding { bound_variant {value}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLREAL>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else {
-            //     last_error = std::string{"the SQL data type is not mapped"};
-            //     return false;
-            // }
-            // definition = buffer_length * 2;
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> FLOATING_POINT -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the floating point parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> FLOATING_POINT -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_boolean(const std::string& name, const bool& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{};
-            // SQLSMALLINT scale{};
-            // SQLSMALLINT nullable{};
-            // SQLLEN buffer_length{0};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     sql_type = SQL_BIT;
-            //     definition = 1;
-            // }
-
-            // SQLPOINTER p_val;
-            // SQLSMALLINT c_type;
-            // if (sql_type == SQL_BIT) {
-            //     c_type = SQL_C_BIT;
-            //     bound_parameters.emplace(name, value_binding { bound_variant {static_cast<SQLCHAR>(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLCHAR>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else {
-            //     last_error = std::string{"the SQL data type is not mapped"};
-            //     return false;
-            // }
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> BOOLEAN -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the boolean parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> BOOLEAN -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_integer(const std::string& name, const int& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{0};
-            // SQLSMALLINT scale{0};
-            // SQLSMALLINT nullable{0};
-            // SQLLEN buffer_length{0};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     sql_type = SQL_INTEGER;
-            // }
-
-            // SQLPOINTER p_val;
-            // SQLSMALLINT c_type;
-            // if (sql_type == SQL_TINYINT) {
-            //     c_type = SQL_C_STINYINT;
-            //     bound_parameters.emplace(name, value_binding { bound_variant {static_cast<SQLCHAR>(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLCHAR>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else if (sql_type == SQL_SMALLINT) {
-            //     c_type = SQL_C_SSHORT;
-            //     bound_parameters.emplace(name, value_binding { bound_variant {static_cast<SQLSMALLINT>(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLSMALLINT>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else if (sql_type == SQL_INTEGER) {
-            //     c_type = SQL_C_SLONG;
-            //     bound_parameters.emplace(name, value_binding { bound_variant {static_cast<SQLINTEGER>(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLINTEGER>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else if (sql_type == SQL_BIGINT) {
-            //     c_type = SQL_C_SBIGINT;
-            //     bound_parameters.emplace(name, value_binding { bound_variant {static_cast<SQLBIGINT>(value)}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLBIGINT>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else {
-            //     last_error = std::string{"the SQL data type is not mapped"};
-            //     return false;
-            // }
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> INTEGER -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the integer parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> INTEGER -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_guid(const std::string& name, const simql_types::guid_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{};
-            // SQLSMALLINT scale{0};
-            // SQLSMALLINT nullable{0};
-            // SQLLEN buffer_length{};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     sql_type = SQL_GUID;
-            // }
-
-            // SQLGUID guid;
-            // guid.Data1 = value.time_low;
-            // guid.Data2 = value.time_mid;
-            // guid.Data3 = value.time_high;
-            // std::copy(std::begin(value.clock_seq_node), std::end(value.clock_seq_node), std::begin(guid.Data4));
-
-            // SQLPOINTER p_val;
-            // SQLSMALLINT c_type;
-            // if (sql_type == SQL_GUID) {
-            //     c_type = SQL_C_GUID;
-            //     definition = sizeof(SQLGUID);
-            //     buffer_length = sizeof(SQLGUID);
-            //     bound_parameters.emplace(name, value_binding { bound_variant {guid}, 0, c_type });
-            //     auto& param = bound_parameters.at(name);
-            //     auto& val = std::get<SQLGUID>(param.value);
-            //     p_val = reinterpret_cast<SQLPOINTER>(&val);
-            // } else {
-            //     last_error = std::string{"the SQL data type is not mapped"};
-            //     return false;
-            // }
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> GUID -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the GUID parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> GUID -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_datetime(const std::string& name, const simql_types::datetime_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{SQL_TYPE_TIMESTAMP};
-            // SQLSMALLINT c_type{SQL_C_TYPE_TIMESTAMP};
-            // SQLULEN definition{29};
-            // SQLSMALLINT scale{9};
-            // SQLLEN buffer_length{0};
-
-            // SQL_TIMESTAMP_STRUCT x;
-            // x.year = value.year;
-            // x.month = value.month;
-            // x.day = value.day;
-            // x.hour = value.hour;
-            // x.minute = value.minute;
-            // x.second = value.second;
-            // x.fraction = value.fraction;
-
-            // bound_parameters.emplace(name, value_binding { bound_variant {x}, 0, c_type });
-            // auto& param = bound_parameters.at(name);
-            // auto& val = std::get<SQL_TIMESTAMP_STRUCT>(param.value);
-            // SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> DATETIME -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the datetime parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> DATETIME -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_date(const std::string& name, const simql_types::date_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{SQL_TYPE_DATE};
-            // SQLSMALLINT c_type{SQL_C_TYPE_DATE};
-            // SQLULEN definition{10};
-            // SQLSMALLINT scale{0};
-            // SQLLEN buffer_length{0};
-
-            // SQL_DATE_STRUCT x;
-            // x.year = value.year;
-            // x.month = value.month;
-            // x.day = value.day;
-
-            // bound_parameters.emplace(name, value_binding { bound_variant {x}, 0, c_type });
-            // auto& param = bound_parameters.at(name);
-            // auto& val = std::get<SQL_DATE_STRUCT>(param.value);
-            // SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> DATE -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the date parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> DATE -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_time(const std::string& name, const simql_types::time_struct& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{SQL_TYPE_TIME};
-            // SQLSMALLINT c_type{SQL_C_TYPE_TIME};
-            // SQLULEN definition{10};
-            // SQLSMALLINT scale{0};
-            // SQLLEN buffer_length{0};
-
-            // SQL_TIME_STRUCT x;
-            // x.hour = value.hour;
-            // x.minute = value.minute;
-            // x.second = value.second;
-
-            // bound_parameters.emplace(name, value_binding { bound_variant {x}, 0, c_type });
-            // auto& param = bound_parameters.at(name);
-            // auto& val = std::get<SQL_TIME_STRUCT>(param.value);
-            // SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(&val);
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : 0;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> TIME -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the time parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> TIME -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        bool bindparam_blob(const std::string& name, const std::vector<std::uint8_t>& value, const simql_types::parameter_binding_type& binding_type, const bool& set_null) {
-            auto it = bound_parameters.find(name);
-            if (it != bound_parameters.end()) {
-                last_error = std::string{"cannot bind duplicate parameters"};
-                return false;
-            }
-
-            // SQLSMALLINT sql_type{};
-            // SQLULEN definition{};
-            // SQLSMALLINT scale{0};
-            // SQLSMALLINT nullable{0};
-            // SQLLEN buffer_length{static_cast<SQLLEN>(value.size())};
-            // SQLSMALLINT c_type{SQL_C_BINARY};
-
-            // if (!SQL_SUCCEEDED(SQLDescribeParam(h_stmt, bound_parameter_index, &sql_type, &definition, &scale, &nullable))) {
-            //     definition = static_cast<SQLULEN>(value.size());
-            //     sql_type = SQL_VARBINARY;
-            // }
-
-            // if (sql_type != SQL_VARBINARY && sql_type != SQL_BINARY) {
-            //     last_error = std::string{"invalid SQL data type"};
-            //     return false;
-            // }
-
-            // bound_parameters.emplace(name, value_binding { bound_variant {value}, 0, c_type });
-            // auto& param = bound_parameters.at(name);
-            // auto& val = std::get<std::vector<SQLCHAR>>(param.value);
-            // SQLPOINTER p_val = reinterpret_cast<SQLPOINTER>(val.data());
-
-            // switch (binding_type) {
-            // case simql_types::parameter_binding_type::input_output:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : buffer_length;
-            //     break;
-            // case simql_types::parameter_binding_type::input:
-            //     bound_parameters.at(name).indicator = set_null ? SQL_NULL_DATA : buffer_length;
-            //     break;
-            // case simql_types::parameter_binding_type::output:
-            //     bound_parameters.at(name).indicator = 0;
-            //     break;
-            // }
-
-            // switch (SQLBindParameter(h_stmt, bound_parameter_index, param_type(binding_type), c_type, sql_type, definition, scale, p_val, buffer_length, &bound_parameters.at(name).indicator)) {
-            // case SQL_SUCCESS:
-            //     bound_parameter_index++;
-            //     return true;
-            // case SQL_SUCCESS_WITH_INFO:
-            //     bound_parameter_index++;
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> BLOB -> SUCCESS_WITH_INFO"});
-            //     return true;
-            // default:
-            //     last_error = std::string{"could not bind the blob parameter"};
-            //     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::string{"SQLBindParameter() -> BLOB -> ERROR"});
-            //     return false;
-            // }
-        }
-
-        template<typename T>
+        template<parameter_binding_type T>
         bool bind_parameter(T& param) {
+            auto it = parameter_bindings.find(param.name);
+            if (it != parameter_bindings.end()) {
+                last_error = std::string{"cannot bind duplicate parameters"};
+                return false;
+            }
 
+            parameter_binding_struct pb(param);
+            switch (SQLBindParameter(h_stmt, 0, pb.binding_type, pb.c_data_type, pb.sql_data_type, pb.column_size, pb.decimal_digits, pb.ptr(), pb.buffer_length, &pb.indicator)) {
+            case SQL_SUCCESS:
+                break;
+            case SQL_SUCCESS_WITH_INFO:
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindParameter()::{} -> SUCCESS_WITH_INFO", param.name));
+                break;
+            case SQL_INVALID_HANDLE:
+                last_error = std::format("could not bind parameter::{} -> invalid handle", param.name);
+                diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::format("SQLBindParameter()::{} -> INVALID_HANDLE", param.name));
+                return false;
+            default:
+                last_error = std::format("could not bind parameter::{} -> generic error", param.name);
+                diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindParameter()::{} -> ERROR", param.name));
+                return false;
+            }
         }
 
         // --------------------------------------------------
         // COLUMN BINDING
         // --------------------------------------------------
 
-        template<typename T>
+        template<column_binding_type T>
         bool add_column(T& col) {
 
             SQLUINTEGER rowset_size{};
@@ -1853,11 +1387,11 @@ namespace simql {
                     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> SUCCESS_WITH_INFO", binding.column.name));
                     break;
                 case SQL_INVALID_HANDLE:
-                    last_error = std::format("could not bind column: '{}' -> invalid handle", binding.column.name);
+                    last_error = std::format("could not bind column::{} -> invalid handle", binding.column.name);
                     diag.update(h_dbc, diagnostic_set::handle_type::dbc, std::format("SQLBindCol()::{} -> INVALID_HANDLE", binding.column.name));
                     return false;
                 default:
-                    last_error = std::format("could not bind column: '{}' -> generic error", binding.column.name);
+                    last_error = std::format("could not bind column::{} -> generic error", binding.column.name);
                     diag.update(h_stmt, diagnostic_set::handle_type::stmt, std::format("SQLBindCol()::{} -> INVALID_HANDLE", binding.column.name));
                     return false;
                 }
