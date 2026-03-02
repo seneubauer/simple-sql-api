@@ -32,136 +32,165 @@ namespace simql {
 
         struct sql_column {
             std::uint8_t position{};
-            std::string name{};
-            simql_types::sql_val value{};
+            simql_types::sql_value value{};
+            sql_column(std::uint8_t _position) : position(_position) {}
         };
 
         struct sql_column_string : sql_column {
             std::uint32_t max_character_count{};
             bool is_wide{false};
             std::string data() { return value.get<std::string>(); }
+            sql_column_string(std::uint8_t _position, std::uint32_t _max_character_count, bool _is_wide = false) : sql_column(_position), max_character_count(_max_character_count), is_wide(_is_wide) {}
         };
 
         struct sql_column_character : sql_column {
             bool is_wide{false};
             char data() { return value.get<char>(); }
+            sql_column_character(std::uint8_t _position, bool _is_wide = false) : sql_column(_position), is_wide(_is_wide) {}
         };
 
         struct sql_column_boolean : sql_column {
             bool data() { return value.get<bool>(); }
+            sql_column_boolean(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_double : sql_column {
             double data() { return value.get<double>(); }
+            sql_column_double(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_float : sql_column {
             float data() { return value.get<float>(); }
+            sql_column_float(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_int8 : sql_column {
             std::int8_t data() { return value.get<std::int8_t>(); }
+            sql_column_int8(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_int16 : sql_column {
             std::int16_t data() { return value.get<std::int16_t>(); }
+            sql_column_int16(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_int32 : sql_column {
             std::int32_t data() { return value.get<std::int32_t>(); }
+            sql_column_int32(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_int64 : sql_column {
             std::int64_t data() { return value.get<std::int64_t>(); }
+            sql_column_int64(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_guid : sql_column {
             simql_types::guid_struct data() { return value.get<simql_types::guid_struct>(); }
+            sql_column_guid(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_datetime : sql_column {
             simql_types::datetime_struct data() { return value.get<simql_types::datetime_struct>(); }
+            sql_column_datetime(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_date : sql_column {
             simql_types::date_struct data() { return value.get<simql_types::date_struct>(); }
+            sql_column_date(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_time : sql_column {
             simql_types::time_struct data() { return value.get<simql_types::time_struct>(); }
+            sql_column_time(std::uint8_t _position) : sql_column(_position) {}
         };
 
         struct sql_column_blob : sql_column {
             std::uint32_t max_byte_count{};
             std::vector<std::uint8_t> data() { return value.get<std::vector<std::uint8_t>>(); }
+            sql_column_blob(std::uint8_t _position, std::uint32_t _max_byte_count) : sql_column(_position), max_byte_count(_max_byte_count) {}
         };
 
         struct sql_parameter {
             std::uint8_t position{};
-            std::string name{};
             simql_types::parameter_binding_type binding_type{};
-            simql_types::sql_val value{};
+            simql_types::sql_value value{};
+            sql_parameter(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, simql_types::sql_value _value) : position(_position), binding_type(_binding_type), value(_value) {}
         };
 
         struct sql_parameter_string : sql_parameter {
             std::uint32_t max_character_count{};
             bool is_wide{false};
-            bool variadic_characters{true};
+            bool variadic{true};
             std::string data() { return value.get<std::string>(); }
+            sql_parameter_string(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::string _value, std::uint32_t _max_character_count, bool _is_wide = false, bool _variadic = false) : sql_parameter(_position, _binding_type, _value), max_character_count(_max_character_count), is_wide(_is_wide), variadic(_variadic) {}
         };
 
         struct sql_parameter_character : sql_parameter {
             bool is_wide{false};
             char data() { return value.get<char>(); }
+            sql_parameter_character(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, char _value, bool _is_wide = false) : sql_parameter(_position, _binding_type, _value), is_wide(_is_wide) {}
         };
 
         struct sql_parameter_boolean : sql_parameter {
             bool data() { return value.get<bool>(); }
+            sql_parameter_boolean(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, bool _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_double : sql_parameter {
             double data() { return value.get<double>(); }
+            sql_parameter_double(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, double _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_float : sql_parameter {
             float data() { return value.get<float>(); }
+            sql_parameter_float(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, float _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_int8 : sql_parameter {
             std::int8_t data() { return value.get<std::int8_t>(); }
+            sql_parameter_int8(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::int8_t _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_int16 : sql_parameter {
             std::int16_t data() { return value.get<std::int16_t>(); }
+            sql_parameter_int16(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::int16_t _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_int32 : sql_parameter {
             std::int32_t data() { return value.get<std::int32_t>(); }
+            sql_parameter_int32(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::int32_t _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_int64 : sql_parameter {
             std::int64_t data() { return value.get<std::int64_t>(); }
+            sql_parameter_int64(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::int64_t _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_guid : sql_parameter {
             simql_types::guid_struct data() { return value.get<simql_types::guid_struct>(); }
+            sql_parameter_guid(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, simql_types::guid_struct _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_datetime : sql_parameter {
             simql_types::datetime_struct data() { return value.get<simql_types::datetime_struct>(); }
+            sql_parameter_datetime(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, simql_types::datetime_struct _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_date : sql_parameter {
             simql_types::date_struct data() { return value.get<simql_types::date_struct>(); }
+            sql_parameter_date(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, simql_types::date_struct _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_time : sql_parameter {
             simql_types::time_struct data() { return value.get<simql_types::time_struct>(); }
+            sql_parameter_time(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, simql_types::time_struct _value) : sql_parameter(_position, _binding_type, _value) {}
         };
 
         struct sql_parameter_blob : sql_parameter {
             std::uint32_t max_byte_count{};
+            bool variadic{true};
             std::vector<std::uint8_t> data() { return value.get<std::vector<std::uint8_t>>(); }
+            sql_parameter_blob(std::uint8_t _position, simql_types::parameter_binding_type _binding_type, std::vector<std::uint8_t> _value, std::uint32_t _max_byte_count, bool _variadic = false) : sql_parameter(_position, _binding_type, _value), max_byte_count(_max_byte_count), variadic(_variadic) {}
         };
 
         // --------------------------------------------------
@@ -204,21 +233,15 @@ namespace simql {
         // COLUMN BINDING
         // --------------------------------------------------
 
-        template<typename T> requires std::derived_from<std::remove_cvref_t<T>, sql_column>
-        bool bind_columns(T& column);
-
-        template<typename T, typename... args> requires std::derived_from<std::remove_cvref_t<T>, sql_column> && (std::derived_from<std::remove_cvref_t<args>, sql_column> && ...)
-        bool bind_columns(T& first_column, args&... other_columns);
+        template<typename... T> requires (std::derived_from<std::remove_cvref_t<T>, sql_column> && ...)
+        bool define_columns(T&... columns);
 
         // --------------------------------------------------
         // PARAMETER BINDING
         // --------------------------------------------------
 
-        template<typename T> requires std::derived_from<std::remove_cvref_t<T>, sql_parameter>
-        bool bind_parameters(T&& parameter);
-
-        template<typename T, typename... args> requires std::derived_from<std::remove_cvref_t<T>, sql_parameter> && (std::derived_from<std::remove_cvref_t<args>, sql_parameter> && ...)
-        bool bind_parameters(T&& first_parameter, args&&... other_parameters);
+        template<typename... T> requires (std::derived_from<std::remove_cvref_t<T>, sql_parameter> && ...)
+        bool bind_parameters(T&... parameters);
 
         // --------------------------------------------------
         // DIAGNOSTICS

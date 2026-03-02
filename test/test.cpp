@@ -127,26 +127,27 @@ int main() {
         return 1;
     }
 
-    // get the result set
-    if (!stmt.open_cursor()) {
-        std::cout << "could not open the cursor: " << stmt.last_error() << std::endl;
+    // bind the select query columns for the first (and only) result set
+    simql::statement::sql_column_string first_name(0, 1024, false);
+    simql::statement::sql_column_string last_name(1, 1024, false);
+    simql::statement::sql_column_datetime birth_date(2);
+    if (!stmt.define_columns<simql::statement::sql_column_string, simql::statement::sql_column_string, simql::statement::sql_column_datetime>(first_name, last_name, birth_date)) {
+        std::cout << "column binding error: " << stmt.last_error() << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
-    // get the first row
-    std::vector<simql_types::sql_value> row;
-    if (!stmt.current_record(row)) {
-        std::cout << "could not retrieve the first row: " << stmt.last_error() << std::endl;
+    // access the result set from the beginning
+    if (!stmt.first_record()) {
+        std::cout << "retrieve error: " << stmt.last_error() << std::endl;
         diag_printer(stmt.diagnostics());
         return 1;
     }
 
-    // print all of the string values from the first row
-    for (auto& element : row) {
-        if (element.data_type == simql_types::sql_dtype::string)
-            std::cout << element.to_string() << std::endl;
-    }
+    // the bound columns should now be populated
+    std::cout << "first name: " << first_name.data() << std::endl;
+    std::cout << "last name: " << last_name.data() << std::endl;
+    std::cout << "birth date: " << birth_date.data().to_string() << std::endl;
 
     std::cout << "end of test" << std::endl;
     return 0;

@@ -7,37 +7,17 @@
 #include <string>
 #include <variant>
 #include <vector>
+#include <type_traits>
 
 namespace simql_types {
 
     /* ENUMS */
-
-    enum class null_rule_type : std::uint8_t {
-        unknown,
-        allowed,
-        not_allowed
-    };
 
     enum class parameter_binding_type : std::uint8_t {
         input_output,
         input,
         output
     };
-
-    enum class sql_dtype : std::uint8_t {
-        string,
-        floating_point,
-        boolean,
-        integer,
-        guid,
-        datetime,
-        date,
-        time,
-        blob
-    };
-    constexpr std::uint8_t operator^(sql_dtype l, sql_dtype r) {
-        return static_cast<std::uint8_t>(l) ^ static_cast<std::uint8_t>(r);
-    }
 
     /* STRUCTS */
 
@@ -113,7 +93,7 @@ namespace simql_types {
         std::is_same_v<T, time_struct> ||
         std::is_same_v<T, std::vector<std::uint8_t>>;
 
-    struct sql_val {
+    struct sql_value {
     private:
 
         using sql_val_variant = std::variant<
@@ -137,10 +117,10 @@ namespace simql_types {
 
     public:
 
-        sql_val() : data() {}
+        sql_value() : data() {}
 
         template<sql_variant_type T>
-        sql_val(T value) : data(value) {}
+        sql_value(T value) : data(value) {}
 
         constexpr bool is_null() { return std::holds_alternative<std::monostate>(data); }
         void set_null() { data = std::monostate{}; }
@@ -150,13 +130,13 @@ namespace simql_types {
 
         template<sql_variant_type T>
         T get() {
-            auto visitor = [&](sql_val_variant& d) -> T {
-                if constexpr (std::is_same_v<std::decay_t<decltype(d)>, T)
-                    return std::get<T>(d);
+            return std::visit([&](auto const& x) -> T {
+                using X = std::decay_t<decltype(x)>;
+                if constexpr (std::is_same_v<X, T>)
+                    return x;
 
                 return T{};
-            };
-            return std::visit<T>(visitor, data);
+            }, data);
         }
 
     };
