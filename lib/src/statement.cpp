@@ -126,6 +126,20 @@ namespace simql {
                 }
             }
 
+            column_binding_struct(SQLUINTEGER row_count, statement::sql_column_character& col) : column(col) {
+                if (col.is_wide) {
+                    c_type              = SQL_C_WCHAR;
+                    buffer_length       = sizeof(SQLWCHAR);
+                    buffer              = std::vector<SQLWCHAR>(row_count);
+                    indicators.resize(row_count);
+                } else {
+                    c_type              = SQL_C_CHAR;
+                    buffer_length       = sizeof(SQLCHAR);
+                    buffer              = std::vector<SQLCHAR>(row_count);
+                    indicators.resize(row_count);
+                }
+            }
+
             column_binding_struct(SQLUINTEGER row_count, statement::sql_column_boolean& col) : column(col) {
                 c_type                  = SQL_C_BIT;
                 buffer_length           = sizeof(SQLCHAR);
@@ -246,11 +260,12 @@ namespace simql {
                 auto visitor = [&](buffer_variant& bfr) -> simql_types::sql_val {
                     using T = std::decay_t<decltype(bfr)>;
 
-                    if (indicators[row_index] == SQL_NULL_DATA)
-                        return std::monostate{};
-
                     if constexpr (std::is_same_v<T, std::vector<SQLCHAR>>) {
                         auto& b = std::get<std::vector<SQLCHAR>>(bfr);
+
+                        if (b.size() == indicators.size()) {
+                            return simql_strings::from_odbc_char(b[row_index]);
+
                         switch (c_type) {
                         case SQL_C_CHAR:
                             if (indicators[row_index] == SQL_NO_TOTAL) {
@@ -377,16 +392,49 @@ namespace simql {
 
                 if (param.is_wide) {
                     c_data_type = SQL_C_WCHAR;
-                    sql_data_type = SQL_WVARCHAR;
+                    sql_data_type = param.variadic_characters ? SQL_WVARCHAR : SQL_WCHAR;
                     buffer = simql_strings::to_odbc_w(param.data());
                     column_size = param.data().size() + 1;
                     buffer_length = column_size * sizeof(SQLWCHAR);
                 } else {
                     c_data_type = SQL_C_CHAR;
-                    sql_data_type = SQL_VARCHAR;
+                    sql_data_type = param.variadic_characters ? SQL_VARCHAR : SQL_CHAR;
                     buffer = simql_strings::to_odbc_n(param.data());
                     column_size = param.data().size() + 1;
                     buffer_length = column_size * sizeof(SQLCHAR);
+                }
+
+                switch (param.binding_type) {
+                case simql_types::parameter_binding_type::input_output:
+                    binding_type = SQL_PARAM_INPUT_OUTPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : SQL_NTS;
+                    break;
+                case simql_types::parameter_binding_type::input:
+                    binding_type = SQL_PARAM_INPUT;
+                    indicator = param.value.is_null() ? SQL_NULL_DATA : SQL_NTS;
+                    break;
+                case simql_types::parameter_binding_type::output:
+                    binding_type = SQL_PARAM_OUTPUT;
+                    indicator = 0;
+                    break;
+                }
+
+            }
+
+            parameter_binding_struct(statement::sql_parameter_character& param) : parameter(param) {
+
+                if (param.is_wide) {
+                    c_data_type = SQL_C_WCHAR;
+                    sql_data_type = SQL_WCHAR;
+                    buffer = simql_strings::to_odbc_char_w(param.data());
+                    column_size = 1;
+                    buffer_length = sizeof(SQLWCHAR);
+                } else {
+                    c_data_type = SQL_C_CHAR;
+                    sql_data_type = SQL_CHAR;
+                    buffer = simql_strings::to_odbc_char_n(param.data());
+                    column_size = 1;
+                    buffer_length = sizeof(SQLCHAR);
                 }
 
                 switch (param.binding_type) {
@@ -697,7 +745,35 @@ namespace simql {
             }
 
             SQLPOINTER ptr() {
-
+                auto visitor = [&](buffer_variant& bfr) -> SQLPOINTER {
+                    using T = std::decay_t<decltype(bfr)>;
+                    if constexpr (std::is_same_v<T, std::vector<SQLCHAR>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLCHAR>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLWCHAR>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLWCHAR>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLDOUBLE>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLDOUBLE>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLREAL>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLREAL>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLSMALLINT>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLSMALLINT>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLINTEGER>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLINTEGER>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<SQLLEN>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<SQLLEN>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<simql_types::guid_struct>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<simql_types::guid_struct>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<simql_types::datetime_struct>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<simql_types::datetime_struct>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<simql_types::date_struct>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<simql_types::date_struct>>(bfr).data());
+                    } else if constexpr (std::is_same_v<T, std::vector<simql_types::time_struct>>) {
+                        return static_cast<SQLPOINTER>(std::get<std::vector<simql_types::time_struct>>(bfr).data());
+                    } else {
+                        return nullptr;
+                    }
+                };
+                return std::visit<SQLPOINTER>(visitor, buffer);
             }
 
             void update(SQLUSMALLINT parameter_index) {
@@ -1466,7 +1542,7 @@ namespace simql {
     // COLUMN BINDING
     // --------------------------------------------------
 
-    template<typename T>
+    template<typename T> requires std::derived_from<std::remove_cvref_t<T>, statement::sql_column>
     bool statement::bind_columns(T& column) {
         if (!p_handle)
             return false;
@@ -1474,8 +1550,8 @@ namespace simql {
         return p_handle->add_column(column);
     }
 
-    template<typename T, typename... args>
-    bool statement::bind_columns(T& first_column, args... other_columns) {
+    template<typename T, typename... args> requires std::derived_from<std::remove_cvref_t<T>, statement::sql_column> && (std::derived_from<std::remove_cvref_t<args>, statement::sql_column> && ...)
+    bool statement::bind_columns(T& first_column, args&... other_columns) {
         if (!p_handle)
             return false;
 
@@ -1486,20 +1562,20 @@ namespace simql {
     // PARAMETER BINDING
     // --------------------------------------------------
 
-    template<typename T>
-    bool statement::bind_parameters(T& parameter) {
+    template<typename T> requires std::derived_from<std::remove_cvref_t<T>, statement::sql_parameter>
+    bool statement::bind_parameters(T&& parameter) {
         if (!p_handle)
             return false;
 
         return p_handle->bind_parameter(parameter);
     }
 
-    template<typename T, typename... args>
-    bool statement::bind_parameters(T& first_parameter, args... other_parameters) {
+    template<typename T, typename... args> requires std::derived_from<std::remove_cvref_t<T>, statement::sql_parameter> && (std::derived_from<std::remove_cvref_t<args>, statement::sql_parameter> && ...)
+    bool statement::bind_parameters(T&& first_parameter, args&&... other_parameters) {
         if (!p_handle)
             return false;
 
-        return p_handle->bind_parameter(first_parameter) && bind_parameters(other_parameters);
+        return p_handle->bind_parameter(std::move(first_parameter)) && bind_parameters(std::move(other_parameters));
     }
 
     // --------------------------------------------------

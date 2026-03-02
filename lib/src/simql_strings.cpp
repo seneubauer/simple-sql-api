@@ -199,4 +199,21 @@ namespace simql_strings {
     std::basic_string<char> from_odbc(std::basic_string_view<SQLCHAR> odbc) {
         return std::basic_string<char>{odbc.begin(), odbc.end()};
     }
+
+    SQLWCHAR to_odbc_char_w(char utf8) {
+        return static_cast<SQLWCHAR>(utf8);
+    }
+
+    SQLCHAR to_odbc_char_n(char utf8) {
+        return static_cast<SQLCHAR>(utf8);
+    }
+
+    char from_odbc_char(SQLWCHAR odbc) {
+        return static_cast<char>(odbc);
+    }
+
+    char from_odbc_char(SQLCHAR odbc) {
+        return static_cast<char>(odbc);
+    }
+
 }
